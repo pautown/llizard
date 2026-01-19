@@ -1,0 +1,58 @@
+{
+  "category": "Art",
+  "question_count": 4,
+  "questions": [
+    {
+      "id": "c14c56f0187e",
+      "question": "Painter Piet Mondrian (1872 - 1944) was a part of what movement?",
+      "options": [
+        "Cubism",
+        "Impressionism",
+        "Neoplasticism",
+        "Precisionism"
+      ],
+      "answer": "Neoplasticism",
+      "difficulty": "hard",
+      "category": "Art"
+    },
+    {
+      "id": "308e619d2631",
+      "question": "Which artist's style was to use small different colored dots to create a picture?",
+      "options": [
+        "Georges Seurat",
+        "Henri Rousseau",
+        "Paul Cézanne",
+        "Vincent Van Gogh"
+      ],
+      "answer": "Georges Seurat",
+      "difficulty": "medium",
+      "category": "Art"
+    },
+    {
+      "id": "ee2da041752a",
+      "question": "Who painted the Mona Lisa?",
+      "options": [
+        "Claude Monet",
+        "Leonardo da Vinci",
+        "Pablo Picasso",
+        "Vincent van Gogh"
+      ],
+      "answer": "Leonardo da Vinci",
+      "difficulty": "easy",
+      "category": "Art"
+    },
+    {
+      "id": "f0ad4e8ebf21",
+      "question": "Which painting was not made by Vincent Van Gogh?",
+      "options": [
+        "Bedroom In Arles",
+        "Café Terrace at Night",
+        "Starry Night",
+        "The Ninth Wave"
+      ],
+      "answer": "The Ninth Wave",
+      "difficulty": "easy",
+      "category": "Art"
+    }
+  ]
+}

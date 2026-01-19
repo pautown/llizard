@@ -1,0 +1,97 @@
+{
+  "category": "Entertainment: Comics",
+  "question_count": 7,
+  "questions": [
+    {
+      "id": "c6a7ce38a2b4",
+      "question": "What is the full first name of the babysitter in Calvin and Hobbes?",
+      "options": [
+        "Rachel",
+        "Rosalyn",
+        "Rose",
+        "Ruby"
+      ],
+      "answer": "Rosalyn",
+      "difficulty": "easy",
+      "category": "Entertainment: Comics"
+    },
+    {
+      "id": "9f98eb1c4435",
+      "question": "What is the alter-ego of the DC comics character \"Superman\"?",
+      "options": [
+        "Arthur Curry",
+        "Bruce Wayne",
+        "Clark Kent",
+        "John Jones"
+      ],
+      "answer": "Clark Kent",
+      "difficulty": "easy",
+      "category": "Entertainment: Comics"
+    },
+    {
+      "id": "a392ab979be1",
+      "question": "In what Homestuck Update was [S] Game Over released?",
+      "options": [
+        "April 13th, 2009",
+        "April 8th, 2012",
+        "August 28th, 2003",
+        "October 25th, 2014"
+      ],
+      "answer": "October 25th, 2014",
+      "difficulty": "hard",
+      "category": "Entertainment: Comics"
+    },
+    {
+      "id": "b864f496a880",
+      "question": "Which universe crossover was introduced in the \"Sonic the Hedgehog\" comic issue #247?",
+      "options": [
+        "Alex Kidd",
+        "Mega Man",
+        "Super Mario Brothers",
+        "Super Monkey Ball"
+      ],
+      "answer": "Mega Man",
+      "difficulty": "easy",
+      "category": "Entertainment: Comics"
+    },
+    {
+      "id": "6bfd025f430a",
+      "question": "Found in the Marvel Comics fictional universe, what is the name of the nearly indestructible metal that coats Wolverine's bones and claws?",
+      "options": [
+        "Adamantium",
+        "Carbonadium",
+        "Titanium",
+        "Vibranium"
+      ],
+      "answer": "Adamantium",
+      "difficulty": "medium",
+      "category": "Entertainment: Comics"
+    },
+    {
+      "id": "f0bfb0a8175f",
+      "question": "What is the designation given to the Marvel Cinematic Universe?",
+      "options": [
+        "Earth-10005",
+        "Earth-199999",
+        "Earth-2008",
+        "Earth-616"
+      ],
+      "answer": "Earth-199999",
+      "difficulty": "medium",
+      "category": "Entertainment: Comics"
+    },
+    {
+      "id": "bbbe5689e014",
+      "question": "In the Batman comics, by what other name is the villain Dr. Jonathan Crane known?",
+      "options": [
+        "Bane",
+        "Calendar Man",
+        "Clayface",
+        "Scarecrow"
+      ],
+      "answer": "Scarecrow",
+      "difficulty": "hard",
+      "category": "Entertainment: Comics"
+    }
+  ]
+}

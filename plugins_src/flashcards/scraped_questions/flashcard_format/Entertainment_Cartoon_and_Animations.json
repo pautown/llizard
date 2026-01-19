@@ -1,0 +1,110 @@
+{
+  "category": "Entertainment: Cartoon & Animations",
+  "question_count": 8,
+  "questions": [
+    {
+      "id": "c2fe49de2e65",
+      "question": "How many episodes were in season five of Samurai Jack?",
+      "options": [
+        "10",
+        "11",
+        "12",
+        "13"
+      ],
+      "answer": "10",
+      "difficulty": "medium",
+      "category": "Entertainment: Cartoon & Animations"
+    },
+    {
+      "id": "3b43815d61f5",
+      "question": "Who is Winnie the Pooh's gloomy donkey friend?",
+      "options": [
+        "Eeyore",
+        "Kanga",
+        "Piglet",
+        "Tigger"
+      ],
+      "answer": "Eeyore",
+      "difficulty": "easy",
+      "category": "Entertainment: Cartoon & Animations"
+    },
+    {
+      "id": "c72fb28f9552",
+      "question": "Which city did Anger berate for ruining pizza in \"Inside Out\"?",
+      "options": [
+        "California",
+        "Minnesota",
+        "San Francisco",
+        "Washington"
+      ],
+      "answer": "San Francisco",
+      "difficulty": "medium",
+      "category": "Entertainment: Cartoon & Animations"
+    },
+    {
+      "id": "e315bdf698ba",
+      "question": "Who was the villain of ''The Lion King''?",
+      "options": [
+        "Fred",
+        "Jafar",
+        "Scar",
+        "Vada"
+      ],
+      "answer": "Scar",
+      "difficulty": "easy",
+      "category": "Entertainment: Cartoon & Animations"
+    },
+    {
+      "id": "fe5a3cf00cc8",
+      "question": "In \"The Amazing World of Gumball\", who is the principal of Elmore Junior High?",
+      "options": [
+        "Principal Brawn",
+        "Principal Brown",
+        "Principal Simeon",
+        "Principal Small"
+      ],
+      "answer": "Principal Brown",
+      "difficulty": "medium",
+      "category": "Entertainment: Cartoon & Animations"
+    },
+    {
+      "id": "080758696ea2",
+      "question": "What is the name of the city that The Flintstones is based in?",
+      "options": [
+        "Bedrock",
+        "Boulder City",
+        "Rockhampton",
+        "Stoneville"
+      ],
+      "answer": "Bedrock",
+      "difficulty": "easy",
+      "category": "Entertainment: Cartoon & Animations"
+    },
+    {
+      "id": "14bfec49ef9a",
+      "question": "What ability does Princess Sofia the First have from her amulet that allows her to breathe underwater?",
+      "options": [
+        "Artificial Gills",
+        "Bubble Head",
+        "Bubble Shield",
+        "Mermaid Transformation"
+      ],
+      "answer": "Mermaid Transformation",
+      "difficulty": "medium",
+      "category": "Entertainment: Cartoon & Animations"
+    },
+    {
+      "id": "b9b30662a431",
+      "question": "In the \"Star Wars\" universe, what species is Grand Admiral Thrawn?",
+      "options": [
+        "Chiss",
+        "Gungans",
+        "Pantorans",
+        "Twi'lek"
+      ],
+      "answer": "Chiss",
+      "difficulty": "hard",
+      "category": "Entertainment: Cartoon & Animations"
+    }
+  ]
+}

@@ -1,0 +1,1313 @@
+{
+  "total_questions": 100,
+  "categories": [
+    "Entertainment: Video Games",
+    "Entertainment: Board Games",
+    "Science & Nature",
+    "Science: Computers",
+    "Science: Mathematics",
+    "Mythology"
+  ],
+  "questions": [
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What is the primary addictive substance found in tobacco?",
+      "correct_answer": "Nicotine",
+      "incorrect_answers": [
+        "Cathinone",
+        "Ephedrine",
+        "Glaucine"
+      ],
+      "id": "37a6527d2d6f"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "How many planets make up our Solar System?",
+      "correct_answer": "8",
+      "incorrect_answers": [
+        "7",
+        "9",
+        "6"
+      ],
+      "id": "0aef39c6dc75"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "Rhinoplasty is a surgical procedure on what part of the human body?",
+      "correct_answer": "Nose",
+      "incorrect_answers": [
+        "Ears",
+        "Chin",
+        "Neck"
+      ],
+      "id": "9db281bff791"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What is the standard SI unit for time?",
+      "correct_answer": "Second",
+      "incorrect_answers": [
+        "Minute",
+        "Hour",
+        "Day"
+      ],
+      "id": "d76686a968f0"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "The element involved in making human blood red is which of the following?",
+      "correct_answer": "Iron",
+      "incorrect_answers": [
+        "Copper",
+        "Iridium",
+        "Cobalt"
+      ],
+      "id": "82fe898d3b5e"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What is the chemical makeup of water?",
+      "correct_answer": "H20",
+      "incorrect_answers": [
+        "C12H6O2",
+        "CO2",
+        "H"
+      ],
+      "id": "e852d510cfb8"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What does LASER stand for?",
+      "correct_answer": "Light amplification by stimulated emission of radiation",
+      "incorrect_answers": [
+        "Lite analysing by stereo ecorazer",
+        "Light amplifier by standby energy of radio",
+        "Life antimatter by standing entry of range"
+      ],
+      "id": "34d6df674ee7"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "Which element has the highest melting point?",
+      "correct_answer": "Carbon",
+      "incorrect_answers": [
+        "Tungsten",
+        "Platinum",
+        "Osmium"
+      ],
+      "id": "a9459605a231"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What is the standard SI unit for distance?",
+      "correct_answer": "Metre",
+      "incorrect_answers": [
+        "Angstrom",
+        "Foot",
+        "Fathom"
+      ],
+      "id": "a7e165fa25a8"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "Which element has the chemical symbol 'Fe'?",
+      "correct_answer": "Iron",
+      "incorrect_answers": [
+        "Gold",
+        "Silver",
+        "Tin"
+      ],
+      "id": "db216e050e21"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What is the first element on the periodic table?",
+      "correct_answer": "Hydrogen",
+      "incorrect_answers": [
+        "Helium",
+        "Oxygen",
+        "Lithium"
+      ],
+      "id": "277caf041bcd"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "Dry ice is the solid form of what substance?",
+      "correct_answer": "Carbon dioxide",
+      "incorrect_answers": [
+        "Nitrogen",
+        "Ammonia",
+        "Oxygen"
+      ],
+      "id": "03256690797f"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What is the hottest planet in the Solar System?",
+      "correct_answer": "Venus",
+      "incorrect_answers": [
+        "Mars",
+        "Mercury",
+        "Jupiter"
+      ],
+      "id": "5493128cb9b2"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "Which of the following is not one of the groups on the periodic table?",
+      "correct_answer": "Fluorines",
+      "incorrect_answers": [
+        "Alkali Metals",
+        "Halogens",
+        "Noble Gases"
+      ],
+      "id": "c8b2a1a97efa"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "Which Apollo mission was the first one to land on the Moon?",
+      "correct_answer": "Apollo 11",
+      "incorrect_answers": [
+        "Apollo 10",
+        "Apollo 9",
+        "Apollo 13"
+      ],
+      "id": "eeb103623e6a"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What is the \"powerhouse\" of the Eukaryotic animal cell?",
+      "correct_answer": "Mitochondria",
+      "incorrect_answers": [
+        "Nucleus",
+        "Chloroplast",
+        "Endoplasmic Reticulum"
+      ],
+      "id": "332c9f833b61"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "Which gas forms about 78% of the Earth’s atmosphere?",
+      "correct_answer": "Nitrogen",
+      "incorrect_answers": [
+        "Oxygen",
+        "Argon",
+        "Carbon Dioxide"
+      ],
+      "id": "f6c5b716bb72"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "The biggest distinction between a eukaryotic cell and a prokaryotic cell is:",
+      "correct_answer": "The presence or absence of a nucleus",
+      "incorrect_answers": [
+        "The overall size",
+        "The presence or absence of certain organelles",
+        "The mode of reproduction"
+      ],
+      "id": "392ebab6a59b"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "Which of these bones is hardest to break?",
+      "correct_answer": "Femur",
+      "incorrect_answers": [
+        "Cranium",
+        "Humerus",
+        "Tibia"
+      ],
+      "id": "7adee2d53fb6"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What name is given to all baby marsupials?",
+      "correct_answer": "Joey",
+      "incorrect_answers": [
+        "Calf",
+        "Pup",
+        "Cub"
+      ],
+      "id": "065168904a9c"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "71% of the Earth's surface is made up of",
+      "correct_answer": "Water",
+      "incorrect_answers": [
+        "Deserts",
+        "Continents",
+        "Forests"
+      ],
+      "id": "c0f5545bed8b"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "Which is the longest bone in the human body? ",
+      "correct_answer": "Femur",
+      "incorrect_answers": [
+        "Scapula",
+        "Fibula",
+        "Ulna"
+      ],
+      "id": "71cc7871a709"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What is the thin, outermost layer of the Earth?",
+      "correct_answer": "Crust",
+      "incorrect_answers": [
+        "Exosphere",
+        "Mantle",
+        "Outer Core"
+      ],
+      "id": "8308fa207bb5"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "How many bones are in the human body?",
+      "correct_answer": "206",
+      "incorrect_answers": [
+        "203",
+        "209",
+        "200"
+      ],
+      "id": "ffd3792debf1"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "Which is the most abundant element in the universe?",
+      "correct_answer": "Hydrogen",
+      "incorrect_answers": [
+        "Helium",
+        "Lithium",
+        "Oxygen"
+      ],
+      "id": "c0e309d27d55"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "How many planets are there in the Solar System?",
+      "correct_answer": "8",
+      "incorrect_answers": [
+        "9",
+        "11",
+        "10"
+      ],
+      "id": "a3e3fc79d4eb"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What is the unit of electrical resistance?",
+      "correct_answer": "Ohm",
+      "incorrect_answers": [
+        "Mho",
+        "Tesla",
+        "Joule"
+      ],
+      "id": "5b87635e2038"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What does the letter 'S' stand for in 'NASA'?",
+      "correct_answer": "Space",
+      "incorrect_answers": [
+        "Science",
+        "Society",
+        "Star"
+      ],
+      "id": "ae21c3319fd4"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What was the name of the first artificial Earth satellite, launched by the Soviet Union in 1957?",
+      "correct_answer": "Sputnik 1",
+      "incorrect_answers": [
+        "Soyuz 7K-OK",
+        "Zenit-2",
+        "Voskhod 3KV"
+      ],
+      "id": "c600865144ef"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What is the hottest planet in the solar system",
+      "correct_answer": "Venus",
+      "incorrect_answers": [
+        "Jupiter",
+        "Mercury ",
+        "Mars"
+      ],
+      "id": "a7631834f861"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What is the speed of light in a vacuum?",
+      "correct_answer": "299,792,458 m/s",
+      "incorrect_answers": [
+        "50,461 m/s",
+        "308,215,043 m/s",
+        "751,665,014,151 m/s"
+      ],
+      "id": "2ffe43b53a44"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "Which of the following blood vessels carries deoxygenated blood?",
+      "correct_answer": "Pulmonary Artery",
+      "incorrect_answers": [
+        "Pulmonary Vein",
+        "Aorta",
+        "Coronary Artery"
+      ],
+      "id": "9d30a1e887e6"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "Which of these Elements is a metalloid?",
+      "correct_answer": "Antimony",
+      "incorrect_answers": [
+        "Tin",
+        "Bromine",
+        "Rubidium"
+      ],
+      "id": "c1310887b89d"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "How many laws of thermodynamics are there?",
+      "correct_answer": "Four",
+      "incorrect_answers": [
+        "Three",
+        "Two",
+        "Five"
+      ],
+      "id": "420ab457e874"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What is the powerhouse of the cell?",
+      "correct_answer": "Mitochondria",
+      "incorrect_answers": [
+        "Ribosome",
+        "Redbull",
+        "Nucleus"
+      ],
+      "id": "8b2a4ab64d0e"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What organelle aids in synthesis of DNA in cells?",
+      "correct_answer": "Ribosomes",
+      "incorrect_answers": [
+        "Nuclei",
+        "Lysosomes",
+        "Mitochondria"
+      ],
+      "id": "c62cbd773326"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "About what percentage of the Earth's surface is water? ",
+      "correct_answer": "70%",
+      "incorrect_answers": [
+        "30%",
+        "50%",
+        "90%"
+      ],
+      "id": "7799cbe12cd7"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "How many planets are in our Solar System?",
+      "correct_answer": "Eight",
+      "incorrect_answers": [
+        "Nine",
+        "Seven",
+        "Ten"
+      ],
+      "id": "a009009fc378"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What is the standard atomic weight of a Plutonium nucleus?",
+      "correct_answer": "244",
+      "incorrect_answers": [
+        "94",
+        "481",
+        "128"
+      ],
+      "id": "15cc78507e20"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What is the official name of the star located closest to the North Celestial Pole?",
+      "correct_answer": "Polaris",
+      "incorrect_answers": [
+        "Eridanus",
+        "Gamma Cephei",
+        "Iota Cephei"
+      ],
+      "id": "a2f9ea57c80a"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "Stars consist mainly of hydrogen and which other gas?",
+      "correct_answer": "Helium",
+      "incorrect_answers": [
+        "Oxygen",
+        "Argon",
+        "Nitrogen"
+      ],
+      "id": "b505482a039b"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "Which of the following bones is not in the leg?",
+      "correct_answer": "Radius",
+      "incorrect_answers": [
+        "Patella",
+        "Tibia",
+        "Fibula "
+      ],
+      "id": "1ab44669ef88"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What does DNA stand for?",
+      "correct_answer": "Deoxyribonucleic Acid",
+      "incorrect_answers": [
+        "Deoxyribogenetic Acid",
+        "Deoxyribogenetic Atoms",
+        "Detoxic Acid"
+      ],
+      "id": "84e19a3b3402"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What produces the green colour of most plant leaves?",
+      "correct_answer": "Chlorophyll",
+      "incorrect_answers": [
+        "Light refraction",
+        "Natural pigments",
+        "UV radiation"
+      ],
+      "id": "79290f09e2d1"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What is the largest animal currently on Earth?",
+      "correct_answer": "Blue Whale",
+      "incorrect_answers": [
+        "Orca",
+        "Colossal Squid",
+        "Giraffe"
+      ],
+      "id": "fc7a559df777"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "Which type of rock is created by intense heat AND pressure?",
+      "correct_answer": "Metamorphic",
+      "incorrect_answers": [
+        "Sedimentary",
+        "Igneous",
+        "Diamond"
+      ],
+      "id": "f71300a0add0"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What is the common name of the chemical compound \"dihydrogen monoxide\"?",
+      "correct_answer": "Water",
+      "incorrect_answers": [
+        "Methane",
+        "Ammonia ",
+        "Laughing Gas"
+      ],
+      "id": "c0e8997a8af4"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "The medical term for the belly button is which of the following?",
+      "correct_answer": "Umbilicus",
+      "incorrect_answers": [
+        "Nevus",
+        "Nares",
+        "Paxillus"
+      ],
+      "id": "4f2d93f8e41f"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "Who is the chemical element Curium named after?",
+      "correct_answer": "Marie & Pierre Curie",
+      "incorrect_answers": [
+        "The Curiosity Rover",
+        "Curious George",
+        "Stephen Curry"
+      ],
+      "id": "77faa5fecc2d"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What animal takes part in Schrödinger's most famous thought experiment?",
+      "correct_answer": "Cat",
+      "incorrect_answers": [
+        "Dog",
+        "Bat",
+        "Butterfly"
+      ],
+      "id": "38850998f77c"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Which is the chemical name of H2O?",
+      "correct_answer": "Dihydrogen Monoxide",
+      "incorrect_answers": [
+        "Ammonium chloride",
+        "Anhydrous Sodium Carbonate",
+        "Manganese dioxide"
+      ],
+      "id": "18d9ac05d54f"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Which major extinction event was caused by an asteroid collision and eliminated the majority of non-avian dinosaurs?",
+      "correct_answer": "Cretaceous-Paleogene",
+      "incorrect_answers": [
+        "Triassic–Jurassic",
+        "Permian–Triassic",
+        "Ordovician–Silurian"
+      ],
+      "id": "052adb940e9c"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "How many protons are in an oxygen atom?",
+      "correct_answer": "Eight",
+      "incorrect_answers": [
+        "Four",
+        "Two",
+        "Six"
+      ],
+      "id": "09b8bf65a3b4"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Which is not a type of neuron?",
+      "correct_answer": "Perceptual Neuron",
+      "incorrect_answers": [
+        "Sensory Neuron",
+        "Motor Neuron",
+        "Interneuron"
+      ],
+      "id": "b60734ed9c53"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Which of the following elements is typically used in the doping of the semiconductor silicon?",
+      "correct_answer": "Boron",
+      "incorrect_answers": [
+        "Oxygen",
+        "Carbon",
+        "Iron"
+      ],
+      "id": "5cf894d0937d"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "What does the term \"isolation\" refer to in microbiology?",
+      "correct_answer": "The separation of a strain from a natural, mixed population of living microbes",
+      "incorrect_answers": [
+        "A lack of nutrition in microenviroments",
+        "The nitrogen level in soil",
+        "Testing effects of certain microorganisms in an isolated enviroments, such as caves"
+      ],
+      "id": "dd46616fae8a"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "What was the first organic compound to be synthesized from inorganic compounds?",
+      "correct_answer": "Urea",
+      "incorrect_answers": [
+        "Propane",
+        "Ethanol",
+        "Formaldehyde"
+      ],
+      "id": "78e4d99c9102"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Coulrophobia is the irrational fear of what?",
+      "correct_answer": "Clowns",
+      "incorrect_answers": [
+        "Cemeteries",
+        "Needles",
+        "Tunnels"
+      ],
+      "id": "00931db2b8cb"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Burning which of these metals will produce a bright white flame?",
+      "correct_answer": "Magnesium",
+      "incorrect_answers": [
+        "Copper",
+        "Lithium",
+        "Lead"
+      ],
+      "id": "4efc2c2abdf1"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "What is the standard SI unit for luminous intensity?",
+      "correct_answer": "Candela",
+      "incorrect_answers": [
+        "Lumen",
+        "Faraday",
+        "Coulomb"
+      ],
+      "id": "0b44458d7061"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Which one of these is scientific term for \"Brain Freeze\"?",
+      "correct_answer": "Sphenopalatine Ganglioneuralgia",
+      "incorrect_answers": [
+        "Hyacinthoides Italica",
+        "Amaranthus Retroflexus",
+        "Amblyomma Americanum"
+      ],
+      "id": "d0742b2f99e6"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "What is the scientific name of the red fox?",
+      "correct_answer": "Vulpes Vulpes",
+      "incorrect_answers": [
+        "Vulpes Redus",
+        "Red Fox",
+        "Vulpes Vulpie"
+      ],
+      "id": "23dd28d1b760"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "In physics, conservation of energy and conservation of momentum are both consequences of which of the following?",
+      "correct_answer": "Noether's Theorem",
+      "incorrect_answers": [
+        "Bell's Theorem",
+        "Wick's Theorem",
+        "Carnot's Theorem"
+      ],
+      "id": "459a3c25eb1e"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Which of the following is NOT a real element?",
+      "correct_answer": "Vitrainium",
+      "incorrect_answers": [
+        "Praseodymium",
+        "Hassium",
+        "Lutetium"
+      ],
+      "id": "b50e4ca27b68"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "How many objects are equivalent to one mole?",
+      "correct_answer": "6.022 x 10^23",
+      "incorrect_answers": [
+        "6.002 x 10^22",
+        "6.022 x 10^22",
+        "6.002 x 10^23"
+      ],
+      "id": "87cafe2e844f"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "\"The Big Bang Theory\" was first theorized by a priest of what religious ideology?",
+      "correct_answer": "Catholic",
+      "incorrect_answers": [
+        "Christian",
+        "Jewish",
+        "Islamic"
+      ],
+      "id": "3649f0e8dcc3"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "What does the scientific name of the Cambrian-Period sea creature Anomalocaris mean?",
+      "correct_answer": "Abnormal Shrimp",
+      "incorrect_answers": [
+        "Deformed Fish",
+        "Strange Crab",
+        "Anomalous Clam"
+      ],
+      "id": "0618c825ed3b"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "How many types of quarks are there in the standard model of physics?",
+      "correct_answer": "6",
+      "incorrect_answers": [
+        "2",
+        "3",
+        "4"
+      ],
+      "id": "ba52f7e7e170"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Which of these chemical compounds is NOT found in gastric acid?",
+      "correct_answer": "Sulfuric acid",
+      "incorrect_answers": [
+        "Hydrochloric acid",
+        "Potassium chloride",
+        "Sodium chloride"
+      ],
+      "id": "76af5d36d433"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "What genetic disease is caused by having an extra Y chromosome (XYY)?",
+      "correct_answer": "Jacob's Syndrome",
+      "incorrect_answers": [
+        "Klinefelter's Syndrome",
+        "Turner's Syndrome",
+        "Down Syndrome"
+      ],
+      "id": "a38dca3fee5f"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "What nucleotide pairs with guanine?",
+      "correct_answer": "Cytosine",
+      "incorrect_answers": [
+        "Thymine",
+        "Adenine",
+        "Uracil"
+      ],
+      "id": "9a5435608c3a"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Which of these is a semiconductor amplifying device?",
+      "correct_answer": "transistor",
+      "incorrect_answers": [
+        "tube",
+        "diode",
+        "P-N junction"
+      ],
+      "id": "8fd29ff349b2"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "What common name is given to the medial condition, tibial stress syndrome (MTSS)?",
+      "correct_answer": "Shin Splints",
+      "incorrect_answers": [
+        "Tennis Elbow",
+        "Carpal Tunnel",
+        "Housemaid's Knee"
+      ],
+      "id": "93c114da2490"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "What is isobutylphenylpropanoic acid more commonly known as?",
+      "correct_answer": "Ibuprofen",
+      "incorrect_answers": [
+        "Morphine",
+        "Ketamine",
+        "Aspirin"
+      ],
+      "id": "b7422f3d13aa"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Which of the following is a major muscle of the back?",
+      "correct_answer": "Trapezius",
+      "incorrect_answers": [
+        "Trapezium",
+        "Trapezoid",
+        "Triquetrum"
+      ],
+      "id": "26fb3bddc73d"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "All of the following human genetic haplogroup names are shared between Y-chromosome and mitochondrial DNA haplogroups EXCEPT:",
+      "correct_answer": "Haplogroup U",
+      "incorrect_answers": [
+        "Haplogroup L",
+        "Haplogroup T",
+        "Haplogroup J"
+      ],
+      "id": "8a7d3f417383"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Where in the human body is the Pineal Gland located?",
+      "correct_answer": "Brain",
+      "incorrect_answers": [
+        "Groin",
+        "Chest",
+        "Throat"
+      ],
+      "id": "d7a05790da11"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Which moon is the only satellite in our solar system to possess a dense atmosphere?",
+      "correct_answer": "Titan",
+      "incorrect_answers": [
+        "Europa",
+        "Miranda",
+        "Callisto"
+      ],
+      "id": "86a2824df781"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Which horizon in a soil profile consists of bedrock?",
+      "correct_answer": "R",
+      "incorrect_answers": [
+        "O",
+        "B",
+        "D"
+      ],
+      "id": "2826c701c08f"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "In the Scoville scale, what is the hottest chemical?",
+      "correct_answer": "Resiniferatoxin",
+      "incorrect_answers": [
+        "Capsaicin",
+        "Dihydrocapsaicin",
+        "Tinyatoxin"
+      ],
+      "id": "5893d3bd03ff"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Which of these animals belongs in class Chondrichthyes?",
+      "correct_answer": "Great white shark",
+      "incorrect_answers": [
+        "Octopus",
+        "Killer whale",
+        "Catfish"
+      ],
+      "id": "b0f965f19032"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "If you planted the seeds of Quercus robur what would grow?",
+      "correct_answer": "Trees",
+      "incorrect_answers": [
+        "Flowers",
+        "Vegtables",
+        "Grains"
+      ],
+      "id": "c7dc348f3bff"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "A comet's gaseous envelope (which creates the tail) is called what?",
+      "correct_answer": "The coma",
+      "incorrect_answers": [
+        "The wake",
+        "The backwash",
+        "The ablative"
+      ],
+      "id": "eeba535e8ae4"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "An organic compound is considered an alcohol if it has what functional group?",
+      "correct_answer": "Hydroxyl",
+      "incorrect_answers": [
+        "Carbonyl",
+        "Alkyl",
+        "Aldehyde"
+      ],
+      "id": "33beb605fdd6"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "What is the same in Celsius and Fahrenheit?",
+      "correct_answer": "-40",
+      "incorrect_answers": [
+        "32",
+        "-39",
+        "-42"
+      ],
+      "id": "c755764de7ce"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "The word \"science\" stems from the word \"scire\" meaning what?",
+      "correct_answer": "To know",
+      "incorrect_answers": [
+        "To measure",
+        "To live",
+        "To count"
+      ],
+      "id": "d99cfbabea71"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Botanically speaking, which of these fruits is NOT a berry?",
+      "correct_answer": "Strawberry",
+      "incorrect_answers": [
+        "Blueberry",
+        "Banana",
+        "Concord Grape"
+      ],
+      "id": "c3223dd954c4"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "How long is a light-year?",
+      "correct_answer": "9.461 Trillion Kilometres",
+      "incorrect_answers": [
+        "1 AU",
+        "105.40 Earth-years",
+        "501.2 Million Miles"
+      ],
+      "id": "654887e25539"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Which constellation contains the center of the Milky Way?",
+      "correct_answer": "Sagittarius",
+      "incorrect_answers": [
+        "Scorpius",
+        "Ophiuchus",
+        "Capricornus"
+      ],
+      "id": "fff563aeef84"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Which scientific unit is named after an Italian nobleman?",
+      "correct_answer": "Volt",
+      "incorrect_answers": [
+        "Pascal",
+        "Ohm",
+        "Hertz"
+      ],
+      "id": "4c7781deb0ba"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "The core of the Sun can reach which temperature?",
+      "correct_answer": "27° Million F (15° Million C)",
+      "incorrect_answers": [
+        "938,000° F (521093.3° C)",
+        "8° Billion F (°4.4 Billion C)",
+        "Absolute Zero (Both F and C)"
+      ],
+      "id": "8e3af46c5c44"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Which of the following is considered classical conditioning?",
+      "correct_answer": "Pavlov's dog experiments",
+      "incorrect_answers": [
+        "Skinner box experiment",
+        "Schrödinger's cat experiment",
+        "Harlow’s monkey experiments"
+      ],
+      "id": "c10df0f430dd"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "In quantum physics, which of these theorised sub-atomic particles has yet to be observed?",
+      "correct_answer": "Graviton",
+      "incorrect_answers": [
+        "Z boson",
+        "Tau neutrino",
+        "Gluon"
+      ],
+      "id": "90bb9e2776eb"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Autosomal-dominant Compelling Helio-Ophthalmic Outburst syndrome is the need to do what when seeing the Sun?",
+      "correct_answer": "Sneeze",
+      "incorrect_answers": [
+        "Cough",
+        "Yawn",
+        "Hiccup"
+      ],
+      "id": "26a18424727c"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Which of the following is the term for \"surgical complications resulting from surgical sponges left inside the patient's body?",
+      "correct_answer": "Gossypiboma",
+      "incorrect_answers": [
+        "Gongoozler",
+        "Jentacular",
+        "Meupareunia"
+      ],
+      "id": "329cc76671de"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "What is the unit of electrical inductance?",
+      "correct_answer": "Henry",
+      "incorrect_answers": [
+        "Weber",
+        "Coulomb",
+        "Mho"
+      ],
+      "id": "38036587057a"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "The Western Lowland Gorilla is scientifically know as?",
+      "correct_answer": "Gorilla Gorilla Gorilla",
+      "incorrect_answers": [
+        "Gorilla Gorilla Diehli",
+        "Gorilla Beringei Graueri",
+        "Gorilla Beringei Beringei"
+      ],
+      "id": "8f9513775442"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "What is the most potent toxin known?",
+      "correct_answer": "Botulinum toxin",
+      "incorrect_answers": [
+        "Ricin",
+        "Cyanide",
+        "Asbestos"
+      ],
+      "id": "1ea20d867f7d"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "What element on the periodic table has 92 electrons?",
+      "correct_answer": "Uranium",
+      "incorrect_answers": [
+        "Sulfur",
+        "Hydrogen",
+        "Iron"
+      ],
+      "id": "066e01599f1c"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "What is the scientific name for the extinct hominin known as \"Lucy\"?",
+      "correct_answer": "Australopithecus Afarensis",
+      "incorrect_answers": [
+        "Australopithecus Africanus",
+        "Australopithecus Architeuthis",
+        "Australopithecus Antaris"
+      ],
+      "id": "3aa446387658"
+    }
+  ]
+}

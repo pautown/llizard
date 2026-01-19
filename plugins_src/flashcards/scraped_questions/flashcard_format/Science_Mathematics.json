@@ -1,0 +1,97 @@
+{
+  "category": "Science: Mathematics",
+  "question_count": 7,
+  "questions": [
+    {
+      "id": "a6e0eac89ece",
+      "question": "What is the derivative of Acceleration with respect to time?",
+      "options": [
+        "Bump",
+        "Jerk",
+        "Shift",
+        "Slide"
+      ],
+      "answer": "Jerk",
+      "difficulty": "hard",
+      "category": "Science: Mathematics"
+    },
+    {
+      "id": "8a395b57df06",
+      "question": "What shape does sin(x) or cos(x) make on a graph?",
+      "options": [
+        "A Parabola",
+        "A Straight Line",
+        "Waves",
+        "Zig-Zags"
+      ],
+      "answer": "Waves",
+      "difficulty": "medium",
+      "category": "Science: Mathematics"
+    },
+    {
+      "id": "ed5c9ce345a5",
+      "question": "How many books are in Euclid's Elements of Geometry?",
+      "options": [
+        "10",
+        "13",
+        "17",
+        "8"
+      ],
+      "answer": "13",
+      "difficulty": "medium",
+      "category": "Science: Mathematics"
+    },
+    {
+      "id": "1e0f77737634",
+      "question": "How many zeptometres are inside one femtometre?",
+      "options": [
+        "1,000,000",
+        "1,000,000,000",
+        "10",
+        "1000"
+      ],
+      "answer": "1,000,000",
+      "difficulty": "hard",
+      "category": "Science: Mathematics"
+    },
+    {
+      "id": "a708b4166283",
+      "question": "The French mathematician Évariste Galois is primarily known for his work in which?",
+      "options": [
+        "Abelian Integration",
+        "Galois Theory",
+        "Galois' Continued Fractions",
+        "Galois' Method for PDE's "
+      ],
+      "answer": "Galois Theory",
+      "difficulty": "hard",
+      "category": "Science: Mathematics"
+    },
+    {
+      "id": "d113f68ce9ea",
+      "question": "What is the alphanumeric representation of the imaginary number?",
+      "options": [
+        "e",
+        "i",
+        "n",
+        "x"
+      ],
+      "answer": "i",
+      "difficulty": "medium",
+      "category": "Science: Mathematics"
+    },
+    {
+      "id": "01e11074cdd3",
+      "question": "Which greek mathematician ran through the streets of Syracuse naked while shouting \"Eureka\" after discovering the principle of displacement?",
+      "options": [
+        "Archimedes",
+        "Eratosthenes",
+        "Euclid",
+        "Homer"
+      ],
+      "answer": "Archimedes",
+      "difficulty": "medium",
+      "category": "Science: Mathematics"
+    }
+  ]
+}

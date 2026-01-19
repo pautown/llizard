@@ -1,0 +1,3263 @@
+{
+  "total_questions": 250,
+  "categories": [
+    "Entertainment: Video Games",
+    "Entertainment: Board Games",
+    "Science & Nature",
+    "Science: Computers",
+    "Science: Mathematics",
+    "Mythology"
+  ],
+  "questions": [
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "How many copies of the notorious E.T. game for the Atari 2600 did Atari end up selling?",
+      "correct_answer": "1.5 Million",
+      "incorrect_answers": [
+        "1 Million",
+        "250 Thousand",
+        "Less than 250 Thousand"
+      ],
+      "id": "2dd01d99abda"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "Which of these weapon classes DO NOT appear in the first Monster Hunter game?",
+      "correct_answer": "Bow ",
+      "incorrect_answers": [
+        "Hammer",
+        "Heavy Bowgun",
+        "Light Bowgun"
+      ],
+      "id": "7aa40d47e3b1"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "According to Toby Fox, what was the method to creating the initial tune for Megalovania?",
+      "correct_answer": "Singing into a Microphone",
+      "incorrect_answers": [
+        "Playing a Piano",
+        "Using a Composer Software",
+        "Listened to birds at the park"
+      ],
+      "id": "f5fdf0c02262"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "In \"Starbound\", what is the max HP of the monster \"Punchy\"?",
+      "correct_answer": "50,000 HP",
+      "incorrect_answers": [
+        "9,000,000 HP",
+        "100 HP",
+        "150,000 HP"
+      ],
+      "id": "1a567205db84"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "What Touhou Project character's first ever appearance was as a midboss in the eighth game, Imperishable Night?",
+      "correct_answer": "Tewi Inaba",
+      "incorrect_answers": [
+        "Mystia Lorelei",
+        "Kaguya Houraisan",
+        "Rumia"
+      ],
+      "id": "8a0b3716f5ae"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "In the \"Little Lost Girl\" Easter Egg in Call of Duty: Black Ops II, what's the last step required for the achievement?",
+      "correct_answer": "Raise Hell",
+      "incorrect_answers": [
+        "Freedom",
+        "Skewer the Winged Beast",
+        "Ascend from Darkness"
+      ],
+      "id": "45e6992315fb"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "Which of the following games in the The Legend of Zelda franchise was released in Japan before North America?",
+      "correct_answer": "The Legend of Zelda: The Minish Cap",
+      "incorrect_answers": [
+        "The Legend of Zelda: Twilight Princess",
+        "The Legend of Zelda: Spirit Tracks",
+        "The Legend of Zelda: Four Swords"
+      ],
+      "id": "f42d1936d2db"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "In Terraria, which debuff does the ankh charm not provide immunity to?",
+      "correct_answer": "Venom",
+      "incorrect_answers": [
+        "Cursed",
+        "Bleeding",
+        "Slow"
+      ],
+      "id": "0c7ee0fbf95e"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "In the Zombies mode of \"Call of Duty: Black Ops\", what is the \"Pack-A-Punched\" version of the \"Galil\" called?",
+      "correct_answer": "Lamentation",
+      "incorrect_answers": [
+        "Galvanized Atomic Lead Insertion Liquidator",
+        "Gabig",
+        "Predictive Death Wish"
+      ],
+      "id": "55cdfa3fe5a2"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "Which one of these characters appeared in Marvel vs Capcom: Infinite? ",
+      "correct_answer": "Firebrand",
+      "incorrect_answers": [
+        "Wolverine",
+        "Dr. Doom",
+        "Jill Valentine"
+      ],
+      "id": "7a10a0351434"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "How long was the World Record Speed Run of Valve Software's \"Half-Life\" that was done in 2014.",
+      "correct_answer": "20 Minutes, 41 Seconds",
+      "incorrect_answers": [
+        "45 Minutes, 32 Seconds",
+        "5 Minutes, 50 Seconds",
+        "12 Minutes, 59 Seconds"
+      ],
+      "id": "622159787295"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "What was the world's first handheld game device?",
+      "correct_answer": "Mattel Auto Race",
+      "incorrect_answers": [
+        "Game Boy",
+        "Microvision",
+        "Game & Watch"
+      ],
+      "id": "eaf7d96cd93f"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "Which monster in \"Monster Hunter Tri\" was causing earthquakes in Moga Village?",
+      "correct_answer": "Ceadeus",
+      "incorrect_answers": [
+        "Alatreon",
+        "Rathalos",
+        "Lagiacrus"
+      ],
+      "id": "1439a95ca003"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "Which gaming series includes \"The Diabolical Box\" and \"The Curious Village\"?",
+      "correct_answer": "Professor Layton",
+      "incorrect_answers": [
+        "Persona",
+        "Etrian Odyssey",
+        "Sam & Max"
+      ],
+      "id": "62a9a275e529"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "In the Fallout series, on which date did The Great War happen?",
+      "correct_answer": "October 23rd, 2077",
+      "incorrect_answers": [
+        "May 15th, 2058",
+        "December 14th, 2069",
+        "November 5th, 2076"
+      ],
+      "id": "e3fc8f56f1f7"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "When was the first \"Half-Life\" released?",
+      "correct_answer": "1998",
+      "incorrect_answers": [
+        "2004",
+        "1999",
+        "1997"
+      ],
+      "id": "ef27ec10704d"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "Which of the Master levels in \"Super Monkey Ball\" is also used in the arcade version of the game, simply named \"Monkey Ball\"?",
+      "correct_answer": "MASTER 9 - Bridge Master",
+      "incorrect_answers": [
+        "MASTER 3 - Stamina Master",
+        "MASTER 10 - Monkey Master",
+        "MASTER 6 - Roll Master"
+      ],
+      "id": "7b876ca4c9e7"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "How many trophies are there in \"Super Smash Bros. for Nintendo 3DS\"?",
+      "correct_answer": "685",
+      "incorrect_answers": [
+        "1360",
+        "716",
+        "1155"
+      ],
+      "id": "a16d893fc82d"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "Which Kingdom Hearts game featured the cast of \"The World Ends With You\"?",
+      "correct_answer": "Dream Drop Distance",
+      "incorrect_answers": [
+        "Birth By Sleep",
+        "365/2 Days",
+        "Re:Chain of Memories"
+      ],
+      "id": "118cb33faefd"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "Which of the following games in the The Legend of Zelda franchise was released in North America before Japan?",
+      "correct_answer": "The Legend of Zelda: Twilight Princess",
+      "incorrect_answers": [
+        "Zelda II: The Adventure of Link",
+        "The Legend of Zelda: Four Swords Adventures",
+        "The Legend of Zelda: Majora's Mask"
+      ],
+      "id": "a3a18710f9d0"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "What major event caused the events of Half-Life 1?",
+      "correct_answer": "The Resonance Cascade ",
+      "incorrect_answers": [
+        "The Blue Shift",
+        "The Seven Hour War",
+        "The Narbacular Drop"
+      ],
+      "id": "5e03bf64c22b"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "In Animal Crossing: New Leaf, which of these paintings from Redd's Art Gallery is always genuine?",
+      "correct_answer": "Warm Painting",
+      "incorrect_answers": [
+        "Jolly Painting",
+        "Neutral Painting",
+        "Wistful Painting"
+      ],
+      "id": "c314ed71837d"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "In \"Team Fortress 2\", what is the fastest taunt kill that can be pulled off?",
+      "correct_answer": "Showdown",
+      "incorrect_answers": [
+        "Hadouken",
+        "Organ Grinder",
+        "Skewer"
+      ],
+      "id": "a9c68e3de083"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "In Super Smash Bros. for Nintendo 3DS and Nintendo Wii U, who was the sixth fighter to be added to the game post-launch?",
+      "correct_answer": "Corrin",
+      "incorrect_answers": [
+        "Cloud",
+        "Bayonnetta",
+        "Ryu"
+      ],
+      "id": "62d9146a5a8a"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "In \"Team Fortress 2\", how much health does a scout have when overhealed?",
+      "correct_answer": "185",
+      "incorrect_answers": [
+        "215",
+        "195",
+        "225"
+      ],
+      "id": "0344ebf78187"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "In the original \"Super Mario Bros.\", what is the acceleration of Mario if he was in free fall?",
+      "correct_answer": "91.28 m/s^2",
+      "incorrect_answers": [
+        "110  m/s^2",
+        "9.42  m/s^2",
+        "4.4  m/s^2"
+      ],
+      "id": "4dc8251bf311"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "What is the name of the virus that infected New York in Tom Clancy's The Division?",
+      "correct_answer": "Dollar Flu",
+      "incorrect_answers": [
+        "Ebola",
+        "Red Poison",
+        "Smallpox"
+      ],
+      "id": "3977c1be4a2e"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "In Super Mario RPG: Legend of The Seven Stars, what is Geno's real name?",
+      "correct_answer": "♡♪!?",
+      "incorrect_answers": [
+        "Geno",
+        "Exor",
+        "Smithy"
+      ],
+      "id": "a2af185ecf8f"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "Which of the following games was NOT included in Valve's Orange Box?",
+      "correct_answer": "Counter-Strike",
+      "incorrect_answers": [
+        "Portal",
+        "Half-Life 2: Episode Two",
+        "Team Fortress 2"
+      ],
+      "id": "4fb320ef20f9"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "In \"Starbound\", according to the asset files, the description of the \"Erchius Ghost\" is the same as which other assets?",
+      "correct_answer": "Spookit",
+      "incorrect_answers": [
+        "Petricub",
+        "Trictus",
+        "Pyromantle"
+      ],
+      "id": "f31d565bb7d5"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "Before Super Smash Bros. contained Nintendo characters, what was it known as internally?",
+      "correct_answer": "Dragon King: The Fighting Game",
+      "incorrect_answers": [
+        "Contest of Champions",
+        "Smash and Pummel",
+        "Fighter of the Ages: Conquest"
+      ],
+      "id": "182f0df56634"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "In Halo 2, how many rounds does the M6C hold in a single magazine?",
+      "correct_answer": "12",
+      "incorrect_answers": [
+        "6",
+        "36",
+        "18"
+      ],
+      "id": "590e87c39276"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "Which of these online games was originally named LindenWorld in it's early development?",
+      "correct_answer": "SecondLife",
+      "incorrect_answers": [
+        "ActiveWorlds",
+        "IMVU",
+        "HabboHotel"
+      ],
+      "id": "9060d63cb043"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "In the Lego Island trilogy, who taught Pepper Roni how to read?",
+      "correct_answer": "Officer Laura Brick",
+      "incorrect_answers": [
+        "Papa Brickolini",
+        "Officer Nick Brick",
+        "Mama Brickolini"
+      ],
+      "id": "fe51301e12d9"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "What was the code name given to Sonic the Hedgehog 4 during its development?",
+      "correct_answer": "Project Needlemouse",
+      "incorrect_answers": [
+        "Project Bluespike",
+        "Project Roboegg",
+        "Project Darksphere"
+      ],
+      "id": "7b5608e9fa4f"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "What was the nickname of the original model for Half-Life's protagonist Gordon Freeman?",
+      "correct_answer": "Ivan the Space Biker",
+      "incorrect_answers": [
+        "Gordon the Space Biker",
+        "Ivan the Alien Biker",
+        "Gordon the Alien Biker"
+      ],
+      "id": "9d2768983e24"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "What was the world's first video game?",
+      "correct_answer": "Draughts",
+      "incorrect_answers": [
+        "Spacewar!",
+        "Pong",
+        "Space Travel"
+      ],
+      "id": "38516d02b3d8"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "How many aces can be shot down through the entirety of \"Ace Combat Zero: The Belkan War\"?",
+      "correct_answer": "169",
+      "incorrect_answers": [
+        "100",
+        "132",
+        "245"
+      ],
+      "id": "ecdcdb5f8435"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "In Stardew Valley, what is the reward for completing all of the Bulletin Board bundles?",
+      "correct_answer": "Additional Friendship points",
+      "incorrect_answers": [
+        "Glittering Boulder removed",
+        "Bus is repaired",
+        "Greenhouse"
+      ],
+      "id": "3e710cf4a850"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "What video game company developed the 2004 racing game \"Burnout 3: Takedown\"?",
+      "correct_answer": "Criterion Games",
+      "incorrect_answers": [
+        "EA Black Box",
+        "Codemasters",
+        "Rockstar Games"
+      ],
+      "id": "0073066051b9"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "\"Exile\" and \"Revelations\" were the third and fourth installments of which PC game series?",
+      "correct_answer": "Myst",
+      "incorrect_answers": [
+        "Shivers",
+        "Doom",
+        "Tropico"
+      ],
+      "id": "6fcebccb612c"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "In \"Call Of Duty: Zombies\", which weapon does NOT deal any damage?",
+      "correct_answer": "31-79 JGb215",
+      "incorrect_answers": [
+        "Sliquifier",
+        "V-R11",
+        "Wunderwaffe DG-2"
+      ],
+      "id": "8683117d4c1b"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "In TF2 Lore, what are the names of the Heavy's younger sisters?",
+      "correct_answer": "Yana and Bronislava",
+      "incorrect_answers": [
+        "Gaba and Anna",
+        "Yanna and Gaba",
+        "Anna and Bronislava"
+      ],
+      "id": "20901f7bfbbd"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "What is the default name of the Vampire character in \"Shining Soul 2\".",
+      "correct_answer": "Bloodstar",
+      "incorrect_answers": [
+        "Sachs",
+        "Dracuul",
+        "Alucard"
+      ],
+      "id": "6c188c01a998"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "In the Pokémon series, what is Palkia's hidden ability?",
+      "correct_answer": "Telepathy",
+      "incorrect_answers": [
+        "Pressure",
+        "Water Bubble",
+        "Hydration"
+      ],
+      "id": "f6dc12d2fa5b"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "In \"Super Mario Sunshine\", how do you unlock the \"Corona Mountain\" level?",
+      "correct_answer": "By clearing every 7th episode",
+      "incorrect_answers": [
+        "By obtaining 70 Shines",
+        "By clearing every episode involving a \"Secret\"",
+        "By unlocking every nozzle F.L.U.D.D can use"
+      ],
+      "id": "aba461f23b54"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "In the PAYDAY series, where did Dallas start his criminal career?",
+      "correct_answer": "Chicago, Illinois",
+      "incorrect_answers": [
+        "Dallas, Texas",
+        "New York City, New York",
+        "Boston, Massachusetts"
+      ],
+      "id": "ae496ba4e4d5"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "Which souls game was not directed by Hidetaka Miyazaki?",
+      "correct_answer": "Dark Souls 2",
+      "incorrect_answers": [
+        "Demon Souls",
+        "Dark Souls",
+        "Dark Souls 3"
+      ],
+      "id": "1ff6b7f51500"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "What was the name of Sonic the Hedgehog's original human girlfriend?",
+      "correct_answer": "Madonna",
+      "incorrect_answers": [
+        "Celeste",
+        "Sierra",
+        "Nina"
+      ],
+      "id": "81272fff4dc2"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Entertainment: Video Games",
+      "question": "In the \"Devil May Cry\" franchise, which game is chronologically first?",
+      "correct_answer": "Devil May Cry 3: Dante's Awakening ",
+      "incorrect_answers": [
+        "Devil May Cry 4",
+        "Devil May Cry",
+        "Devil May Cry 2"
+      ],
+      "id": "09ca6d809dce"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "How many bones are in the human body?",
+      "correct_answer": "206",
+      "incorrect_answers": [
+        "203",
+        "209",
+        "200"
+      ],
+      "id": "ffd3792debf1"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What is the standard SI unit for mass?",
+      "correct_answer": "Kilogram",
+      "incorrect_answers": [
+        "Tonne",
+        "Pound",
+        "Gram"
+      ],
+      "id": "411a2c5bc8ed"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "71% of the Earth's surface is made up of",
+      "correct_answer": "Water",
+      "incorrect_answers": [
+        "Deserts",
+        "Continents",
+        "Forests"
+      ],
+      "id": "c0f5545bed8b"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "Who discovered the Law of Gravity?",
+      "correct_answer": "Sir Isaac Newton",
+      "incorrect_answers": [
+        "Galileo Galilei",
+        "Charles Darwin",
+        "Albert Einstein"
+      ],
+      "id": "98fd20dfe87f"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "Which of these Elements is a metalloid?",
+      "correct_answer": "Antimony",
+      "incorrect_answers": [
+        "Tin",
+        "Bromine",
+        "Rubidium"
+      ],
+      "id": "c1310887b89d"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "Which of the following is not one of the groups on the periodic table?",
+      "correct_answer": "Fluorines",
+      "incorrect_answers": [
+        "Alkali Metals",
+        "Halogens",
+        "Noble Gases"
+      ],
+      "id": "c8b2a1a97efa"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "Which of the following blood vessels carries deoxygenated blood?",
+      "correct_answer": "Pulmonary Artery",
+      "incorrect_answers": [
+        "Pulmonary Vein",
+        "Aorta",
+        "Coronary Artery"
+      ],
+      "id": "9d30a1e887e6"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What is the chemical makeup of water?",
+      "correct_answer": "H20",
+      "incorrect_answers": [
+        "C12H6O2",
+        "CO2",
+        "H"
+      ],
+      "id": "e852d510cfb8"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What is the official name of the star located closest to the North Celestial Pole?",
+      "correct_answer": "Polaris",
+      "incorrect_answers": [
+        "Eridanus",
+        "Gamma Cephei",
+        "Iota Cephei"
+      ],
+      "id": "a2f9ea57c80a"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "How many planets make up our Solar System?",
+      "correct_answer": "8",
+      "incorrect_answers": [
+        "7",
+        "9",
+        "6"
+      ],
+      "id": "0aef39c6dc75"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What organelle aids in synthesis of DNA in cells?",
+      "correct_answer": "Ribosomes",
+      "incorrect_answers": [
+        "Nuclei",
+        "Lysosomes",
+        "Mitochondria"
+      ],
+      "id": "c62cbd773326"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What produces the green colour of most plant leaves?",
+      "correct_answer": "Chlorophyll",
+      "incorrect_answers": [
+        "Light refraction",
+        "Natural pigments",
+        "UV radiation"
+      ],
+      "id": "79290f09e2d1"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "How many planets are there in the Solar System?",
+      "correct_answer": "8",
+      "incorrect_answers": [
+        "9",
+        "11",
+        "10"
+      ],
+      "id": "a3e3fc79d4eb"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "Human cells typically have how many copies of each gene?",
+      "correct_answer": "2",
+      "incorrect_answers": [
+        "1",
+        "4",
+        "3"
+      ],
+      "id": "31157b6632d5"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "This element, when overcome with extreme heat and pressure, creates diamonds.",
+      "correct_answer": "Carbon",
+      "incorrect_answers": [
+        "Nitrogen",
+        "Oxygen",
+        "Hydrogen"
+      ],
+      "id": "998bccffa91b"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What is the first element on the periodic table?",
+      "correct_answer": "Hydrogen",
+      "incorrect_answers": [
+        "Helium",
+        "Oxygen",
+        "Lithium"
+      ],
+      "id": "277caf041bcd"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What is the primary addictive substance found in tobacco?",
+      "correct_answer": "Nicotine",
+      "incorrect_answers": [
+        "Cathinone",
+        "Ephedrine",
+        "Glaucine"
+      ],
+      "id": "37a6527d2d6f"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "The element involved in making human blood red is which of the following?",
+      "correct_answer": "Iron",
+      "incorrect_answers": [
+        "Copper",
+        "Iridium",
+        "Cobalt"
+      ],
+      "id": "82fe898d3b5e"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What is the standard SI unit for distance?",
+      "correct_answer": "Metre",
+      "incorrect_answers": [
+        "Angstrom",
+        "Foot",
+        "Fathom"
+      ],
+      "id": "a7e165fa25a8"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "Which element has the chemical symbol 'Fe'?",
+      "correct_answer": "Iron",
+      "incorrect_answers": [
+        "Gold",
+        "Silver",
+        "Tin"
+      ],
+      "id": "db216e050e21"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "Which is the longest bone in the human body? ",
+      "correct_answer": "Femur",
+      "incorrect_answers": [
+        "Scapula",
+        "Fibula",
+        "Ulna"
+      ],
+      "id": "71cc7871a709"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "Rhinoplasty is a surgical procedure on what part of the human body?",
+      "correct_answer": "Nose",
+      "incorrect_answers": [
+        "Ears",
+        "Chin",
+        "Neck"
+      ],
+      "id": "9db281bff791"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What is the hottest planet in the Solar System?",
+      "correct_answer": "Venus",
+      "incorrect_answers": [
+        "Mars",
+        "Mercury",
+        "Jupiter"
+      ],
+      "id": "5493128cb9b2"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "The asteroid belt is located between which two planets?",
+      "correct_answer": "Mars and Jupiter",
+      "incorrect_answers": [
+        "Jupiter and Saturn",
+        "Mercury and Venus",
+        "Earth and Mars"
+      ],
+      "id": "8ceaed6eddfe"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What is the unit of electrical resistance?",
+      "correct_answer": "Ohm",
+      "incorrect_answers": [
+        "Mho",
+        "Tesla",
+        "Joule"
+      ],
+      "id": "5b87635e2038"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What is the largest animal currently on Earth?",
+      "correct_answer": "Blue Whale",
+      "incorrect_answers": [
+        "Orca",
+        "Colossal Squid",
+        "Giraffe"
+      ],
+      "id": "fc7a559df777"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "The medical term for the belly button is which of the following?",
+      "correct_answer": "Umbilicus",
+      "incorrect_answers": [
+        "Nevus",
+        "Nares",
+        "Paxillus"
+      ],
+      "id": "4f2d93f8e41f"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What animal takes part in Schrödinger's most famous thought experiment?",
+      "correct_answer": "Cat",
+      "incorrect_answers": [
+        "Dog",
+        "Bat",
+        "Butterfly"
+      ],
+      "id": "38850998f77c"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "Dry ice is the solid form of what substance?",
+      "correct_answer": "Carbon dioxide",
+      "incorrect_answers": [
+        "Nitrogen",
+        "Ammonia",
+        "Oxygen"
+      ],
+      "id": "03256690797f"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "Who is the chemical element Curium named after?",
+      "correct_answer": "Marie & Pierre Curie",
+      "incorrect_answers": [
+        "The Curiosity Rover",
+        "Curious George",
+        "Stephen Curry"
+      ],
+      "id": "77faa5fecc2d"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What does DNA stand for?",
+      "correct_answer": "Deoxyribonucleic Acid",
+      "incorrect_answers": [
+        "Deoxyribogenetic Acid",
+        "Deoxyribogenetic Atoms",
+        "Detoxic Acid"
+      ],
+      "id": "84e19a3b3402"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What was the name of the first artificial Earth satellite, launched by the Soviet Union in 1957?",
+      "correct_answer": "Sputnik 1",
+      "incorrect_answers": [
+        "Soyuz 7K-OK",
+        "Zenit-2",
+        "Voskhod 3KV"
+      ],
+      "id": "c600865144ef"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "How many laws of thermodynamics are there?",
+      "correct_answer": "Four",
+      "incorrect_answers": [
+        "Three",
+        "Two",
+        "Five"
+      ],
+      "id": "420ab457e874"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What does the letter 'S' stand for in 'NASA'?",
+      "correct_answer": "Space",
+      "incorrect_answers": [
+        "Science",
+        "Society",
+        "Star"
+      ],
+      "id": "ae21c3319fd4"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What is the standard SI unit for temperature?",
+      "correct_answer": "Kelvin",
+      "incorrect_answers": [
+        "Fahrenheit",
+        "Celsius",
+        "Rankine"
+      ],
+      "id": "0f5fb3e495e2"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "Which type of rock is created by intense heat AND pressure?",
+      "correct_answer": "Metamorphic",
+      "incorrect_answers": [
+        "Sedimentary",
+        "Igneous",
+        "Diamond"
+      ],
+      "id": "f71300a0add0"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What is the common name of the chemical compound \"dihydrogen monoxide\"?",
+      "correct_answer": "Water",
+      "incorrect_answers": [
+        "Methane",
+        "Ammonia ",
+        "Laughing Gas"
+      ],
+      "id": "c0e8997a8af4"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "Stars consist mainly of hydrogen and which other gas?",
+      "correct_answer": "Helium",
+      "incorrect_answers": [
+        "Oxygen",
+        "Argon",
+        "Nitrogen"
+      ],
+      "id": "b505482a039b"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What did Gregory Mendel use to test genetic crossovers?",
+      "correct_answer": "Peas",
+      "incorrect_answers": [
+        "Cats",
+        "Flowers",
+        "Parrots"
+      ],
+      "id": "ab131d0425f2"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "Which noble gas has the lowest atomic number?",
+      "correct_answer": "Helium",
+      "incorrect_answers": [
+        "Neon",
+        "Argon",
+        "Krypton"
+      ],
+      "id": "1943ea59d3f7"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "Which of the following bones is not in the leg?",
+      "correct_answer": "Radius",
+      "incorrect_answers": [
+        "Patella",
+        "Tibia",
+        "Fibula "
+      ],
+      "id": "1ab44669ef88"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What is the elemental symbol for mercury?",
+      "correct_answer": "Hg",
+      "incorrect_answers": [
+        "Me",
+        "Mc",
+        "Hy"
+      ],
+      "id": "57c36ed093f6"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What is the standard atomic weight of a Plutonium nucleus?",
+      "correct_answer": "244",
+      "incorrect_answers": [
+        "94",
+        "481",
+        "128"
+      ],
+      "id": "15cc78507e20"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What is the standard SI unit for time?",
+      "correct_answer": "Second",
+      "incorrect_answers": [
+        "Minute",
+        "Hour",
+        "Day"
+      ],
+      "id": "d76686a968f0"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What is the largest planet in the Solar System?",
+      "correct_answer": "Jupiter",
+      "incorrect_answers": [
+        "Saturn",
+        "Earth",
+        "Mars"
+      ],
+      "id": "36833410fb37"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What lies at the center of our galaxy?",
+      "correct_answer": "A black hole",
+      "incorrect_answers": [
+        "A wormhole",
+        "A supernova",
+        "A quasar"
+      ],
+      "id": "008b534ef08b"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What is the \"powerhouse\" of the Eukaryotic animal cell?",
+      "correct_answer": "Mitochondria",
+      "incorrect_answers": [
+        "Nucleus",
+        "Chloroplast",
+        "Endoplasmic Reticulum"
+      ],
+      "id": "332c9f833b61"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "What is the hottest planet in the solar system",
+      "correct_answer": "Venus",
+      "incorrect_answers": [
+        "Jupiter",
+        "Mercury ",
+        "Mars"
+      ],
+      "id": "a7631834f861"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "About what percentage of the Earth's surface is water? ",
+      "correct_answer": "70%",
+      "incorrect_answers": [
+        "30%",
+        "50%",
+        "90%"
+      ],
+      "id": "7799cbe12cd7"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science & Nature",
+      "question": "Which is the most abundant element in the universe?",
+      "correct_answer": "Hydrogen",
+      "incorrect_answers": [
+        "Helium",
+        "Lithium",
+        "Oxygen"
+      ],
+      "id": "c0e309d27d55"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "What is the unit of electrical capacitance?",
+      "correct_answer": "Farad",
+      "incorrect_answers": [
+        "Gauss",
+        "Henry",
+        "Watt"
+      ],
+      "id": "1885339488b0"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "Gannymede is the largest moon of which planet?",
+      "correct_answer": "Jupiter",
+      "incorrect_answers": [
+        "Uranus",
+        "Neptune",
+        "Mars"
+      ],
+      "id": "9a7f687b9eec"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "What is an alternative name for multiple personality disorder?",
+      "correct_answer": "Dissociative identity disorder",
+      "incorrect_answers": [
+        "Body integrity identity disorder",
+        "Identity crisis",
+        "Schizophrenia"
+      ],
+      "id": "78e6c849827f"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "After which Danish city is the 72th element on the periodic table named?",
+      "correct_answer": "Copenhagen",
+      "incorrect_answers": [
+        "Odense",
+        "Herning",
+        "Skagen"
+      ],
+      "id": "f29cf1a67c4a"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "Along with Oxygen, which element is primarily responsible for the sky appearing blue?",
+      "correct_answer": "Nitrogen",
+      "incorrect_answers": [
+        "Helium",
+        "Carbon",
+        "Hydrogen"
+      ],
+      "id": "6b2a2f52dc4a"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "How many officially recognized dwarf planets in the solar system are named after Polynesian deities?",
+      "correct_answer": "2",
+      "incorrect_answers": [
+        "0",
+        "1",
+        "5"
+      ],
+      "id": "b2efc96abce2"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "When was the first mammal successfully cloned?",
+      "correct_answer": "1996",
+      "incorrect_answers": [
+        "2009",
+        "1999",
+        "1985"
+      ],
+      "id": "f47bdde5790d"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "Which Swiss psychologist is synonymous with the concepts of introvert and extrovert personalities?",
+      "correct_answer": "Carl Jung",
+      "incorrect_answers": [
+        "Jean Piaget",
+        "Alice Miller",
+        "Hermann Rorschach"
+      ],
+      "id": "0337fd90040c"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "Which of the following is the male pollen-producing reproductive part of a flower?",
+      "correct_answer": "Stamen",
+      "incorrect_answers": [
+        "Sepal",
+        "Pistil",
+        "Petal"
+      ],
+      "id": "ac7b7fe8631a"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "All the following metal elements are liquids at or near room temperature EXCEPT:",
+      "correct_answer": "Beryllium",
+      "incorrect_answers": [
+        "Gallium",
+        "Caesium",
+        "Mercury"
+      ],
+      "id": "2ca12b1485da"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "Down Syndrome is usually caused by an extra copy of which chromosome?",
+      "correct_answer": "21",
+      "incorrect_answers": [
+        "23",
+        "15",
+        "24"
+      ],
+      "id": "f1c0a3a7f68d"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "Which of these two plates are best know for forming earthquakes and tsunami's? ",
+      "correct_answer": "Convergent Plate Boundaries/Oceanic Crust",
+      "incorrect_answers": [
+        "Divergent Plate Boundaries/Convergent/Oceanic Crust",
+        "Transform Plate Boundaries/Divergent Plate Boundaries",
+        "Oceanic & Continental Crust/Transform Plate Boundaries"
+      ],
+      "id": "ab09016e62ca"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "How many degrees Fahrenheit is 100 degrees Celsius? ",
+      "correct_answer": "212",
+      "incorrect_answers": [
+        "326",
+        "100",
+        "451"
+      ],
+      "id": "21725d4219a2"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "What is the lowest layer of the Earth's atmosphere named?",
+      "correct_answer": "Troposphere",
+      "incorrect_answers": [
+        "Stratosphere",
+        "Mesosphere",
+        "Thermosphere"
+      ],
+      "id": "6c6ebcc8bc98"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "When the Falcon Heavy was launched on it's test flight, what was the only part of the operation that failed?",
+      "correct_answer": "Center Core Landing",
+      "incorrect_answers": [
+        "Side Booster Landing",
+        "Deployment of Starman",
+        "Ignition and Liftoff"
+      ],
+      "id": "5ebda9f43ba6"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "What is the colour of unoxidized blood?",
+      "correct_answer": "Red",
+      "incorrect_answers": [
+        "Blue",
+        "Purple",
+        "Green"
+      ],
+      "id": "5fc557391f9a"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "Which psychological term refers to the stress of holding contrasting beliefs?",
+      "correct_answer": "Cognitive Dissonance",
+      "incorrect_answers": [
+        "Flip-Flop Syndrome",
+        "Split-Brain",
+        "Blind Sight"
+      ],
+      "id": "bf7cd226f5d4"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "What is the standard SI unit for electric current?",
+      "correct_answer": "Ampere",
+      "incorrect_answers": [
+        "Volt",
+        "Ohm",
+        "Watt"
+      ],
+      "id": "5c8fbdeae2ea"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "What do you study if you are studying entomology?",
+      "correct_answer": "Insects",
+      "incorrect_answers": [
+        "Humans",
+        "the Brain",
+        "Fish"
+      ],
+      "id": "877a1db5acce"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "Deuterium is an isotope of which element?",
+      "correct_answer": "Hydrogen",
+      "incorrect_answers": [
+        "Nitrogen",
+        "Helium",
+        "Neon"
+      ],
+      "id": "22fe0d0165a6"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "What are human nails made of?",
+      "correct_answer": "Keratin",
+      "incorrect_answers": [
+        "Bone",
+        "Chitin",
+        "Calcium"
+      ],
+      "id": "a4411b13e2d1"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "Which portion of the Marijuana plant produces the psychoactive substance known as THC?",
+      "correct_answer": "Female Flower",
+      "incorrect_answers": [
+        "Leaves",
+        "Male Flower",
+        "Root Ball"
+      ],
+      "id": "82a9fe65a762"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "Which planet in the Solar System is the closest to the Sun?",
+      "correct_answer": "Mercury",
+      "incorrect_answers": [
+        "Earth",
+        "Mars",
+        "Venus"
+      ],
+      "id": "dd760c4a321e"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "At what temperature does water boil?",
+      "correct_answer": "212°F",
+      "incorrect_answers": [
+        "200°F",
+        "181°F",
+        "178°F"
+      ],
+      "id": "57ae0f42c2d8"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "In Psychology, which need appears highest in the \"Maslow's hierarchy of needs\" pyramid?",
+      "correct_answer": "Esteem",
+      "incorrect_answers": [
+        "Love",
+        "Safety",
+        "Physiological"
+      ],
+      "id": "5c0096cd8666"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "The Sun consists of mostly which two elements?",
+      "correct_answer": "Hydrogen & Helium",
+      "incorrect_answers": [
+        "Hydrogen & Nitrogen",
+        "Carbon & Nitrogen",
+        "Carbon & Helium"
+      ],
+      "id": "b825e10faf76"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "Au on the Periodic Table refers to which element?",
+      "correct_answer": "Gold",
+      "incorrect_answers": [
+        "Silver",
+        "Oxygen",
+        "Nickel"
+      ],
+      "id": "94026c431953"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "The medical condition osteoporosis affects which part of the body?",
+      "correct_answer": "Bones",
+      "incorrect_answers": [
+        "Skin",
+        "Brain",
+        "Heart"
+      ],
+      "id": "8289e73f165f"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "What is the scientific term for 'taste'?",
+      "correct_answer": "Gustatory Perception",
+      "incorrect_answers": [
+        "Olfaction",
+        "Somatosensation",
+        "Auditory Perception"
+      ],
+      "id": "235178330fa8"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "What is the half-life of Uranium-235?",
+      "correct_answer": "703,800,000 years",
+      "incorrect_answers": [
+        "4,300,400,000 years",
+        "1,260,900,000 years",
+        "Uranium-235 is a stable isotope"
+      ],
+      "id": "91a9d6fcc011"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "What was the first living creature in space?",
+      "correct_answer": "Fruit Flies ",
+      "incorrect_answers": [
+        "Monkey",
+        "Dog",
+        "Mouse"
+      ],
+      "id": "500f39a74cb5"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "Which of these is NOT a part of the structure of a typical neuron?",
+      "correct_answer": "Islets of Langerhans",
+      "incorrect_answers": [
+        "Node of Ranvier",
+        "Schwann cell",
+        "Myelin sheath"
+      ],
+      "id": "5f934c627f1d"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "Myopia is the scientific term for which condition?",
+      "correct_answer": "Shortsightedness",
+      "incorrect_answers": [
+        "Farsightedness",
+        "Double Vision",
+        "Clouded Vision"
+      ],
+      "id": "f2a27a9d1c20"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "On which mission did the Space Shuttle Columbia break up upon re-entry?",
+      "correct_answer": "STS-107",
+      "incorrect_answers": [
+        "STS-51-L",
+        "STS-61-C",
+        "STS-109"
+      ],
+      "id": "c3382c89cfd0"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "What part of the brain takes its name from the Greek for seahorse?",
+      "correct_answer": "Hippocampus",
+      "incorrect_answers": [
+        "Cerebellum",
+        "Thalamus",
+        "Amygdala"
+      ],
+      "id": "694164ad02de"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "In Chemistry, how many isomers does Butanol (C4H9OH) have?",
+      "correct_answer": "4",
+      "incorrect_answers": [
+        "3",
+        "5",
+        "6"
+      ],
+      "id": "0dcaad3490cf"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "What is the study of the cells and tissues of plants and animals?",
+      "correct_answer": "Histology",
+      "incorrect_answers": [
+        "Microbiology",
+        "Anatomy",
+        "Biochemistry"
+      ],
+      "id": "0c198d966523"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "Which of these stars is the largest?",
+      "correct_answer": "UY Scuti",
+      "incorrect_answers": [
+        "VY Canis Majoris",
+        "Betelgeuse",
+        "RW Cephei"
+      ],
+      "id": "2ec27bddf2a8"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "What is the molecular formula of the active component of chili peppers(Capsaicin)?",
+      "correct_answer": "C18H27NO3",
+      "incorrect_answers": [
+        "C21H23NO3",
+        "C6H4Cl2",
+        "C13H25NO4"
+      ],
+      "id": "d7b9c8ae87fb"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "Which color cannot be produced in Roses, even through genetic alteration?",
+      "correct_answer": "Blue",
+      "incorrect_answers": [
+        "Black",
+        "Orange",
+        "Brown"
+      ],
+      "id": "3a4bd6ff5c59"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "What term is best associated with Sigmund Freud?",
+      "correct_answer": "Psychoanalysis",
+      "incorrect_answers": [
+        "Cognitive-Behavioral Therapy",
+        "Theory of Gravity",
+        "Dialectical Behavior Therapy"
+      ],
+      "id": "9634773122e8"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "Approximately what percentage of Earth's atmosphere is Oxygen?",
+      "correct_answer": "21%",
+      "incorrect_answers": [
+        "54%",
+        "78%",
+        "7%"
+      ],
+      "id": "068b806ba2e7"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "Approximately how long is a year on Uranus?",
+      "correct_answer": "84 Earth years",
+      "incorrect_answers": [
+        "47 Earth years",
+        "62 Earth years",
+        "109 Earth years"
+      ],
+      "id": "1ab8c6ab3041"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "Which desert is the only desert in the world where the \"Saguaro\" cactus grows indigenously?",
+      "correct_answer": "The Sonoran Desert",
+      "incorrect_answers": [
+        "The Gobi Desert",
+        "The Yuma Desert",
+        "The Arabian Desert"
+      ],
+      "id": "4823db7c712d"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "Where did the Great Storm of 1987 make landfall at, first?",
+      "correct_answer": "Cornwall",
+      "incorrect_answers": [
+        "Surrey",
+        "Wales",
+        "The Midlands"
+      ],
+      "id": "54bc4107035a"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "Which one of these scientists conducted the Gold Foil Experiment which concluded that atoms are mostly made of empty space?",
+      "correct_answer": "Ernest Rutherford",
+      "incorrect_answers": [
+        "Joseph John Thomson",
+        "Archimedes",
+        "Niels Henrik David Bohr"
+      ],
+      "id": "59fda4b19d03"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "What is the name of the cognitive bias wherein a person with low ability in a particular skill mistake themselves as being superior?",
+      "correct_answer": "Dunning-Kruger effect",
+      "incorrect_answers": [
+        "Meyers-Briggs effect",
+        "Müller-Lyer effect",
+        "Freud-Hall effect"
+      ],
+      "id": "e399c5151239"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "What is radiation measured in?",
+      "correct_answer": "Gray ",
+      "incorrect_answers": [
+        "Watt",
+        "Decibel",
+        "Kelvin"
+      ],
+      "id": "108cf78eb874"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "About how old is Earth?",
+      "correct_answer": "4.5 Billion Years",
+      "incorrect_answers": [
+        "3.5 Billion Years",
+        "2.5 Billion Years",
+        "5.5 Billion Years"
+      ],
+      "id": "a7b95cb1ca3a"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science & Nature",
+      "question": "What is the Linnean name of the domestic apple tree?",
+      "correct_answer": "Malus pumila",
+      "incorrect_answers": [
+        "Malus americana",
+        "Pomus domestica",
+        "Appelus delectica"
+      ],
+      "id": "0f09ea13ae0d"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Botanically speaking, which of these fruits is NOT a berry?",
+      "correct_answer": "Strawberry",
+      "incorrect_answers": [
+        "Blueberry",
+        "Banana",
+        "Concord Grape"
+      ],
+      "id": "c3223dd954c4"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "If you planted the seeds of Quercus robur what would grow?",
+      "correct_answer": "Trees",
+      "incorrect_answers": [
+        "Flowers",
+        "Vegtables",
+        "Grains"
+      ],
+      "id": "c7dc348f3bff"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "What causes the sound of a heartbeat?",
+      "correct_answer": "Closure of the heart valves",
+      "incorrect_answers": [
+        "Contraction of the heart chambers",
+        "Blood exiting the heart",
+        "Relaxation of the heart chambers"
+      ],
+      "id": "416da57ee339"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "What does the term \"isolation\" refer to in microbiology?",
+      "correct_answer": "The separation of a strain from a natural, mixed population of living microbes",
+      "incorrect_answers": [
+        "A lack of nutrition in microenviroments",
+        "The nitrogen level in soil",
+        "Testing effects of certain microorganisms in an isolated enviroments, such as caves"
+      ],
+      "id": "dd46616fae8a"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "What element on the periodic table has 92 electrons?",
+      "correct_answer": "Uranium",
+      "incorrect_answers": [
+        "Sulfur",
+        "Hydrogen",
+        "Iron"
+      ],
+      "id": "066e01599f1c"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Which of these animals belongs in class Chondrichthyes?",
+      "correct_answer": "Great white shark",
+      "incorrect_answers": [
+        "Octopus",
+        "Killer whale",
+        "Catfish"
+      ],
+      "id": "b0f965f19032"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Which of the following is considered classical conditioning?",
+      "correct_answer": "Pavlov's dog experiments",
+      "incorrect_answers": [
+        "Skinner box experiment",
+        "Schrödinger's cat experiment",
+        "Harlow’s monkey experiments"
+      ],
+      "id": "c10df0f430dd"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "\"The Big Bang Theory\" was first theorized by a priest of what religious ideology?",
+      "correct_answer": "Catholic",
+      "incorrect_answers": [
+        "Christian",
+        "Jewish",
+        "Islamic"
+      ],
+      "id": "3649f0e8dcc3"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "On the Beaufort Scale of wind force, what wind name is given to number 8?",
+      "correct_answer": "Gale",
+      "incorrect_answers": [
+        "Storm",
+        "Hurricane",
+        "Breeze"
+      ],
+      "id": "6e0eefc8f455"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Which of the following are cells of the adaptive immune system?",
+      "correct_answer": "Cytotoxic T cells",
+      "incorrect_answers": [
+        "Dendritic cells",
+        "Natural killer cells",
+        "White blood cells"
+      ],
+      "id": "2f57335ae22b"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "All of the following human genetic haplogroup names are shared between Y-chromosome and mitochondrial DNA haplogroups EXCEPT:",
+      "correct_answer": "Haplogroup U",
+      "incorrect_answers": [
+        "Haplogroup L",
+        "Haplogroup T",
+        "Haplogroup J"
+      ],
+      "id": "8a7d3f417383"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "What is the scientific name of the knee cap?",
+      "correct_answer": "Patella",
+      "incorrect_answers": [
+        "Femur",
+        "Foramen Magnum",
+        "Scapula"
+      ],
+      "id": "3d37908d319b"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Folic acid is the synthetic form of which vitamin?",
+      "correct_answer": "Vitamin B",
+      "incorrect_answers": [
+        "Vitamin A",
+        "Vitamin C",
+        "Vitamin D"
+      ],
+      "id": "39618e91a9c3"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "How much radiation does a banana emit?",
+      "correct_answer": "0.1 Microsievert",
+      "incorrect_answers": [
+        "0.3 Microsievert",
+        "0.5 Microsievert",
+        "0.7 Microsievert"
+      ],
+      "id": "0a135a6bbd92"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Autosomal-dominant Compelling Helio-Ophthalmic Outburst syndrome is the need to do what when seeing the Sun?",
+      "correct_answer": "Sneeze",
+      "incorrect_answers": [
+        "Cough",
+        "Yawn",
+        "Hiccup"
+      ],
+      "id": "26a18424727c"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Which one of these is scientific term for \"Brain Freeze\"?",
+      "correct_answer": "Sphenopalatine Ganglioneuralgia",
+      "incorrect_answers": [
+        "Hyacinthoides Italica",
+        "Amaranthus Retroflexus",
+        "Amblyomma Americanum"
+      ],
+      "id": "d0742b2f99e6"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Muscle fiber is constructed of bundles small long organelles called what?",
+      "correct_answer": "Myofibrils",
+      "incorrect_answers": [
+        "Epimysium",
+        "Myofiaments",
+        "Myocardium"
+      ],
+      "id": "d1820de30f55"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "What is the name for the auditory illusion of a note that seems to be rising infinitely?",
+      "correct_answer": "Shepard Tone",
+      "incorrect_answers": [
+        "Glissandro Illusion",
+        "Fransen Effect",
+        "McGurck Effect"
+      ],
+      "id": "028bf02c3859"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Where is the Gluteus Maximus muscle located?",
+      "correct_answer": "Butt",
+      "incorrect_answers": [
+        "Arm",
+        "Head",
+        "Torso"
+      ],
+      "id": "e40b5283e3ad"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Which of these chemical compounds is NOT found in gastric acid?",
+      "correct_answer": "Sulfuric acid",
+      "incorrect_answers": [
+        "Hydrochloric acid",
+        "Potassium chloride",
+        "Sodium chloride"
+      ],
+      "id": "76af5d36d433"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Which is the chemical name of H2O?",
+      "correct_answer": "Dihydrogen Monoxide",
+      "incorrect_answers": [
+        "Ammonium chloride",
+        "Anhydrous Sodium Carbonate",
+        "Manganese dioxide"
+      ],
+      "id": "18d9ac05d54f"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "In quantum physics, which of these theorised sub-atomic particles has yet to be observed?",
+      "correct_answer": "Graviton",
+      "incorrect_answers": [
+        "Z boson",
+        "Tau neutrino",
+        "Gluon"
+      ],
+      "id": "90bb9e2776eb"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "What is the molecular formula of Ozone?",
+      "correct_answer": "O3",
+      "incorrect_answers": [
+        "C6H2O6",
+        "N2O",
+        "SO4"
+      ],
+      "id": "79839f9d02f1"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "What is the standard SI unit for luminous intensity?",
+      "correct_answer": "Candela",
+      "incorrect_answers": [
+        "Lumen",
+        "Faraday",
+        "Coulomb"
+      ],
+      "id": "0b44458d7061"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "What does the scientific name of the Cambrian-Period sea creature Anomalocaris mean?",
+      "correct_answer": "Abnormal Shrimp",
+      "incorrect_answers": [
+        "Deformed Fish",
+        "Strange Crab",
+        "Anomalous Clam"
+      ],
+      "id": "0618c825ed3b"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Coulrophobia is the irrational fear of what?",
+      "correct_answer": "Clowns",
+      "incorrect_answers": [
+        "Cemeteries",
+        "Needles",
+        "Tunnels"
+      ],
+      "id": "00931db2b8cb"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "What physics principle relates the net electric flux out of a closed surface to the charge enclosed by that surface?",
+      "correct_answer": "Gauss's Law",
+      "incorrect_answers": [
+        "Faraday's Law",
+        "Ampere's Law",
+        "Biot-Savart Law"
+      ],
+      "id": "28eb27a21604"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Which of the following is NOT a real element?",
+      "correct_answer": "Vitrainium",
+      "incorrect_answers": [
+        "Praseodymium",
+        "Hassium",
+        "Lutetium"
+      ],
+      "id": "b50e4ca27b68"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Which of these is a stop codon in DNA?",
+      "correct_answer": "TAA",
+      "incorrect_answers": [
+        "ACT",
+        "ACA",
+        "GTA"
+      ],
+      "id": "86b56f97a4da"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "The word \"science\" stems from the word \"scire\" meaning what?",
+      "correct_answer": "To know",
+      "incorrect_answers": [
+        "To measure",
+        "To live",
+        "To count"
+      ],
+      "id": "d99cfbabea71"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Which constellation contains the center of the Milky Way?",
+      "correct_answer": "Sagittarius",
+      "incorrect_answers": [
+        "Scorpius",
+        "Ophiuchus",
+        "Capricornus"
+      ],
+      "id": "fff563aeef84"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "What is considered the rarest form of color blindness?",
+      "correct_answer": "Blue",
+      "incorrect_answers": [
+        "Red",
+        "Green",
+        "Purple"
+      ],
+      "id": "51f85c331bbd"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "What is the scientific name of the red fox?",
+      "correct_answer": "Vulpes Vulpes",
+      "incorrect_answers": [
+        "Vulpes Redus",
+        "Red Fox",
+        "Vulpes Vulpie"
+      ],
+      "id": "23dd28d1b760"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "What is the scientific name for the extinct hominin known as \"Lucy\"?",
+      "correct_answer": "Australopithecus Afarensis",
+      "incorrect_answers": [
+        "Australopithecus Africanus",
+        "Australopithecus Architeuthis",
+        "Australopithecus Antaris"
+      ],
+      "id": "3aa446387658"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Which is not a type of neuron?",
+      "correct_answer": "Perceptual Neuron",
+      "incorrect_answers": [
+        "Sensory Neuron",
+        "Motor Neuron",
+        "Interneuron"
+      ],
+      "id": "b60734ed9c53"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Burning which of these metals will produce a bright white flame?",
+      "correct_answer": "Magnesium",
+      "incorrect_answers": [
+        "Copper",
+        "Lithium",
+        "Lead"
+      ],
+      "id": "4efc2c2abdf1"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Which of the following liquids is least viscous? Assume temperature is 25°C.",
+      "correct_answer": "Acetone",
+      "incorrect_answers": [
+        "Water",
+        "Mercury",
+        "Benzene"
+      ],
+      "id": "1c1351f13efa"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Where in the human body is the Pineal Gland located?",
+      "correct_answer": "Brain",
+      "incorrect_answers": [
+        "Groin",
+        "Chest",
+        "Throat"
+      ],
+      "id": "d7a05790da11"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Which of the following is the term for \"surgical complications resulting from surgical sponges left inside the patient's body?",
+      "correct_answer": "Gossypiboma",
+      "incorrect_answers": [
+        "Gongoozler",
+        "Jentacular",
+        "Meupareunia"
+      ],
+      "id": "329cc76671de"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Which major extinction event was caused by an asteroid collision and eliminated the majority of non-avian dinosaurs?",
+      "correct_answer": "Cretaceous-Paleogene",
+      "incorrect_answers": [
+        "Triassic–Jurassic",
+        "Permian–Triassic",
+        "Ordovician–Silurian"
+      ],
+      "id": "052adb940e9c"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "What was the first organic compound to be synthesized from inorganic compounds?",
+      "correct_answer": "Urea",
+      "incorrect_answers": [
+        "Propane",
+        "Ethanol",
+        "Formaldehyde"
+      ],
+      "id": "78e4d99c9102"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "Which of the following is NOT a word used to describe an earthquake?",
+      "correct_answer": "Drop-slide",
+      "incorrect_answers": [
+        "Foreshock",
+        "Strike-slip",
+        "Temblor"
+      ],
+      "id": "bc0a06bee124"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "The core of the Sun can reach which temperature?",
+      "correct_answer": "27° Million F (15° Million C)",
+      "incorrect_answers": [
+        "938,000° F (521093.3° C)",
+        "8° Billion F (°4.4 Billion C)",
+        "Absolute Zero (Both F and C)"
+      ],
+      "id": "8e3af46c5c44"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "What is isobutylphenylpropanoic acid more commonly known as?",
+      "correct_answer": "Ibuprofen",
+      "incorrect_answers": [
+        "Morphine",
+        "Ketamine",
+        "Aspirin"
+      ],
+      "id": "b7422f3d13aa"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "How long is a light-year?",
+      "correct_answer": "9.461 Trillion Kilometres",
+      "incorrect_answers": [
+        "1 AU",
+        "105.40 Earth-years",
+        "501.2 Million Miles"
+      ],
+      "id": "654887e25539"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "What is the same in Celsius and Fahrenheit?",
+      "correct_answer": "-40",
+      "incorrect_answers": [
+        "32",
+        "-39",
+        "-42"
+      ],
+      "id": "c755764de7ce"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "The 'Islets of Langerhans' is found in which human organ?",
+      "correct_answer": "Pancreas",
+      "incorrect_answers": [
+        "Kidney",
+        "Liver",
+        "Brain"
+      ],
+      "id": "9b6082cf69af"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "What is \"Stenoma\"?",
+      "correct_answer": "A genus of moths",
+      "incorrect_answers": [
+        "A combat stimulant from WW2",
+        "A type of seasoning",
+        "A port city in the carribean"
+      ],
+      "id": "0442480ba043"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "What is the most potent toxin known?",
+      "correct_answer": "Botulinum toxin",
+      "incorrect_answers": [
+        "Ricin",
+        "Cyanide",
+        "Asbestos"
+      ],
+      "id": "1ea20d867f7d"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science & Nature",
+      "question": "What nucleotide pairs with guanine?",
+      "correct_answer": "Cytosine",
+      "incorrect_answers": [
+        "Thymine",
+        "Adenine",
+        "Uracil"
+      ],
+      "id": "9a5435608c3a"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "Which operating system was released first?",
+      "correct_answer": "Mac OS",
+      "incorrect_answers": [
+        "Windows",
+        "Linux",
+        "OS/2"
+      ],
+      "id": "52c9084b294d"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "The computer OEM manufacturer Clevo, known for its Sager notebook line, is based in which country?",
+      "correct_answer": "Taiwan",
+      "incorrect_answers": [
+        "United States",
+        "Germany",
+        "China (People's Republic of)"
+      ],
+      "id": "4272384d3728"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "What does the term MIME stand for, in regards to computing?",
+      "correct_answer": "Multipurpose Internet Mail Extensions",
+      "incorrect_answers": [
+        "Mail Internet Mail Exchange",
+        "Multipurpose Interleave Mail Exchange",
+        "Mail Interleave Method Exchange"
+      ],
+      "id": "0b5cd64db793"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "What is the name of the default theme that is installed with Windows XP?",
+      "correct_answer": "Luna",
+      "incorrect_answers": [
+        "Neptune",
+        "Whistler",
+        "Bliss"
+      ],
+      "id": "173101b05e7d"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "In the server hosting industry IaaS stands for...",
+      "correct_answer": "Infrastructure as a Service",
+      "incorrect_answers": [
+        "Internet as a Service",
+        "Internet and a Server",
+        "Infrastructure as a Server"
+      ],
+      "id": "558c24330bb1"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "Which of these programming languages is a low-level language?",
+      "correct_answer": "Assembly",
+      "incorrect_answers": [
+        "Python",
+        "C#",
+        "Pascal"
+      ],
+      "id": "ff0c59fee18a"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "Which of the following languages is used as a scripting language in the Unity 3D game engine?",
+      "correct_answer": "C#",
+      "incorrect_answers": [
+        "Java",
+        "C++",
+        "Objective-C"
+      ],
+      "id": "db0b9bca48d7"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "What does the term GPU stand for?",
+      "correct_answer": "Graphics Processing Unit",
+      "incorrect_answers": [
+        "Gaming Processor Unit",
+        "Graphite Producing Unit",
+        "Graphical Proprietary Unit"
+      ],
+      "id": "50ec37b0eb5b"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "Which of these is the name for the failed key escrow device introduced by the National Security Agency in 1993?",
+      "correct_answer": "Clipper Chip",
+      "incorrect_answers": [
+        "Enigma Machine",
+        "Skipjack",
+        "Nautilus"
+      ],
+      "id": "e05138a5bbaf"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "Whistler was the codename of this Microsoft Operating System.",
+      "correct_answer": "Windows XP",
+      "incorrect_answers": [
+        "Windows 2000",
+        "Windows 7",
+        "Windows 95"
+      ],
+      "id": "b2e77371831e"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "In CSS, which of these values CANNOT be used with the \"position\" property?",
+      "correct_answer": "center",
+      "incorrect_answers": [
+        "static",
+        "absolute",
+        "relative"
+      ],
+      "id": "0057e136147d"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "What does AD stand for in relation to Windows Operating Systems? ",
+      "correct_answer": "Active Directory",
+      "incorrect_answers": [
+        "Alternative Drive",
+        "Automated Database",
+        "Active Department"
+      ],
+      "id": "eca483811ecb"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "Nvidia's headquarters are based in which Silicon Valley city?",
+      "correct_answer": "Santa Clara",
+      "incorrect_answers": [
+        "Palo Alto",
+        "Cupertino",
+        "Mountain View"
+      ],
+      "id": "583bde70b002"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "What five letter word is the motto of the IBM Computer company?",
+      "correct_answer": "Think",
+      "incorrect_answers": [
+        "Click",
+        "Logic",
+        "Pixel"
+      ],
+      "id": "4f7df5aba8c4"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "In programming, what do you call functions with the same name but different implementations?",
+      "correct_answer": "Overloading",
+      "incorrect_answers": [
+        "Overriding",
+        "Abstracting",
+        "Inheriting"
+      ],
+      "id": "77cf87e31be7"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "What does RAID stand for?",
+      "correct_answer": "Redundant Array of Independent Disks",
+      "incorrect_answers": [
+        "Rapid Access for Indexed Devices",
+        "Range of Applications with Identical Designs",
+        "Randomized Abstract Identification Description"
+      ],
+      "id": "ae51484bebf0"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "How many cores does the Intel i7-6950X have?",
+      "correct_answer": "10",
+      "incorrect_answers": [
+        "12",
+        "8",
+        "4"
+      ],
+      "id": "04c3a3a4bd2e"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": ".at is the top-level domain for what country?",
+      "correct_answer": "Austria",
+      "incorrect_answers": [
+        "Argentina",
+        "Australia",
+        "Angola"
+      ],
+      "id": "a0ef98effac8"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": ".rs is the top-level domain for what country?",
+      "correct_answer": "Serbia",
+      "incorrect_answers": [
+        "Romania",
+        "Russia",
+        "Rwanda"
+      ],
+      "id": "adf057f52703"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "Which internet company began life as an online bookstore called 'Cadabra'?",
+      "correct_answer": "Amazon",
+      "incorrect_answers": [
+        "eBay",
+        "Overstock",
+        "Shopify"
+      ],
+      "id": "802d25ac61b1"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "The name of technology company HP stands for what?",
+      "correct_answer": "Hewlett-Packard",
+      "incorrect_answers": [
+        "Howard Packmann",
+        "Husker-Pollosk",
+        "Hellman-Pohl"
+      ],
+      "id": "513f51a2d375"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "In computing terms, typically what does CLI stand for?",
+      "correct_answer": "Command Line Interface",
+      "incorrect_answers": [
+        "Common Language Input",
+        "Control Line Interface",
+        "Common Language Interface"
+      ],
+      "id": "6b38a3b97dcd"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "In the programming language \"Python\", which of these statements would display the string \"Hello World\" correctly?",
+      "correct_answer": "print(\"Hello World\")",
+      "incorrect_answers": [
+        "console.log(\"Hello World\")",
+        "echo \"Hello World\"",
+        "printf(\"Hello World\")"
+      ],
+      "id": "13f97fce37eb"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "On which day did the World Wide Web go online?",
+      "correct_answer": "December 20, 1990",
+      "incorrect_answers": [
+        "December 17, 1996",
+        "November 12, 1990",
+        "November 24, 1995"
+      ],
+      "id": "508485fef0e8"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "What was the first Android version specifically optimized for tablets?",
+      "correct_answer": "Honeycomb",
+      "incorrect_answers": [
+        "Eclair",
+        "Froyo",
+        "Marshmellow"
+      ],
+      "id": "65f4c8b3e76a"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "What does the 'S' in the RSA encryption algorithm stand for?",
+      "correct_answer": "Shamir",
+      "incorrect_answers": [
+        "Secure",
+        "Schottky",
+        "Stable"
+      ],
+      "id": "6407de970a91"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "What is the number of keys on a standard Windows Keyboard?",
+      "correct_answer": "104",
+      "incorrect_answers": [
+        "64",
+        "94",
+        "76"
+      ],
+      "id": "64a24409a4be"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "Which of the following is a personal computer made by the Japanese company Fujitsu?",
+      "correct_answer": "FM-7",
+      "incorrect_answers": [
+        "PC-9801",
+        "Xmillennium ",
+        "MSX"
+      ],
+      "id": "f8c113d365c9"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "The teapot often seen in many 3D modeling applications is called what?",
+      "correct_answer": "Utah Teapot",
+      "incorrect_answers": [
+        "Pixar Teapot",
+        "3D Teapot",
+        "Tennessee Teapot"
+      ],
+      "id": "a6d18faefc78"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "What does \"LCD\" stand for?",
+      "correct_answer": "Liquid Crystal Display",
+      "incorrect_answers": [
+        "Language Control Design",
+        "Last Common Difference",
+        "Long Continuous Design"
+      ],
+      "id": "0a8f6e1cc8e1"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "How fast is USB 3.1 Gen 2 theoretically?",
+      "correct_answer": "10 Gb/s",
+      "incorrect_answers": [
+        "5 Gb/s",
+        "8 Gb/s",
+        "1 Gb/s"
+      ],
+      "id": "9077fbc8358b"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "Laserjet and inkjet printers are both examples of what type of printer?",
+      "correct_answer": "Non-impact printer",
+      "incorrect_answers": [
+        "Impact printer",
+        "Daisywheel printer",
+        "Dot matrix printer"
+      ],
+      "id": "3350c98435a5"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "When did the online streaming service \"Mixer\" launch?",
+      "correct_answer": "2016",
+      "incorrect_answers": [
+        "2013",
+        "2009",
+        "2011"
+      ],
+      "id": "91e94e989062"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "While Apple was formed in California, in which western state was Microsoft founded?",
+      "correct_answer": "New Mexico",
+      "incorrect_answers": [
+        "Washington",
+        "Colorado",
+        "Arizona"
+      ],
+      "id": "a32ed5ff85cd"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "Which one of these is not an official development name for a Ubuntu release?",
+      "correct_answer": "Mystic Mansion",
+      "incorrect_answers": [
+        "Trusty Tahr",
+        "Utopic Unicorn",
+        "Wily Werewolf"
+      ],
+      "id": "4618147f9aa7"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "What is known as \"the brain\" of the Computer?",
+      "correct_answer": "Central Processing Unit",
+      "incorrect_answers": [
+        "Motherboard",
+        "Graphics Processing Unit",
+        "Keyboard"
+      ],
+      "id": "94b8a1c6dcc3"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "In HTML, which non-standard tag used to be be used to make elements scroll across the viewport?",
+      "correct_answer": "<marquee></marquee>",
+      "incorrect_answers": [
+        "<scroll></scroll>",
+        "<move></move>",
+        "<slide></slide>"
+      ],
+      "id": "f4030f006f98"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "Approximately how many Apple I personal computers were created?",
+      "correct_answer": "200",
+      "incorrect_answers": [
+        "100",
+        "500",
+        "1000"
+      ],
+      "id": "8bbd3fe9f5a2"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "Generally, which component of a computer draws the most power?",
+      "correct_answer": "Video Card",
+      "incorrect_answers": [
+        "Hard Drive",
+        "Processor",
+        "Power Supply"
+      ],
+      "id": "6651f7ad93ae"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "How many bytes are in a single Kibibyte?",
+      "correct_answer": "1024",
+      "incorrect_answers": [
+        "2400",
+        "1000",
+        "1240"
+      ],
+      "id": "17594762df4e"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "What does the acronym CDN stand for in terms of networking?",
+      "correct_answer": "Content Delivery Network",
+      "incorrect_answers": [
+        "Content Distribution Network",
+        "Computational Data Network",
+        "Compressed Data Network"
+      ],
+      "id": "e33c5c7a1ba4"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "Which coding language was the #1 programming language in terms of usage on GitHub in 2015?",
+      "correct_answer": "JavaScript",
+      "incorrect_answers": [
+        "C#",
+        "Python",
+        "PHP"
+      ],
+      "id": "f9522960ebab"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "All of the following programs are classified as raster graphics editors EXCEPT:",
+      "correct_answer": "Inkscape",
+      "incorrect_answers": [
+        "Paint.NET",
+        "GIMP",
+        "Adobe Photoshop"
+      ],
+      "id": "169ea6dbcff4"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "Which programming language was developed by Sun Microsystems in 1995?",
+      "correct_answer": "Java",
+      "incorrect_answers": [
+        "Python",
+        "Solaris OS",
+        "C++"
+      ],
+      "id": "9803f3add96f"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "In programming, the ternary operator is mostly defined with what symbol(s)?",
+      "correct_answer": "?:",
+      "incorrect_answers": [
+        "??",
+        "if then",
+        "?"
+      ],
+      "id": "97c592680d14"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "Moore's law originally stated that the number of transistors on a microprocessor chip would double every...",
+      "correct_answer": "Year",
+      "incorrect_answers": [
+        "Four Years",
+        "Two Years",
+        "Eight Years"
+      ],
+      "id": "a052d05f717d"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "Which of these people was NOT a founder of Apple Inc?",
+      "correct_answer": "Jonathan Ive",
+      "incorrect_answers": [
+        "Steve Jobs",
+        "Ronald Wayne",
+        "Steve Wozniak"
+      ],
+      "id": "b5b979e9184d"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "What is the main CPU is the Sega Mega Drive / Sega Genesis?",
+      "correct_answer": "Motorola 68000",
+      "incorrect_answers": [
+        "Zilog Z80",
+        "Yamaha YM2612",
+        "Intel 8088"
+      ],
+      "id": "b3f639fd6970"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "What was the name given to Android 4.3?",
+      "correct_answer": "Jelly Bean",
+      "incorrect_answers": [
+        "Lollipop",
+        "Nutella",
+        "Froyo"
+      ],
+      "id": "1ec69df73da2"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science: Computers",
+      "question": "When was the programming language \"C#\" released?",
+      "correct_answer": "2000",
+      "incorrect_answers": [
+        "1998",
+        "1999",
+        "2001"
+      ],
+      "id": "2be6912fa58a"
+    }
+  ]
+}

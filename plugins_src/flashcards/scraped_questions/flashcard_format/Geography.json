@@ -1,0 +1,331 @@
+{
+  "category": "Geography",
+  "question_count": 25,
+  "questions": [
+    {
+      "id": "fb083640e5e1",
+      "question": "On which continent is the country of Angola located?",
+      "options": [
+        "Africa",
+        "Asia",
+        "Europe",
+        "South America"
+      ],
+      "answer": "Africa",
+      "difficulty": "medium",
+      "category": "Geography"
+    },
+    {
+      "id": "e6078f0f5674",
+      "question": "The Gambia is a nation found on which continent?",
+      "options": [
+        "Africa",
+        "Asia",
+        "Europe",
+        "South America"
+      ],
+      "answer": "Africa",
+      "difficulty": "medium",
+      "category": "Geography"
+    },
+    {
+      "id": "0e2e2565bd93",
+      "question": "In which English county is Stonehenge?",
+      "options": [
+        "Cumbria",
+        "Herefordshire",
+        "Somerset",
+        "Wiltshire"
+      ],
+      "answer": "Wiltshire",
+      "difficulty": "medium",
+      "category": "Geography"
+    },
+    {
+      "id": "1a793e4fe66d",
+      "question": "How many counties in the Republic of Ireland.",
+      "options": [
+        "26",
+        "28",
+        "30",
+        "32"
+      ],
+      "answer": "26",
+      "difficulty": "medium",
+      "category": "Geography"
+    },
+    {
+      "id": "3fb098f916f1",
+      "question": "How many countries border Kyrgyzstan?",
+      "options": [
+        "1",
+        "3",
+        "4",
+        "6"
+      ],
+      "answer": "4",
+      "difficulty": "hard",
+      "category": "Geography"
+    },
+    {
+      "id": "5b92f203380e",
+      "question": "What is the name of the Canadian national anthem?",
+      "options": [
+        "Leaf-Spangled Banner",
+        "March of the Puck Drop",
+        "O Canada",
+        "O Red Maple"
+      ],
+      "answer": "O Canada",
+      "difficulty": "hard",
+      "category": "Geography"
+    },
+    {
+      "id": "56b8cd2a7ec6",
+      "question": "What is the official German name of the Swiss Federal Railways?",
+      "options": [
+        "Bundesbahnen der Schweiz",
+        "Schweizerische Bundesbahnen",
+        "Schweizerische Nationalbahnen",
+        "Schweizerische Staatsbahnen"
+      ],
+      "answer": "Schweizerische Bundesbahnen",
+      "difficulty": "hard",
+      "category": "Geography"
+    },
+    {
+      "id": "94b381f17bb0",
+      "question": "What name was historically used for the Turkish city currently known as Istanbul?",
+      "options": [
+        "Adrianople",
+        "Constantinople",
+        "Hüdavendigar",
+        "Söğüt"
+      ],
+      "answer": "Constantinople",
+      "difficulty": "easy",
+      "category": "Geography"
+    },
+    {
+      "id": "05e948c2f059",
+      "question": "Which of these is NOT a real tectonic plate?",
+      "options": [
+        "Atlantic Plate",
+        "Eurasian Plate",
+        "Nazca Plate",
+        "North American Plate"
+      ],
+      "answer": "Atlantic Plate",
+      "difficulty": "hard",
+      "category": "Geography"
+    },
+    {
+      "id": "c6c911242081",
+      "question": "How many US states start with the letter K?",
+      "options": [
+        "None",
+        "One",
+        "Three",
+        "Two"
+      ],
+      "answer": "Two",
+      "difficulty": "easy",
+      "category": "Geography"
+    },
+    {
+      "id": "e909e5c1c16e",
+      "question": "What is the fifth largest country by area?",
+      "options": [
+        "Australia",
+        "Brazil",
+        "India",
+        "United States"
+      ],
+      "answer": "Brazil",
+      "difficulty": "medium",
+      "category": "Geography"
+    },
+    {
+      "id": "b4fdc4e304cd",
+      "question": "The Alps are a mountain range on which continent?",
+      "options": [
+        "Africa",
+        "Asia",
+        "Europe",
+        "North America"
+      ],
+      "answer": "Europe",
+      "difficulty": "easy",
+      "category": "Geography"
+    },
+    {
+      "id": "f49d4616fef3",
+      "question": "Which small country is located between the borders of France and Spain?",
+      "options": [
+        "Andorra",
+        "Lichtenstein",
+        "San Marino",
+        "Vatican City"
+      ],
+      "answer": "Andorra",
+      "difficulty": "easy",
+      "category": "Geography"
+    },
+    {
+      "id": "606771d56ef1",
+      "question": "Which of these countries is the smallest by population?",
+      "options": [
+        "Finland",
+        "Hong Kong",
+        "Norway",
+        "Slovakia"
+      ],
+      "answer": "Norway",
+      "difficulty": "medium",
+      "category": "Geography"
+    },
+    {
+      "id": "61d719e32f64",
+      "question": "What is the capital of Belarus?",
+      "options": [
+        "Kiev",
+        "Minsk",
+        "Vilnius",
+        "Warsaw"
+      ],
+      "answer": "Minsk",
+      "difficulty": "medium",
+      "category": "Geography"
+    },
+    {
+      "id": "7e9c7890cfb8",
+      "question": "Which city is the capital of the United States of America?",
+      "options": [
+        "Albany",
+        "Los Angeles",
+        "Seattle",
+        "Washington D.C"
+      ],
+      "answer": "Washington D.C",
+      "difficulty": "easy",
+      "category": "Geography"
+    },
+    {
+      "id": "bae637160248",
+      "question": "Lake Titicaca is located between which two nations?",
+      "options": [
+        "India and Bangladesh",
+        "Kenya and Uganda",
+        "Mexico and the United States",
+        "Peru and Bolivia"
+      ],
+      "answer": "Peru and Bolivia",
+      "difficulty": "medium",
+      "category": "Geography"
+    },
+    {
+      "id": "b6cab5089bb8",
+      "question": "How many timezones does Russia have?",
+      "options": [
+        "11",
+        "16",
+        "24",
+        "6"
+      ],
+      "answer": "11",
+      "difficulty": "medium",
+      "category": "Geography"
+    },
+    {
+      "id": "1f76d83e7d1d",
+      "question": "Which country was NOT formerly part of Yugoslavia?",
+      "options": [
+        "Albania",
+        "Croatia",
+        "Macedonia",
+        "Serbia"
+      ],
+      "answer": "Albania",
+      "difficulty": "hard",
+      "category": "Geography"
+    },
+    {
+      "id": "4c2e0fc70119",
+      "question": "Which is the largest freshwater lake in the world?",
+      "options": [
+        "Caspian Sea",
+        "Lake Huron",
+        "Lake Michigan",
+        "Lake Superior "
+      ],
+      "answer": "Lake Superior ",
+      "difficulty": "hard",
+      "category": "Geography"
+    },
+    {
+      "id": "7e89c49105cb",
+      "question": "What is Canada's largest island?",
+      "options": [
+        "Baffin Island",
+        "Newfoundland",
+        "Prince Edward Island",
+        "Vancouver Island"
+      ],
+      "answer": "Baffin Island",
+      "difficulty": "hard",
+      "category": "Geography"
+    },
+    {
+      "id": "eb0f16581bc6",
+      "question": "What is the smallest country in South America by area?",
+      "options": [
+        "Brazil",
+        "Chile",
+        "Suriname",
+        "Uruguay"
+      ],
+      "answer": "Suriname",
+      "difficulty": "medium",
+      "category": "Geography"
+    },
+    {
+      "id": "5cc640d3b25c",
+      "question": "In which country is the city of Rio de Janeiro?",
+      "options": [
+        "Brazil",
+        "Chile",
+        "Peru",
+        "Venezuela"
+      ],
+      "answer": "Brazil",
+      "difficulty": "easy",
+      "category": "Geography"
+    },
+    {
+      "id": "97e89d25af6d",
+      "question": "What is the Finnish word for \"Finland\"?",
+      "options": [
+        "Eesti",
+        "Magyarország",
+        "Suomi",
+        "Sverige"
+      ],
+      "answer": "Suomi",
+      "difficulty": "hard",
+      "category": "Geography"
+    },
+    {
+      "id": "b71ac285ba4d",
+      "question": "Which Russian oblast forms a border with Poland?",
+      "options": [
+        "Kaliningrad",
+        "Nizhny Novgorod",
+        "Omsk",
+        "Samara"
+      ],
+      "answer": "Kaliningrad",
+      "difficulty": "easy",
+      "category": "Geography"
+    }
+  ]
+}

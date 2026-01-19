@@ -1,0 +1,58 @@
+{
+  "category": "Entertainment: Board Games",
+  "question_count": 4,
+  "questions": [
+    {
+      "id": "8eedd1a72ce4",
+      "question": "In Magic: The Gathering, what was a tribute card to Jamie Wakefield's late wife Marilyn, who loved horses?",
+      "options": [
+        "Loyal Pegasus",
+        "Sungrace Pegasus",
+        "Timbermare",
+        "Vryn Wingmare"
+      ],
+      "answer": "Timbermare",
+      "difficulty": "hard",
+      "category": "Entertainment: Board Games"
+    },
+    {
+      "id": "93d8dfec547c",
+      "question": "The board game \"Monopoly\" is a variation of what board game?",
+      "options": [
+        "Property Feud",
+        "Territorial Dispute",
+        "The Landlord's Game",
+        "The Monopolist's Game"
+      ],
+      "answer": "The Landlord's Game",
+      "difficulty": "hard",
+      "category": "Entertainment: Board Games"
+    },
+    {
+      "id": "05b49e4e1227",
+      "question": "What was the development code name for the \"Weatherlight\" expansion for \"Magic: The Gathering\", released in 1997?",
+      "options": [
+        "Decaf",
+        "Frappuccino",
+        "Macchiato",
+        "Mocha Latte"
+      ],
+      "answer": "Mocha Latte",
+      "difficulty": "hard",
+      "category": "Entertainment: Board Games"
+    },
+    {
+      "id": "887556ff838f",
+      "question": "The Dice Tower network of board game podcasts and videos is run by which individual?",
+      "options": [
+        "Borth Sampson",
+        "Jason LeVine",
+        "Tom Vasel",
+        "Uncle Pennybags"
+      ],
+      "answer": "Tom Vasel",
+      "difficulty": "hard",
+      "category": "Entertainment: Board Games"
+    }
+  ]
+}

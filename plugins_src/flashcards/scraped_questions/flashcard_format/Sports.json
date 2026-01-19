@@ -1,0 +1,240 @@
+{
+  "category": "Sports",
+  "question_count": 18,
+  "questions": [
+    {
+      "id": "426bb6a9e786",
+      "question": "When was the FC Schalke 04 founded?",
+      "options": [
+        "1904",
+        "1909",
+        "1999",
+        "2008"
+      ],
+      "answer": "1904",
+      "difficulty": "easy",
+      "category": "Sports"
+    },
+    {
+      "id": "9103b6c848ee",
+      "question": "Which team was the 2014-2015 NBA Champions?",
+      "options": [
+        "Atlanta Hawks",
+        "Cleveland Cavaliers",
+        "Golden State Warriors",
+        "Houston Rockets"
+      ],
+      "answer": "Golden State Warriors",
+      "difficulty": "medium",
+      "category": "Sports"
+    },
+    {
+      "id": "e0cf5cce2f8c",
+      "question": "In baseball, how many fouls are an out?",
+      "options": [
+        "0",
+        "2",
+        "3",
+        "5"
+      ],
+      "answer": "0",
+      "difficulty": "easy",
+      "category": "Sports"
+    },
+    {
+      "id": "de7fc81f72cb",
+      "question": "The UEFA Champions League is an annual club football competition featuring clubs from which continent?",
+      "options": [
+        "Africa",
+        "Asia",
+        "Europe",
+        "South America"
+      ],
+      "answer": "Europe",
+      "difficulty": "easy",
+      "category": "Sports"
+    },
+    {
+      "id": "5c0632ae4145",
+      "question": "Which of the following player scored a hat-trick during their Manchester United debut?",
+      "options": [
+        "Cristiano Ronaldo",
+        "David Beckham",
+        "Robin Van Persie",
+        "Wayne Rooney"
+      ],
+      "answer": "Wayne Rooney",
+      "difficulty": "medium",
+      "category": "Sports"
+    },
+    {
+      "id": "527d16650f77",
+      "question": "What team did England beat in the semi-final stage to win in the 1966 World Cup final?",
+      "options": [
+        "Brazil",
+        "Portugal",
+        "Soviet Union",
+        "West Germany"
+      ],
+      "answer": "Portugal",
+      "difficulty": "hard",
+      "category": "Sports"
+    },
+    {
+      "id": "51637295d8a2",
+      "question": "The AHL affiliate team of the Boston Bruins is named what?",
+      "options": [
+        "Cambridge Bruins",
+        "Hartford Bruins",
+        "New Haven Bruins",
+        "Providence Bruins"
+      ],
+      "answer": "Providence Bruins",
+      "difficulty": "hard",
+      "category": "Sports"
+    },
+    {
+      "id": "4124e72a77f1",
+      "question": "Who scored the injury time winning goal in the 1999 UEFA Champions League final between Manchester United and Bayern Munich?",
+      "options": [
+        "Andy Cole",
+        "David Beckham",
+        "Dwight Yorke",
+        "Ole Gunnar Solskjær"
+      ],
+      "answer": "Ole Gunnar Solskjær",
+      "difficulty": "hard",
+      "category": "Sports"
+    },
+    {
+      "id": "22b51c4889cb",
+      "question": "What city did the Lakers represent before relocating to Los Angeles?",
+      "options": [
+        "Chicago",
+        "Minneapolis",
+        "Philadelphia",
+        "San Francisco"
+      ],
+      "answer": "Minneapolis",
+      "difficulty": "medium",
+      "category": "Sports"
+    },
+    {
+      "id": "3603356c5877",
+      "question": "Which car manufacturer won the 2016 24 Hours of Le Mans?",
+      "options": [
+        "Audi",
+        "Ferrari",
+        "Porsche",
+        "Toyota"
+      ],
+      "answer": "Porsche",
+      "difficulty": "medium",
+      "category": "Sports"
+    },
+    {
+      "id": "7f38d31200b0",
+      "question": "Who won the 2015 Formula 1 World Championship?",
+      "options": [
+        "Jenson Button",
+        "Lewis Hamilton",
+        "Nico Rosberg",
+        "Sebastian Vettel"
+      ],
+      "answer": "Lewis Hamilton",
+      "difficulty": "easy",
+      "category": "Sports"
+    },
+    {
+      "id": "f6139bd293fd",
+      "question": "Which year did Jenson Button won his first ever Formula One World Drivers' Championship?",
+      "options": [
+        "2006",
+        "2007",
+        "2009",
+        "2010"
+      ],
+      "answer": "2009",
+      "difficulty": "easy",
+      "category": "Sports"
+    },
+    {
+      "id": "a81d2c817990",
+      "question": "Which boxer was banned for taking a bite out of Evander Holyfield's ear in 1997?",
+      "options": [
+        "Evander Holyfield",
+        "Lennox Lewis",
+        "Mike Tyson",
+        "Roy Jones Jr."
+      ],
+      "answer": "Mike Tyson",
+      "difficulty": "easy",
+      "category": "Sports"
+    },
+    {
+      "id": "c3341232c6f0",
+      "question": "What is the name of the \"tool\" used to hit the white ball in snooker or billiards?",
+      "options": [
+        "Bat",
+        "Cue",
+        "Mallet",
+        "Racquet"
+      ],
+      "answer": "Cue",
+      "difficulty": "easy",
+      "category": "Sports"
+    },
+    {
+      "id": "58352544aac9",
+      "question": "How many players are there in an association football/soccer team?",
+      "options": [
+        "10",
+        "11",
+        "8",
+        "9"
+      ],
+      "answer": "11",
+      "difficulty": "easy",
+      "category": "Sports"
+    },
+    {
+      "id": "3a832fafffd0",
+      "question": "What team did England beat to win in the 1966 World Cup final?",
+      "options": [
+        "Brazil",
+        "Portugal",
+        "Soviet Union",
+        "West Germany"
+      ],
+      "answer": "West Germany",
+      "difficulty": "easy",
+      "category": "Sports"
+    },
+    {
+      "id": "cabce51a9c70",
+      "question": "Who did Steven Gerrard win the Champions League with?",
+      "options": [
+        "Chelsea",
+        "Liverpool",
+        "Man City",
+        "Real Madrid"
+      ],
+      "answer": "Liverpool",
+      "difficulty": "easy",
+      "category": "Sports"
+    },
+    {
+      "id": "090e44094ff8",
+      "question": "Which driver has been the Formula 1 world champion for a record 7 times?",
+      "options": [
+        "Ayrton Senna",
+        "Fernando Alonso",
+        "Jim Clark",
+        "Michael Schumacher"
+      ],
+      "answer": "Michael Schumacher",
+      "difficulty": "easy",
+      "category": "Sports"
+    }
+  ]
+}

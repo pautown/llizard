@@ -1,0 +1,31 @@
+# Build directories
+build/
+build-*/
+image-build-output/
+
+# Compiled plugins (source is in plugins_src/)
+plugins/*.so
+
+# External dependencies are managed as git submodules in external/
+# Root-level copies are duplicates (ignore them)
+raylib/
+raygui/
+
+# Supporting projects that live in separate repos
+supporting_projects/golang_ble_client/
+supporting_projects/mediadash-android/
+supporting_projects/llizardOS/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Claude Code
+.claude/

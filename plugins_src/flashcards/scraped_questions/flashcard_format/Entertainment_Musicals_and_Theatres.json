@@ -1,0 +1,45 @@
+{
+  "category": "Entertainment: Musicals & Theatres",
+  "question_count": 3,
+  "questions": [
+    {
+      "id": "4c3a3e897d8b",
+      "question": "Who wrote the award winning musical \"In The Heights\"?",
+      "options": [
+        "Francis Scott Key",
+        "John Phillips Sousa",
+        "Lin-Manuel Miranda",
+        "Steven Sondheim"
+      ],
+      "answer": "Lin-Manuel Miranda",
+      "difficulty": "easy",
+      "category": "Entertainment: Musicals & Theatres"
+    },
+    {
+      "id": "49ceb7a7eeb4",
+      "question": "The Andrew Lloyd Webber musical \"Cats\" is based off a book of poems written by which author?",
+      "options": [
+        "Andrew Lloyd Webber",
+        "Emily Dickenson",
+        "Robert Frost",
+        "T.S. Elliot"
+      ],
+      "answer": "T.S. Elliot",
+      "difficulty": "medium",
+      "category": "Entertainment: Musicals & Theatres"
+    },
+    {
+      "id": "3dd3e3863cf7",
+      "question": "Which Shakespeare play features the stage direction \"Enter a messenger, with two heads and a hand\"?",
+      "options": [
+        "King Lear",
+        "Macbeth",
+        "Othello",
+        "Titus Andronicus"
+      ],
+      "answer": "Titus Andronicus",
+      "difficulty": "hard",
+      "category": "Entertainment: Musicals & Theatres"
+    }
+  ]
+}

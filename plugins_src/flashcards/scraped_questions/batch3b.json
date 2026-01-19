@@ -1,0 +1,663 @@
+{
+  "total_questions": 50,
+  "categories": [
+    "Sports",
+    "Geography",
+    "History",
+    "Politics",
+    "Art",
+    "Celebrities"
+  ],
+  "questions": [
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "What was William Frederick Cody better known as?",
+      "correct_answer": "Buffalo Bill",
+      "incorrect_answers": [
+        "Billy the Kid",
+        "Wild Bill Hickok",
+        "Pawnee Bill"
+      ],
+      "id": "e7a2f0963949"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "Who was the Prime Minister of Japan when Japan declared war on the US?",
+      "correct_answer": "Hideki Tojo",
+      "incorrect_answers": [
+        "Michinomiya Hirohito",
+        "Isoroku Yamamoto",
+        "Fumimaro Konoe"
+      ],
+      "id": "afb5e6b729ce"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "In which country was the Statue of Liberty built and exported to the United States of America?",
+      "correct_answer": "France",
+      "incorrect_answers": [
+        "Germany",
+        "Spain",
+        "England"
+      ],
+      "id": "65c9807f3add"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "Which country was Josef Stalin born in?",
+      "correct_answer": "Georgia",
+      "incorrect_answers": [
+        "Russia",
+        "Germany",
+        "Poland"
+      ],
+      "id": "e2bd0bde5506"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "Which one of these countries was NOT in the Central Powers during WWI?",
+      "correct_answer": "Spain",
+      "incorrect_answers": [
+        "Austria-Hungary",
+        "Turkey",
+        "Germany"
+      ],
+      "id": "06f25ca1198f"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "In which war did the atomic bombings of Hiroshima and Nagasaki occur?",
+      "correct_answer": "World War II",
+      "incorrect_answers": [
+        "World War I",
+        "Russo-Japanese War",
+        "First Sino-Japanese War"
+      ],
+      "id": "0139ba559f07"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "King Henry VIII was the second monarch of which European royal house?",
+      "correct_answer": "Tudor",
+      "incorrect_answers": [
+        "York",
+        "Stuart",
+        "Lancaster"
+      ],
+      "id": "559aad1a3497"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "What was the first sport to have been played on the moon?",
+      "correct_answer": "Golf",
+      "incorrect_answers": [
+        "Football",
+        "Tennis",
+        "Soccer"
+      ],
+      "id": "bd94c4ff704f"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "Which modern day country is the region that was known as Phrygia in ancient times?",
+      "correct_answer": "Turkey",
+      "incorrect_answers": [
+        "Syria",
+        "Greece",
+        "Egypt"
+      ],
+      "id": "93b121ea157e"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "Who led the Communist Revolution of Russia?",
+      "correct_answer": "Vladimir Lenin",
+      "incorrect_answers": [
+        "Joseph Stalin",
+        "Vladimir Putin",
+        "Mikhail Gorbachev"
+      ],
+      "id": "b0dd4f1100bc"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "What country joined the EU in 2013?",
+      "correct_answer": "Croatia",
+      "incorrect_answers": [
+        "Bulgaria",
+        "Slovenia",
+        "Turkey"
+      ],
+      "id": "1bbf37e834f8"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "Who was the first American in space?",
+      "correct_answer": "Alan Shephard",
+      "incorrect_answers": [
+        "Neil Armstrong",
+        "John Glenn",
+        "Jim Lovell"
+      ],
+      "id": "f5269652b730"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "What is the historical name of Sri Lanka?",
+      "correct_answer": "Ceylon",
+      "incorrect_answers": [
+        "Myanmar",
+        "Colombo",
+        "Badulla"
+      ],
+      "id": "e9d78fe1a090"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "How many manned moon landings have there been?",
+      "correct_answer": "6",
+      "incorrect_answers": [
+        "1",
+        "3",
+        "7"
+      ],
+      "id": "afaa7984373d"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "When did the Battle of the Somme begin?",
+      "correct_answer": "July 1st, 1916",
+      "incorrect_answers": [
+        "August 1st, 1916",
+        "July 2nd, 1916",
+        "June 30th, 1916"
+      ],
+      "id": "26fd3016f678"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "A collection of Sanskrit hymns and verses known as the Vedas are sacred texts in what religion?",
+      "correct_answer": "Hinduism",
+      "incorrect_answers": [
+        "Judaism",
+        "Islam",
+        "Buddhism"
+      ],
+      "id": "3a7bdfbfebfa"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "The idea of Socialism was articulated and advanced by whom?",
+      "correct_answer": "Karl Marx",
+      "incorrect_answers": [
+        "Vladimir Lenin",
+        "Joseph Stalin",
+        "Vladimir Putin"
+      ],
+      "id": "f159f86d0a05"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "How was Socrates executed?",
+      "correct_answer": "Poison",
+      "incorrect_answers": [
+        "Decapitation",
+        "Firing squad",
+        "Crucifixion "
+      ],
+      "id": "66ffad500666"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "The \"Trail of Tears\" was a result of which United States President's Indian Removal Policy?",
+      "correct_answer": "Andrew Jackson",
+      "incorrect_answers": [
+        "Harry S. Truman",
+        "Martin Van Buren",
+        "John Quincy Adams"
+      ],
+      "id": "56938742947c"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "In what year was the M1911 pistol designed?",
+      "correct_answer": "1911",
+      "incorrect_answers": [
+        "1907",
+        "1899",
+        "1917"
+      ],
+      "id": "5ed76ad80ee2"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "The RMS Titanic sunk during her maiden voyage from Southampton, England to which American city?",
+      "correct_answer": "New York City",
+      "incorrect_answers": [
+        "Boston ",
+        "Philadelphia",
+        "Washington"
+      ],
+      "id": "bc8d0e57148f"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "In which year did the Invasion of Kuwait by Iraq occur?",
+      "correct_answer": "1990",
+      "incorrect_answers": [
+        "1992",
+        "1988",
+        "1986"
+      ],
+      "id": "dc15494d591e"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "In what year did the nuclear power plant in Chernobyl melt down?",
+      "correct_answer": "1986",
+      "incorrect_answers": [
+        "1991",
+        "1975",
+        "1998"
+      ],
+      "id": "c7e48dd1475b"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "In 1720, England was in massive debt and became involved in the South Sea Bubble. Who was the main mastermind behind it?",
+      "correct_answer": "John Blunt",
+      "incorrect_answers": [
+        "Daniel Defoe",
+        "Robert Harley",
+        "John Churchill"
+      ],
+      "id": "beaf79a887b6"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "How old was Adolf Hitler when he died?",
+      "correct_answer": "56",
+      "incorrect_answers": [
+        "43",
+        "65",
+        "47"
+      ],
+      "id": "d205fd3f74b4"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "In 1939, Britain and France declared war on Germany after it invaded which country?",
+      "correct_answer": "Poland",
+      "incorrect_answers": [
+        "Czechoslovakia",
+        "Austria",
+        "Hungary"
+      ],
+      "id": "35587b03e686"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "Who was the first president of the United States?",
+      "correct_answer": "George Washington",
+      "incorrect_answers": [
+        "James Madison",
+        "Thomas Jefferson",
+        "James K. Polk"
+      ],
+      "id": "374e89d824fb"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "Which game was the Game of the Year in 2018?",
+      "correct_answer": "God of War",
+      "incorrect_answers": [
+        "Detroit: Become Human",
+        "Red Dead Redemption 2",
+        "A Way Out"
+      ],
+      "id": "e9a98b0ccb90"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "In 1453, which important city fell?",
+      "correct_answer": "Constantinople",
+      "incorrect_answers": [
+        "Rome",
+        "Hamburg",
+        "Athens"
+      ],
+      "id": "32caab2001d7"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "What year did World War I begin?",
+      "correct_answer": "1914",
+      "incorrect_answers": [
+        "1905",
+        "1919",
+        "1925"
+      ],
+      "id": "48a3324dd78d"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "Which one of these was not a beach landing site in the Invasion of Normandy?",
+      "correct_answer": "Silver",
+      "incorrect_answers": [
+        "Gold",
+        "Juno",
+        "Sword"
+      ],
+      "id": "d4788788cd12"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "What does the United States of America celebrate during the 4th of July?",
+      "correct_answer": "The signing of the Declaration of Independence",
+      "incorrect_answers": [
+        "The anniversary of the Battle of Gettysburg",
+        "The crossing of the Delaware River",
+        "The ratification of the Constitution"
+      ],
+      "id": "d16a3554041a"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "During WWII, in 1945, the United States dropped atomic bombs on the two Japanese cities of Hiroshima and what other city?",
+      "correct_answer": "Nagasaki",
+      "incorrect_answers": [
+        "Kawasaki",
+        "Tokyo",
+        "Kagoshima"
+      ],
+      "id": "9a3139bc5ea3"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "How long did World War II last?",
+      "correct_answer": "6 years",
+      "incorrect_answers": [
+        "4 years",
+        "5 years",
+        "7 years"
+      ],
+      "id": "365c55e5a3ec"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "Who was among those killed in the 2010 Smolensk, Russia plane crash tragedy?",
+      "correct_answer": "The Polish President",
+      "incorrect_answers": [
+        "Pope John Paul II",
+        "Bang-Ding Ow",
+        "Albert Putin"
+      ],
+      "id": "f9406b31449c"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "What was Manfred von Richthofen's nickname?",
+      "correct_answer": "The Red Baron",
+      "incorrect_answers": [
+        "The High Flying Ace",
+        "The Blue Serpent ",
+        "The Germany Gunner"
+      ],
+      "id": "dec15dcd2ab2"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "Which of the following countries was not an axis power during World War II?",
+      "correct_answer": " Soviet Union",
+      "incorrect_answers": [
+        "Italy",
+        "Germany",
+        "Japan"
+      ],
+      "id": "f59925486705"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "Which famous world leader is famed for the saying, \"Let them eat cake\", yet is rumored that he/she never said it at all?",
+      "correct_answer": "Marie Antoinette",
+      "incorrect_answers": [
+        "Czar Nicholas II",
+        "Elizabeth I",
+        "Henry VIII"
+      ],
+      "id": "8d305373f17b"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "What was the name commonly given to the ancient trade routes that connected the East and West of Eurasia?",
+      "correct_answer": "Silk Road",
+      "incorrect_answers": [
+        "Spice Road",
+        "Clay Road",
+        "Salt Road"
+      ],
+      "id": "7b246a9fcc30"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "On what street did the 1666 Great Fire of London start?",
+      "correct_answer": "Pudding Lane",
+      "incorrect_answers": [
+        "Baker Street",
+        "Houses of Parliament",
+        "St Paul's Cathedral"
+      ],
+      "id": "83e5d017c28b"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "When was Google founded?",
+      "correct_answer": "September 4, 1998",
+      "incorrect_answers": [
+        "October 9, 1997",
+        "December 12, 1989",
+        "Feburary 7th, 2000"
+      ],
+      "id": "3955fb1cb603"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "Which of the following African countries was most successful in resisting colonization?",
+      "correct_answer": "Ethiopia",
+      "incorrect_answers": [
+        "Côte d’Ivoire",
+        "Congo",
+        "Namibia"
+      ],
+      "id": "cb7e1acef22e"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "Which modern country is known as \"The Graveyard of Empires\"?",
+      "correct_answer": "Afghanistan",
+      "incorrect_answers": [
+        "China",
+        "Iraq",
+        "Russia"
+      ],
+      "id": "0be160d63e39"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "To what political party did Abraham Lincoln belong when elected POTUS?",
+      "correct_answer": "Republican",
+      "incorrect_answers": [
+        "Democrat",
+        "Independent",
+        "Whig"
+      ],
+      "id": "57462aa62ccb"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "Which one of these tanks was designed and operated by the United Kingdom?",
+      "correct_answer": "Tog II",
+      "incorrect_answers": [
+        "M4 Sherman",
+        "Tiger H1",
+        "T-34"
+      ],
+      "id": "a8c23f1baea2"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "These two countries held a commonwealth from the 16th to 18th century.",
+      "correct_answer": "Poland and Lithuania",
+      "incorrect_answers": [
+        "Hutu and Rwanda",
+        "North Korea and South Korea",
+        "Bangladesh and Bhutan"
+      ],
+      "id": "7bd41c71dd7b"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "Who discovered Penicillin?",
+      "correct_answer": "Alexander Flemming",
+      "incorrect_answers": [
+        "Marie Curie",
+        "Alfred Nobel",
+        "Louis Pasteur"
+      ],
+      "id": "e4945285c935"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "Which of the following ancient peoples was NOT classified as Hellenic (Greek)?",
+      "correct_answer": "Illyrians",
+      "incorrect_answers": [
+        "Dorians",
+        "Achaeans",
+        "Ionians"
+      ],
+      "id": "4fcec9cfa82c"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "Which German field marshal was known as the `Desert Fox`?",
+      "correct_answer": "Erwin Rommel",
+      "incorrect_answers": [
+        "Ernst Busch",
+        "Wolfram Freiherr von Richthofen",
+        "Wilhelm List"
+      ],
+      "id": "8f777dfa60d8"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "History",
+      "question": "Who was the first prime minister of Canada?",
+      "correct_answer": "John Macdonald",
+      "incorrect_answers": [
+        "John Abbott",
+        "Alexander Mackenzie",
+        "Robert Borden"
+      ],
+      "id": "4fc04c483a97"
+    }
+  ]
+}

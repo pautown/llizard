@@ -1,0 +1,149 @@
+{
+  "category": "Entertainment: Books",
+  "question_count": 11,
+  "questions": [
+    {
+      "id": "6a4d873197c4",
+      "question": "George Orwell wrote this book, which is often considered a statement on government oversight.",
+      "options": [
+        "1984",
+        "Catcher and the Rye",
+        "The Old Man and the Sea",
+        "To Kill a Mockingbird"
+      ],
+      "answer": "1984",
+      "difficulty": "easy",
+      "category": "Entertainment: Books"
+    },
+    {
+      "id": "b430f6641d05",
+      "question": "According to The Hitchhiker's Guide to the Galaxy book, the answer to life, the universe and everything else is...",
+      "options": [
+        "42",
+        "Chocolate",
+        "Death",
+        "Loving everyone around you"
+      ],
+      "answer": "42",
+      "difficulty": "medium",
+      "category": "Entertainment: Books"
+    },
+    {
+      "id": "8c4d34c0a0bf",
+      "question": "What is the name of the three headed dog in Harry Potter and the Sorcerer's Stone?",
+      "options": [
+        "Fluffy",
+        "Poofy",
+        "Spike",
+        "Spot"
+      ],
+      "answer": "Fluffy",
+      "difficulty": "easy",
+      "category": "Entertainment: Books"
+    },
+    {
+      "id": "9d381a06b5d8",
+      "question": "In which classic novel is there a character named Homer Simpson?",
+      "options": [
+        "A Separate Peace",
+        "Catch-22",
+        "Of Mice and Men",
+        "The Day of the Locust"
+      ],
+      "answer": "The Day of the Locust",
+      "difficulty": "hard",
+      "category": "Entertainment: Books"
+    },
+    {
+      "id": "fbddd24ee6ca",
+      "question": "In \"The Lord of the Rings,\" who is the owner of Asfaloth, the horse which brings Frodo to Rivendell?",
+      "options": [
+        "Aragorn",
+        "Arwen",
+        "Glorfindel",
+        "Haldir"
+      ],
+      "answer": "Glorfindel",
+      "difficulty": "medium",
+      "category": "Entertainment: Books"
+    },
+    {
+      "id": "cf7bfb177571",
+      "question": "J.K. Rowling completed \"Harry Potter and the Deathly Hallows\" in which hotel in Edinburgh, Scotland?",
+      "options": [
+        "Hotel Novotel",
+        "Sheraton Grand Hotel & Spa",
+        "The Balmoral",
+        "The Dunstane Hotel"
+      ],
+      "answer": "The Balmoral",
+      "difficulty": "medium",
+      "category": "Entertainment: Books"
+    },
+    {
+      "id": "97a3c0e8041a",
+      "question": "In the \"Harry Potter\" series, what is Headmaster Dumbledore's full name?",
+      "options": [
+        "Albus James Lunae Otto Dumbledore",
+        "Albus Percival Wulfric Brian Dumbledore",
+        "Albus Valencium Horatio Kul Dumbledore",
+        "Albus Valum Jetta Mobius Dumbledore"
+      ],
+      "answer": "Albus Percival Wulfric Brian Dumbledore",
+      "difficulty": "hard",
+      "category": "Entertainment: Books"
+    },
+    {
+      "id": "82f5ae21054f",
+      "question": "What was the pen name of novelist, Mary Ann Evans?",
+      "options": [
+        "George Bernard Shaw",
+        "George Eliot",
+        "George Orwell",
+        "George Saunders"
+      ],
+      "answer": "George Eliot",
+      "difficulty": "medium",
+      "category": "Entertainment: Books"
+    },
+    {
+      "id": "145acb480666",
+      "question": "Who was the original author of Frankenstein?",
+      "options": [
+        "Bram Stoker",
+        "Edgar Allan Poe",
+        "H. P. Lovecraft",
+        "Mary Shelley"
+      ],
+      "answer": "Mary Shelley",
+      "difficulty": "easy",
+      "category": "Entertainment: Books"
+    },
+    {
+      "id": "a9f7ef637088",
+      "question": "What is the name of the protagonist of J.D. Salinger's novel Catcher in the Rye?",
+      "options": [
+        "Fletcher Christian",
+        "Holden Caulfield",
+        "Jay Gatsby",
+        "Randall Flagg"
+      ],
+      "answer": "Holden Caulfield",
+      "difficulty": "easy",
+      "category": "Entertainment: Books"
+    },
+    {
+      "id": "9c178dda421c",
+      "question": "In Margaret Atwood's \"The Handmaid's Tale\", what is Offred's real name is implied to be?",
+      "options": [
+        "April",
+        "August",
+        "June",
+        "May"
+      ],
+      "answer": "June",
+      "difficulty": "hard",
+      "category": "Entertainment: Books"
+    }
+  ]
+}

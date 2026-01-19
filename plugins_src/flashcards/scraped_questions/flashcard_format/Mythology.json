@@ -1,0 +1,58 @@
+{
+  "category": "Mythology",
+  "question_count": 4,
+  "questions": [
+    {
+      "id": "4851d4692bfb",
+      "question": "Who is the god of war in Polynesian mythology?",
+      "options": [
+        "'Oro",
+        "Hina",
+        "Kohara",
+        "Māui"
+      ],
+      "answer": "'Oro",
+      "difficulty": "medium",
+      "category": "Mythology"
+    },
+    {
+      "id": "8594bd8fbc5b",
+      "question": "Neptune's greek name was...",
+      "options": [
+        "Apollo",
+        "Ares",
+        "Poseidon",
+        "Zeus"
+      ],
+      "answer": "Poseidon",
+      "difficulty": "medium",
+      "category": "Mythology"
+    },
+    {
+      "id": "9d2b5786d181",
+      "question": "What animal did Queen Pasipahe sleep with before she gave birth to the Minotaur in Greek Mythology?",
+      "options": [
+        "Bull",
+        "Horse",
+        "Ox",
+        "Pig"
+      ],
+      "answer": "Bull",
+      "difficulty": "medium",
+      "category": "Mythology"
+    },
+    {
+      "id": "2ee6d32d4e6e",
+      "question": "The ancient Roman god of war was commonly known as which of the following?",
+      "options": [
+        "Ares",
+        "Juno",
+        "Jupiter",
+        "Mars"
+      ],
+      "answer": "Mars",
+      "difficulty": "easy",
+      "category": "Mythology"
+    }
+  ]
+}

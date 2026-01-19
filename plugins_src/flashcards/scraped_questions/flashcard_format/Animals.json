@@ -1,0 +1,84 @@
+{
+  "category": "Animals",
+  "question_count": 6,
+  "questions": [
+    {
+      "id": "2e3849dea514",
+      "question": "What is the scientific name of the Common Chimpanzee?",
+      "options": [
+        "Gorilla gorilla",
+        "Pan paniscus",
+        "Pan troglodytes",
+        "Panthera leo"
+      ],
+      "answer": "Pan troglodytes",
+      "difficulty": "medium",
+      "category": "Animals"
+    },
+    {
+      "id": "899abf358fdc",
+      "question": "What are the scales on all snakes and most lizards are made of?",
+      "options": [
+        "Ankyloglossia",
+        "Ecdysis",
+        "Epidermis",
+        "Keratin"
+      ],
+      "answer": "Keratin",
+      "difficulty": "medium",
+      "category": "Animals"
+    },
+    {
+      "id": "7f2c1524a65f",
+      "question": "Which of these animals is NOT a lizard?",
+      "options": [
+        "Gila Monster",
+        "Green Iguana",
+        "Komodo Dragon",
+        "Tuatara"
+      ],
+      "answer": "Tuatara",
+      "difficulty": "hard",
+      "category": "Animals"
+    },
+    {
+      "id": "ece02057d158",
+      "question": "What was the name of the Ethiopian Wolf before they knew it was related to wolves?",
+      "options": [
+        "Amharic Fox",
+        "Canis Simiensis",
+        "Ethiopian Coyote",
+        "Simien Jackel"
+      ],
+      "answer": "Simien Jackel",
+      "difficulty": "hard",
+      "category": "Animals"
+    },
+    {
+      "id": "a68f53ada34f",
+      "question": "What is the Gray Wolf's scientific name?",
+      "options": [
+        "Canis Aureus",
+        "Canis Latrans",
+        "Canis Lupus",
+        "Canis Lupus Lycaon"
+      ],
+      "answer": "Canis Lupus",
+      "difficulty": "hard",
+      "category": "Animals"
+    },
+    {
+      "id": "a1b59609b5ea",
+      "question": "Unlike on most salamanders, this part of a newt is flat?",
+      "options": [
+        "Feet",
+        "Head",
+        "Tail",
+        "Teeth"
+      ],
+      "answer": "Tail",
+      "difficulty": "hard",
+      "category": "Animals"
+    }
+  ]
+}

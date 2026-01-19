@@ -1,0 +1,1963 @@
+{
+  "total_questions": 150,
+  "categories": [
+    "General Knowledge",
+    "Entertainment: Books",
+    "Entertainment: Film",
+    "Entertainment: Music",
+    "Entertainment: Musicals & Theatres",
+    "Entertainment: Television"
+  ],
+  "questions": [
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "What type of animal was Harambe, who was shot after a child fell into it's enclosure at the Cincinnati Zoo?",
+      "correct_answer": "Gorilla",
+      "incorrect_answers": [
+        "Tiger",
+        "Panda",
+        "Crocodile"
+      ],
+      "id": "28857ac60b2b"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "How many syllables make up a haiku?",
+      "correct_answer": "17",
+      "incorrect_answers": [
+        "15",
+        "10",
+        "21"
+      ],
+      "id": "06fb08447f71"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "What is the name of the Jewish New Year?",
+      "correct_answer": "Rosh Hashanah",
+      "incorrect_answers": [
+        "Elul",
+        "New Year",
+        "Succoss"
+      ],
+      "id": "a33a69868334"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "Which of the following is not the host of a program on NPR?",
+      "correct_answer": "Ben Shapiro",
+      "incorrect_answers": [
+        "Terry Gross",
+        "Ira Glass",
+        "Peter Sagal"
+      ],
+      "id": "93cf943892d8"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "Antibiotics are generally taken to combat what?",
+      "correct_answer": "Bacterial infections",
+      "incorrect_answers": [
+        "Viruses",
+        "Migraines",
+        "Muscular pains"
+      ],
+      "id": "f7cacd9448e0"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "When was Pong released?",
+      "correct_answer": "November 29, 1972",
+      "incorrect_answers": [
+        "March 29, 2017",
+        "November 29, 1970",
+        "December 14, 1974"
+      ],
+      "id": "7a19511d13aa"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "What do sailors call the front of a boat?",
+      "correct_answer": "Bow",
+      "incorrect_answers": [
+        "Stern",
+        "Port",
+        "Starboard"
+      ],
+      "id": "900dab01081e"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "When was the Playstation 3 released?",
+      "correct_answer": "November 11, 2006",
+      "incorrect_answers": [
+        "January 8, 2007",
+        "December 25, 2007",
+        "July 16, 2006"
+      ],
+      "id": "d0dfb29ab1e9"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "What was the first ever London Underground line to be built?",
+      "correct_answer": "Metropolitan Line",
+      "incorrect_answers": [
+        "Circle Line",
+        "Bakerloo Line",
+        "Victoria Line"
+      ],
+      "id": "cac6ef2afd4d"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "Which of the following nations was NOT a belligerent in World War I?",
+      "correct_answer": "Denmark",
+      "incorrect_answers": [
+        "Portugal",
+        "Greece",
+        "Romania"
+      ],
+      "id": "cb3357aa05bd"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "The buried remains of which English explorer of Australia were found in London  in January 2019? ",
+      "correct_answer": "Matthew Flinders",
+      "incorrect_answers": [
+        "William Bourke",
+        "Abel Tasman",
+        "Dirk Hartog"
+      ],
+      "id": "67ac7e8b16ad"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "The Hyundai Motor Company was founded in which country?",
+      "correct_answer": "South Korea",
+      "incorrect_answers": [
+        "Russia",
+        "Japan",
+        "China"
+      ],
+      "id": "2e08c4ec2371"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "Which of the following presidents is not on Mount Rushmore?",
+      "correct_answer": "John F. Kennedy",
+      "incorrect_answers": [
+        "Theodore Roosevelt",
+        "Abraham Lincoln",
+        "Thomas Jefferson"
+      ],
+      "id": "10d761457483"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "What does the 'S' stand for in the abbreviation SIM, as in SIM card? ",
+      "correct_answer": "Subscriber",
+      "incorrect_answers": [
+        "Single",
+        "Secure",
+        "Solid"
+      ],
+      "id": "cbd413d394d1"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "What is the Zodiac symbol for Gemini?",
+      "correct_answer": "Twins",
+      "incorrect_answers": [
+        "Fish",
+        "Scales",
+        "Maiden"
+      ],
+      "id": "1cb36c51df9d"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "Which sign of the zodiac comes between Virgo and Scorpio?",
+      "correct_answer": "Libra",
+      "incorrect_answers": [
+        "Gemini",
+        "Taurus",
+        "Capricorn"
+      ],
+      "id": "9b216fe0c484"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "When someone is inexperienced they are said to be what color?",
+      "correct_answer": "Green",
+      "incorrect_answers": [
+        "Red",
+        "Blue",
+        "Yellow"
+      ],
+      "id": "cf9f3d974a41"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "Which American president appears on a one dollar bill?",
+      "correct_answer": "George Washington",
+      "incorrect_answers": [
+        "Thomas Jefferson",
+        "Abraham Lincoln",
+        "Benjamin Franklin"
+      ],
+      "id": "3131335f6e29"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "In which cardinal direction does the Sun rise from?",
+      "correct_answer": "East",
+      "incorrect_answers": [
+        "West",
+        "North",
+        "South"
+      ],
+      "id": "4a74bd97c13b"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "Foie gras is a French delicacy typically made from what part of a duck or goose?",
+      "correct_answer": "Liver",
+      "incorrect_answers": [
+        "Heart",
+        "Stomach",
+        "Intestines"
+      ],
+      "id": "f4bd3e3cdcd4"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "What is on display in the Madame Tussaud's museum in London?",
+      "correct_answer": "Wax sculptures",
+      "incorrect_answers": [
+        "Designer clothing",
+        "Unreleased film reels",
+        "Vintage cars"
+      ],
+      "id": "95564d0a09e6"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "What is Tasmania?",
+      "correct_answer": "An Australian State",
+      "incorrect_answers": [
+        "A flavor of Ben and Jerry's ice-cream",
+        "A Psychological Disorder",
+        "The Name of a Warner Brothers Cartoon Character"
+      ],
+      "id": "31af8dd5606b"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "What machine element is located in the center of fidget spinners?",
+      "correct_answer": "Bearings",
+      "incorrect_answers": [
+        "Axles",
+        "Gears",
+        "Belts"
+      ],
+      "id": "8772ed66122e"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "What do the letters of the fast food chain KFC stand for?",
+      "correct_answer": "Kentucky Fried Chicken",
+      "incorrect_answers": [
+        "Kentucky Fresh Cheese",
+        "Kibbled Freaky Cow",
+        "Kiwi Food Cut"
+      ],
+      "id": "bc4c55dc1e57"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "The New York Times slogan is, “All the News That’s Fit to…”",
+      "correct_answer": "Print",
+      "incorrect_answers": [
+        "Digest",
+        "Look",
+        "Read"
+      ],
+      "id": "c7c6f31b8e9f"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "What style of beer will typically have a higher than average hop content?",
+      "correct_answer": "India Pale Ale",
+      "incorrect_answers": [
+        "Stout",
+        "Extra Special Bitter",
+        "Scotch Ale"
+      ],
+      "id": "3370a1a1f26b"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "Waluigi's first appearance was in what game?",
+      "correct_answer": "Mario Tennis 64 (N64)",
+      "incorrect_answers": [
+        "Wario Land: Super Mario Land 3",
+        "Mario Party (N64)",
+        "Super Smash Bros. Ultimate"
+      ],
+      "id": "b07e188b4d81"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "What is the nickname of the US state of California?",
+      "correct_answer": "Golden State",
+      "incorrect_answers": [
+        "Sunshine State",
+        "Bay State",
+        "Treasure State"
+      ],
+      "id": "933250ba4a4e"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "What was the nickname given to the Hughes H-4 Hercules, a heavy transport flying boat which achieved flight in 1947?",
+      "correct_answer": "Spruce Goose",
+      "incorrect_answers": [
+        "Noah's Ark",
+        "Fat Man",
+        "Trojan Horse"
+      ],
+      "id": "bf30e8ec3f52"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "Which one of these is not a typical European sword design?",
+      "correct_answer": "Scimitar",
+      "incorrect_answers": [
+        "Falchion",
+        "Ulfberht",
+        "Flamberge"
+      ],
+      "id": "3e252ce68b57"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "Who is the author of Jurassic Park?",
+      "correct_answer": "Michael Crichton",
+      "incorrect_answers": [
+        "Peter Benchley",
+        "Chuck Paluhniuk",
+        "Irvine Welsh"
+      ],
+      "id": "7e5115264b9e"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "Which best selling toy of 1983 caused hysteria, resulting in riots breaking out in stores?",
+      "correct_answer": "Cabbage Patch Kids",
+      "incorrect_answers": [
+        "Transformers",
+        "Care Bears",
+        "Rubik’s Cube"
+      ],
+      "id": "e766c7c2f228"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "What is the name of Poland in Polish?",
+      "correct_answer": "Polska",
+      "incorrect_answers": [
+        "Pupcia",
+        "Polszka",
+        "Póland"
+      ],
+      "id": "351af4dada44"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "In which fast food chain can you order a Jamocha Shake?",
+      "correct_answer": "Arby's",
+      "incorrect_answers": [
+        "McDonald's",
+        "Burger King",
+        "Wendy's"
+      ],
+      "id": "1b6d0268d3df"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "The file hosting service, \"Google Drive\" was launched on what day?",
+      "correct_answer": "April 24, 2012",
+      "incorrect_answers": [
+        "January 12, 2014",
+        "November 14, 2008",
+        "January 20, 2010"
+      ],
+      "id": "19bd28ebf08b"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "Of the following months, which has the most amount of days?",
+      "correct_answer": "December",
+      "incorrect_answers": [
+        "April",
+        "September",
+        "November "
+      ],
+      "id": "72779e54182b"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "When one is \"envious\", they are said to be what color?",
+      "correct_answer": "Green",
+      "incorrect_answers": [
+        "Red",
+        "Blue",
+        "Yellow"
+      ],
+      "id": "a829b6cac821"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "Which is the second largest native language spoken in Spain by numbers of speakers?",
+      "correct_answer": "Catalan",
+      "incorrect_answers": [
+        "Portuguese",
+        "Spanish",
+        "French"
+      ],
+      "id": "437cd479dd29"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "What step in cellular respiration forms ATP?",
+      "correct_answer": "Oxidative Phosphorylation",
+      "incorrect_answers": [
+        "Glycolysis",
+        "Pyruvate Oxidation",
+        "Calvin Cycle"
+      ],
+      "id": "3caeb75ab6cc"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "The drug cartel run by Pablo Escobar originated in which South American city?",
+      "correct_answer": "Medellín",
+      "incorrect_answers": [
+        "Bogotá",
+        "Quito",
+        "Cali"
+      ],
+      "id": "0cef2de72a87"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "Which country developed the AK-47 assault rifle?",
+      "correct_answer": "Soviet Union",
+      "incorrect_answers": [
+        "Iran",
+        "Israel",
+        "Poland"
+      ],
+      "id": "a1070199abbf"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "Which country has the Union Jack in its flag?",
+      "correct_answer": "New Zealand",
+      "incorrect_answers": [
+        "South Africa",
+        "Canada",
+        "Hong Kong"
+      ],
+      "id": "c57a826f1bfc"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "Which company did Valve cooperate with in the creation of the Vive?",
+      "correct_answer": "HTC",
+      "incorrect_answers": [
+        "Oculus",
+        "Google",
+        "Razer"
+      ],
+      "id": "7095aac2c971"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "How many letters are in the English alphabet?",
+      "correct_answer": "26",
+      "incorrect_answers": [
+        "30",
+        "17",
+        "5"
+      ],
+      "id": "371773acf258"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "Earth is located in which galaxy?",
+      "correct_answer": "The Milky Way Galaxy",
+      "incorrect_answers": [
+        "The Mars Galaxy",
+        "The Galaxy Note",
+        "The Black Hole"
+      ],
+      "id": "8f053ad036df"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "What is \"dabbing\"?",
+      "correct_answer": "A dance",
+      "incorrect_answers": [
+        "A medical procedure",
+        "A sport",
+        "A language"
+      ],
+      "id": "1d86aa1988db"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "What is the French word for \"hat\"?",
+      "correct_answer": "Chapeau",
+      "incorrect_answers": [
+        "Bonnet",
+        " Écharpe",
+        " Casque"
+      ],
+      "id": "e55a411b56ba"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "What technology is named after a tenth-century ruler of Denmark and Norway?",
+      "correct_answer": "Bluetooth",
+      "incorrect_answers": [
+        "Wi-Fi",
+        "GPS",
+        "Internet"
+      ],
+      "id": "2e5ed5570a50"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "How many fingers does a single human hand have?",
+      "correct_answer": "Four",
+      "incorrect_answers": [
+        "Five",
+        "Ten",
+        "Eight"
+      ],
+      "id": "e88c343e2982"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "On a dartboard, what number is directly opposite No. 1?",
+      "correct_answer": "19",
+      "incorrect_answers": [
+        "20",
+        "12",
+        "15"
+      ],
+      "id": "fd1bf2a91b49"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "When was the Declaration of Independence approved by the Second Continental Congress?",
+      "correct_answer": "July 4, 1776",
+      "incorrect_answers": [
+        "May 4, 1776",
+        "June 4, 1776",
+        "July 2, 1776"
+      ],
+      "id": "5e3e13a8b295"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "What character was once considered to be the 27th letter of the alphabet?",
+      "correct_answer": "Ampersand",
+      "incorrect_answers": [
+        "Interrobang",
+        "Tilde",
+        "Pilcrow"
+      ],
+      "id": "e89e19380bc8"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "Which of the following is NOT one of Aesop's fables?",
+      "correct_answer": "The Fox and the Hound",
+      "incorrect_answers": [
+        "The Fox and the Grapes",
+        "The Tortoise and the Hare",
+        "The Frog and the Ox"
+      ],
+      "id": "b1482a8656d3"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "Who is a co-founder of music streaming service Spotify?",
+      "correct_answer": "Daniel Ek",
+      "incorrect_answers": [
+        "Sean Parker",
+        "Felix Miller",
+        "Michael Breidenbruecker"
+      ],
+      "id": "964c560d4db8"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "What was Mountain Dew's original slogan?",
+      "correct_answer": "Yahoo! Mountain Dew... It'll tickle your innards!",
+      "incorrect_answers": [
+        "Give Me A Dew",
+        "Do The Dew",
+        "Get' that barefoot feelin' drinkin' Mountain Dew"
+      ],
+      "id": "96cae3185115"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "On average, Americans consume 100 pounds of what per second?",
+      "correct_answer": "Chocolate",
+      "incorrect_answers": [
+        "Potatoes",
+        "Donuts",
+        "Cocaine"
+      ],
+      "id": "82077f6e4caf"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "The Fields Medal, one of the most sought after awards in mathematics, is awarded every how many years?",
+      "correct_answer": "4",
+      "incorrect_answers": [
+        "3",
+        "5",
+        "6"
+      ],
+      "id": "e38f18017bda"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "The architect known as Le Corbusier was an important figure in what style of architecture?",
+      "correct_answer": "Modernism",
+      "incorrect_answers": [
+        "Neoclassical",
+        "Baroque",
+        "Gothic Revival"
+      ],
+      "id": "823490ecf0af"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "Which of the following buildings is example of a structure primarily built in the Art Deco architectural style?",
+      "correct_answer": "Niagara Mohawk Building",
+      "incorrect_answers": [
+        "Taipei 101",
+        "One Detroit Center",
+        "Westendstrasse 1"
+      ],
+      "id": "dbc30041b603"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "What is a Burgee?",
+      "correct_answer": "A flag",
+      "incorrect_answers": [
+        "A rope",
+        "A window",
+        "A type of food"
+      ],
+      "id": "4897f22750ec"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "This field is sometimes known as “The Dismal Science.”",
+      "correct_answer": "Economics",
+      "incorrect_answers": [
+        "Philosophy",
+        "Politics",
+        "Physics"
+      ],
+      "id": "99e01421284f"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "The website \"Shut Up & Sit Down\" reviews which form of media?",
+      "correct_answer": "Board Games",
+      "incorrect_answers": [
+        "Television Shows",
+        "Video Games",
+        "Films"
+      ],
+      "id": "0cff65af2b0f"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "Which river flows through the Scottish city of Glasgow?",
+      "correct_answer": "Clyde",
+      "incorrect_answers": [
+        "Tay",
+        "Dee",
+        "Tweed"
+      ],
+      "id": "fd1990923db4"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "Which of these Nicktoons were NOT originally a short on Oh Yeah! Cartoons before becoming their own series?",
+      "correct_answer": "Danny Phantom",
+      "incorrect_answers": [
+        "ChalkZone",
+        "My Life as a Teenage Robot",
+        "The Fairly OddParents"
+      ],
+      "id": "bb502dc1c71d"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "Which of these words means \"idle spectator\"?",
+      "correct_answer": "Gongoozler",
+      "incorrect_answers": [
+        "Gossypiboma",
+        "Jentacular",
+        "Meupareunia"
+      ],
+      "id": "ac99aa5d4feb"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "In a standard set of playing cards, which is the only king without a moustache?",
+      "correct_answer": "Hearts",
+      "incorrect_answers": [
+        "Spades",
+        "Diamonds",
+        "Clubs"
+      ],
+      "id": "d0cbb110c63a"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "Which of the following carbonated soft drinks were introduced first?",
+      "correct_answer": "Dr. Pepper",
+      "incorrect_answers": [
+        "Coca-Cola",
+        "Sprite",
+        "Mountain Dew"
+      ],
+      "id": "b98fd1aeab7a"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "What is the world's most expensive spice by weight?",
+      "correct_answer": "Saffron",
+      "incorrect_answers": [
+        "Cinnamon",
+        "Cardamom",
+        "Vanilla"
+      ],
+      "id": "bb5d09063088"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "Where does water from Poland Spring water bottles come from?",
+      "correct_answer": "Maine, United States",
+      "incorrect_answers": [
+        "Hesse, Germany",
+        "Masovia, Poland",
+        "Bavaria, Poland"
+      ],
+      "id": "813ff3c55d38"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "What year was the first Apple iPod introduced?",
+      "correct_answer": "2001",
+      "incorrect_answers": [
+        "2000",
+        "1999",
+        "1998"
+      ],
+      "id": "a9411acc639f"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "Apple co-founder Steve Jobs died from complications of which form of cancer?",
+      "correct_answer": "Pancreatic",
+      "incorrect_answers": [
+        "Bone",
+        "Liver",
+        "Stomach"
+      ],
+      "id": "bdde1fac34cf"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "What English word means to \"think deeply\"?",
+      "correct_answer": "Contemplate",
+      "incorrect_answers": [
+        "Confiscate",
+        "Constipate",
+        "Condensate"
+      ],
+      "id": "d6a8fa390f34"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "Which Italian automobile manufacturer gained majority control of U.S. automobile manufacturer Chrysler in 2011?",
+      "correct_answer": "Fiat",
+      "incorrect_answers": [
+        "Maserati",
+        "Alfa Romeo",
+        "Ferrari"
+      ],
+      "id": "a7668ba388cc"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "According to the BBPA, what is the most common pub name in the UK?",
+      "correct_answer": "Red Lion",
+      "incorrect_answers": [
+        "Royal Oak",
+        "White Hart",
+        "King's Head"
+      ],
+      "id": "c3922e9a4b16"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "In what year did Halley's Comet, which will not appear again until the year 2061, previously approach Earth?",
+      "correct_answer": "1986",
+      "incorrect_answers": [
+        "2001",
+        "1942",
+        "1909"
+      ],
+      "id": "b771c769e5a3"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "What fast food chain has the most locations globally? ",
+      "correct_answer": "Subway",
+      "incorrect_answers": [
+        "Starbucks",
+        "McDonalds",
+        "KFC"
+      ],
+      "id": "8914e4df7312"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "What is the Swedish word for \"window\"?",
+      "correct_answer": "Fönster",
+      "incorrect_answers": [
+        "Hål",
+        "Skärm",
+        "Ruta"
+      ],
+      "id": "d53d6879f943"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "Which American manufactured submachine gun was informally known by the American soldiers that used it as \"Grease Gun\"?",
+      "correct_answer": "M3",
+      "incorrect_answers": [
+        "Colt 9mm",
+        "Thompson",
+        "MAC-10"
+      ],
+      "id": "b230e9636389"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "Which famed architect, who died in 2019 aged 102, designed the glass pyramid at the Louvre museum in Paris?",
+      "correct_answer": "I. M. Pei",
+      "incorrect_answers": [
+        "Pascale Guédot",
+        "Frank Gehry",
+        "Wang Shu"
+      ],
+      "id": "3c5461018118"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "Which of the General Mills Corporation's monster cereals was the last to be released in the 1970's?",
+      "correct_answer": "Fruit Brute",
+      "incorrect_answers": [
+        "Count Chocula",
+        "Franken Berry",
+        "Boo-Berry"
+      ],
+      "id": "8673449e83cd"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "What is the Italian word for \"tomato\"?",
+      "correct_answer": "Pomodoro",
+      "incorrect_answers": [
+        "Aglio",
+        "Cipolla",
+        "Peperoncino"
+      ],
+      "id": "0b277b59cdaa"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "What is real haggis made of?",
+      "correct_answer": "Sheep's Heart, Liver and Lungs",
+      "incorrect_answers": [
+        "Sheep's Heart, Kidneys and Lungs",
+        "Sheep's Liver, Kidneys and Eyes",
+        "Whole Sheep"
+      ],
+      "id": "b7b3041074e7"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "Bob and Mike Bryan were well known brothers in which sport?",
+      "correct_answer": "Tennis",
+      "incorrect_answers": [
+        "Basketball",
+        "Football",
+        "Baseball"
+      ],
+      "id": "7f7f00f30e48"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "After how many years would you celebrate your crystal anniversary?",
+      "correct_answer": "15",
+      "incorrect_answers": [
+        "20",
+        "10",
+        "25"
+      ],
+      "id": "07645fe17bcf"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "In 2013 how much money was lost by Nigerian scams?",
+      "correct_answer": "$12.7 Billion",
+      "incorrect_answers": [
+        "$95 Million",
+        "$956 Million",
+        "$2.7 Billion"
+      ],
+      "id": "9d6b5d67c1e4"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "What was the destination of the missing flight MH370?",
+      "correct_answer": "Beijing",
+      "incorrect_answers": [
+        "Kuala Lumpur",
+        "Singapore",
+        "Tokyo"
+      ],
+      "id": "badb4f9fea6c"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "Scotch whisky and Drambuie make up which cocktail?",
+      "correct_answer": "Rusty Nail",
+      "incorrect_answers": [
+        "Screwdriver",
+        "Sex on the Beach",
+        "Manhattan"
+      ],
+      "id": "1cd259732a77"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "Which country has the most Trappist breweries?",
+      "correct_answer": "Belgium",
+      "incorrect_answers": [
+        "Netherlands",
+        "France",
+        "USA"
+      ],
+      "id": "686a700f4ddf"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "When was Hubba Bubba first introduced?",
+      "correct_answer": "1979",
+      "incorrect_answers": [
+        "1984",
+        "1972",
+        "1980"
+      ],
+      "id": "85ab606b88dc"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "The Mexican Beer \"Corona\" is what type of beer?",
+      "correct_answer": "Pale Lager",
+      "incorrect_answers": [
+        "India Pale Ale",
+        "Pilfsner",
+        "Baltic Porter"
+      ],
+      "id": "cc1aba4762ea"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "When was WhatsApp founded?",
+      "correct_answer": "2009",
+      "incorrect_answers": [
+        "2007",
+        "2012",
+        "2010"
+      ],
+      "id": "334983575de6"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "The lesser-known continuation of the saying \"Curiosity killed the cat...\" is:",
+      "correct_answer": "\"...but satisfaction brought it back.\"",
+      "incorrect_answers": [
+        "\"...and the silent mouse remained thereat.\"",
+        "\"...which taught it not to do that.\"",
+        "\"...but death by the truth is better than ignorance.\""
+      ],
+      "id": "bb47119e1522"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "What alcoholic drink is mainly made from juniper berries?",
+      "correct_answer": "Gin",
+      "incorrect_answers": [
+        "Vodka",
+        "Rum",
+        "Tequila"
+      ],
+      "id": "3fc889bb53d8"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "The new One World Trade Center in Manhattan, New York City was designed by which architect? ",
+      "correct_answer": "David Childs",
+      "incorrect_answers": [
+        "Bjarke Ingels",
+        "Michael Arad",
+        "Fumihiko Maki"
+      ],
+      "id": "48cc7440eded"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "Which logical fallacy means to attack the character of your opponent rather than their arguments?",
+      "correct_answer": "Ad hominem",
+      "incorrect_answers": [
+        "Post hoc ergo propter hoc",
+        "Tu quoque",
+        "Argumentum ad populum"
+      ],
+      "id": "d200dce8c152"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "What is the name of the very first video uploaded to YouTube?",
+      "correct_answer": "Me at the zoo",
+      "incorrect_answers": [
+        "tribute",
+        "carrie rides a truck",
+        "Her new puppy from great grandpa vern."
+      ],
+      "id": "209e1bedb9ac"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "Which of these American singers and songwriters won a Nobel Prize in Literature?",
+      "correct_answer": "Bob Dylan",
+      "incorrect_answers": [
+        "Buddy Holly",
+        "Johnny Cash",
+        "Alice Cooper"
+      ],
+      "id": "243571959f24"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "Which of these is the name of a Japanese system of alternative medicine, literally meaning \"finger pressure\"?",
+      "correct_answer": "Shiatsu",
+      "incorrect_answers": [
+        "Ukiyo",
+        "Majime",
+        "Ikigai"
+      ],
+      "id": "d95d332f16bf"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "Which of the following Ivy League universities has its official motto in Hebrew as well as in Latin?",
+      "correct_answer": "Yale University",
+      "incorrect_answers": [
+        "Princeton University",
+        "Harvard University",
+        "Columbia University"
+      ],
+      "id": "ad33e1da933b"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "General Knowledge",
+      "question": "What is the full title of the Prime Minister of the UK?",
+      "correct_answer": "First Lord of the Treasury",
+      "incorrect_answers": [
+        "Duke of Cambridge",
+        "Her Majesty's Loyal Opposition",
+        "Manager of the Crown Estate"
+      ],
+      "id": "ad5ff9f90841"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "In the original Star Trek TV series, what was Captain James T. Kirk's middle name?",
+      "correct_answer": "Tiberius",
+      "incorrect_answers": [
+        "Trevor",
+        "Travis",
+        "Tyrone"
+      ],
+      "id": "1d1fae50d62f"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "Which of these Disney shows is classified as an anime?",
+      "correct_answer": "Stitch!",
+      "incorrect_answers": [
+        "Cory in the House",
+        "The Emperor's New School",
+        "Hannah Montana"
+      ],
+      "id": "211709221493"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "Grant Gustin plays which superhero on the CW show of the same name?",
+      "correct_answer": "The Flash",
+      "incorrect_answers": [
+        "The Arrow",
+        "Black Canary",
+        "Daredevil"
+      ],
+      "id": "8e697b19032c"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "In DuckTales, what is the name of the city where all the main characters live?",
+      "correct_answer": "Duckburg",
+      "incorrect_answers": [
+        "Duckwing",
+        "Tailspin",
+        "Wingford"
+      ],
+      "id": "1468b14664c7"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "In the television show Breaking Bad, what is the street name of Walter and Jesse's notorious product?",
+      "correct_answer": "Blue Sky",
+      "incorrect_answers": [
+        "Baby Blue",
+        "Rock Candy",
+        "Pure Glass"
+      ],
+      "id": "e21ed688fbb8"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "In Supernatural, what's is Sam's brothers name?",
+      "correct_answer": "Dean",
+      "incorrect_answers": [
+        "Dave",
+        "Steve",
+        "Mike"
+      ],
+      "id": "46cbed00c437"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "What is the name of the main character in \"The Flash\" TV series?",
+      "correct_answer": "Barry Allen",
+      "incorrect_answers": [
+        "Oliver Queen",
+        "Bart Allen",
+        "Bruce Wayne"
+      ],
+      "id": "2caeb76a24da"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "When did the TV show Rick and Morty first air on Adult Swim?",
+      "correct_answer": "2013",
+      "incorrect_answers": [
+        "2014",
+        "2016",
+        "2015"
+      ],
+      "id": "f73bfc3ff99f"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "In season one of the Netflix political drama \"House of Cards\", what government position does Frank Underwood hold?",
+      "correct_answer": "House Majority Whip",
+      "incorrect_answers": [
+        "Attorney General",
+        "President",
+        "Chief of Staff"
+      ],
+      "id": "af79e5fc1356"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "What Nickelodeon game show featured a house on the set that the contestants would ransack to find hidden objects?",
+      "correct_answer": "Finders Keepers",
+      "incorrect_answers": [
+        "Double Dare",
+        "Nickelodeon Guts",
+        "Nick Arcade"
+      ],
+      "id": "edde684b8f5b"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "In the Star Trek universe, what color is Vulcan blood?",
+      "correct_answer": "Green",
+      "incorrect_answers": [
+        "Blue",
+        "Red",
+        "Purple"
+      ],
+      "id": "5e3426a18ce6"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "In Game of Thrones, what is Littlefinger's real name?",
+      "correct_answer": "Petyr Baelish",
+      "incorrect_answers": [
+        "Podrick Payne",
+        "Lancel Lannister",
+        "Torrhen Karstark"
+      ],
+      "id": "d9491dc2d896"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "In the show, Doctor Who, what does T.A.R.D.I.S stand for?",
+      "correct_answer": "Time And Relative Dimensions In Space",
+      "incorrect_answers": [
+        "Time And Resting Dimensions In Space",
+        "Time And Relative Dimensions In Style",
+        "Toilet Aid Rope Dog Is Soup"
+      ],
+      "id": "a34ce57abb8b"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "Which Star Trek race advances itself through assimilation?",
+      "correct_answer": "Borg",
+      "incorrect_answers": [
+        "Vulcan",
+        "Betazoid",
+        "Klingon"
+      ],
+      "id": "5162982a707c"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "What was the name of the the first episode of Doctor Who to air in 1963?",
+      "correct_answer": "An Unearthly Child",
+      "incorrect_answers": [
+        "The Daleks",
+        "The Aztecs",
+        "The Edge of Destruction"
+      ],
+      "id": "df43c55415bb"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "In the TV show \"Mad Men\", what was Donald Draper's birthname?",
+      "correct_answer": "Richard \"Dick\" Whitman",
+      "incorrect_answers": [
+        "Donald Draper",
+        "John Ashbury",
+        "Michael \"Mikey\" Wilhelm"
+      ],
+      "id": "2d3acb3da2ba"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "In which British seaside town was the BBC sitcom \"Fawlty Towers\" set?",
+      "correct_answer": "Torquay",
+      "incorrect_answers": [
+        "Blackpool",
+        "Bournemouth",
+        "Great Yarmouth"
+      ],
+      "id": "1d9e5bd6e993"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "What was the name of the police officer in the cartoon \"Top Cat\"?",
+      "correct_answer": "Dibble",
+      "incorrect_answers": [
+        "Barbrady",
+        "Mahoney",
+        "Murphy"
+      ],
+      "id": "c8c6b4c0c3cd"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "What country is Cory in the House set in?",
+      "correct_answer": "The United States of America",
+      "incorrect_answers": [
+        "Canada",
+        "Venezuala",
+        "England"
+      ],
+      "id": "75b3768396b3"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "Who won Big Brother 2014 UK?",
+      "correct_answer": "Helen Wood",
+      "incorrect_answers": [
+        "Christopher Hall",
+        "Pauline Bennett",
+        "Pavandeep \"Pav\" Paul"
+      ],
+      "id": "85add6c60fd6"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "In the show Stranger Things, what is Eleven's favorite breakfast food?",
+      "correct_answer": "Eggo Waffles",
+      "incorrect_answers": [
+        "Toast",
+        "Captain Crunch",
+        "Bacon and Eggs"
+      ],
+      "id": "821855bc524c"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "Which of the following awards do Matt Stone and Trey Parker NOT have?",
+      "correct_answer": "Oscar",
+      "incorrect_answers": [
+        "Emmy",
+        "Tony",
+        "Grammy"
+      ],
+      "id": "517298941569"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "Who is the star of the AMC series Breaking Bad?",
+      "correct_answer": "Walter White",
+      "incorrect_answers": [
+        "Saul Goodman",
+        "Jesse Pinkman",
+        "Skyler White"
+      ],
+      "id": "f2c0eb271c66"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "Who won the 10th season of Big Brother in the United States?",
+      "correct_answer": "Dan Gheesling",
+      "incorrect_answers": [
+        "Adam Jasinski",
+        "Hayden Moss",
+        "Dick Donato"
+      ],
+      "id": "2a8499d5fe3c"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "In \"Rick And Morty\", who shot \"Mr. Poopybutthole\" in the episode \"Total Rickall\"?",
+      "correct_answer": "Beth",
+      "incorrect_answers": [
+        "Rick",
+        "Jerry",
+        "Morty"
+      ],
+      "id": "25bc2c4e5443"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "In Star Trek: The Next Generation, what is the name of Data's cat?",
+      "correct_answer": "Spot",
+      "incorrect_answers": [
+        "Mittens",
+        "Tom",
+        "Kitty"
+      ],
+      "id": "24e8d35193cd"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "How many seasons did \"Stargate SG-1\" have?",
+      "correct_answer": "10",
+      "incorrect_answers": [
+        "3",
+        "7",
+        "12"
+      ],
+      "id": "91df536235f4"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "Who was the first ever actor to play \"The Doctor\" on \"Doctor Who\"?",
+      "correct_answer": "William Hartnell",
+      "incorrect_answers": [
+        "David Tennant",
+        "Peter Capaldi",
+        "Tom Baker"
+      ],
+      "id": "f3796c116375"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "In the show \"Dragonball Z\", what is the name of Cell's most powerful attack?",
+      "correct_answer": "Solar Kamehameha",
+      "incorrect_answers": [
+        "Super Kamehameha",
+        "Cell Kamehameha",
+        "Android Kamehameha"
+      ],
+      "id": "982cb7039b1c"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "The HBO series \"Game of Thrones\" is based on which series of books?",
+      "correct_answer": "A Song of Ice and Fire",
+      "incorrect_answers": [
+        "The Wheel of Time",
+        "Harry Potter",
+        "The Notebook"
+      ],
+      "id": "45dad9961958"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "British actor David Morrissey stars as which role in \"The Walking Dead\"?",
+      "correct_answer": "The Governor",
+      "incorrect_answers": [
+        "Negan",
+        "Rick Grimes",
+        "Daryl Dixon"
+      ],
+      "id": "f9c54c649085"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "Which company has exclusive rights to air episodes of the \"The Grand Tour\"?",
+      "correct_answer": "Amazon",
+      "incorrect_answers": [
+        "Netflix",
+        "BBC",
+        "CCTV"
+      ],
+      "id": "0e393ed8332e"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "What NBC sitcom once saw two of its characters try to pitch NBC on a sitcom about nothing?",
+      "correct_answer": "Seinfeld",
+      "incorrect_answers": [
+        "Frasier",
+        "Becker",
+        "Friends"
+      ],
+      "id": "b15a563968d2"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "Which character was played by Dustin Diamond in the sitcom 'Saved by the Bell'?",
+      "correct_answer": "Screech",
+      "incorrect_answers": [
+        "Zack",
+        "Mr. Belding",
+        "A.C. Slater"
+      ],
+      "id": "b8fca8d1d002"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "In the cartoon 'SpongeBob SquarePants', what did the acronym E.V.I.L stand for?",
+      "correct_answer": "Every Villain Is Lemons",
+      "incorrect_answers": [
+        "Every Villain Is Lemonade",
+        "Every Villain Is Limes",
+        "Each Villain Is Lemonade"
+      ],
+      "id": "6256a8d479a2"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "In Game of Thrones, what continent lies across the Narrow Sea from Westeros?",
+      "correct_answer": "Essos",
+      "incorrect_answers": [
+        "Easteros",
+        "Westereast",
+        "Esuntos"
+      ],
+      "id": "24a51365fd8e"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "Which actor portrays \"Walter White\" in the series \"Breaking Bad\"?",
+      "correct_answer": " Bryan Cranston",
+      "incorrect_answers": [
+        "Andrew Lincoln",
+        "Aaron Paul",
+        "RJ Mitte"
+      ],
+      "id": "282207c8005c"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "What TV show is about a grandfather dragging his grandson around on adventures?",
+      "correct_answer": "Rick & Morty",
+      "incorrect_answers": [
+        "Family Guy",
+        "South Park",
+        "American Dad"
+      ],
+      "id": "62c5bf7c73e0"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "In the TV show \"Cheers\", Sam Malone was a former relief pitcher for which baseball team?",
+      "correct_answer": "Boston Red Sox",
+      "incorrect_answers": [
+        "New York Mets",
+        "Baltimore Orioles",
+        "Milwaukee Brewers"
+      ],
+      "id": "a1cf77392cdb"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "In the show \"Tengen Toppa Gurren Lagann\" what is the name of the character who force everyone to live underground?",
+      "correct_answer": "Lordgenome",
+      "incorrect_answers": [
+        "Kingloname",
+        "Lord Genome",
+        "King Loname"
+      ],
+      "id": "733e0f2e34e6"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "In the TV show 'M*A*S*H', what was the nickname of Corporal Walter O'Reilly?",
+      "correct_answer": "Radar",
+      "incorrect_answers": [
+        "Hawkeye",
+        "Hot Lips",
+        "Trapper"
+      ],
+      "id": "ce30b12b9647"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "Who played the Waitress in the Spam sketch of \"Monty Python's Flying Circus\"?",
+      "correct_answer": "Terry Jones",
+      "incorrect_answers": [
+        "Eric Idle",
+        "Graham Chapman",
+        "John Cleese"
+      ],
+      "id": "cbd734e83f85"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "In which state of America was the Fresh Prince of Bel-Air born and raised in?",
+      "correct_answer": "Pennsylvania",
+      "incorrect_answers": [
+        "Florida",
+        "California",
+        "New Jersey"
+      ],
+      "id": "e5d504c1cb0c"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "In AMC's TV Series \"The Walking Dead\" what are \"Zombies\" referred to as?",
+      "correct_answer": "Walkers",
+      "incorrect_answers": [
+        "Creepers",
+        "Maggots",
+        "Hell Pigs"
+      ],
+      "id": "f683c2e56817"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "Who is the main character in the show \"Burn Notice\"?",
+      "correct_answer": "Michael Westen",
+      "incorrect_answers": [
+        "Sam Axe",
+        "Fiona Glenanne",
+        "Madeline Westen"
+      ],
+      "id": "eb7f194d6e5a"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "In \"Breaking Bad\", Walter White is a high school teacher diagnosed with which form of cancer?",
+      "correct_answer": "Lung Cancer",
+      "incorrect_answers": [
+        "Prostate Cancer",
+        "Brain Cancer",
+        "Testicular Cancer"
+      ],
+      "id": "f908e9ceff5d"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "What TV show featured older women named Blanche, Rose, Dorothy and Sophia?",
+      "correct_answer": "The Golden Girls",
+      "incorrect_answers": [
+        "Cheers",
+        "The Wonder Years",
+        "Family Ties"
+      ],
+      "id": "f3cedcd9e0d4"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "What was the name of the teenage witch played by Melisa Joan Hart who lives with her witch aunts Hilda and Zelda?",
+      "correct_answer": "Sabrina",
+      "incorrect_answers": [
+        "Hermione",
+        "Dorothy",
+        "Dahlia"
+      ],
+      "id": "55df230bc37b"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "Which of these characters in \"Stranger Things\" has the power of Telekinesis?",
+      "correct_answer": "Eleven",
+      "incorrect_answers": [
+        "Mike",
+        "Lucas",
+        "Karen"
+      ],
+      "id": "94af2f63474e"
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Entertainment: Television",
+      "question": "When Donkey Kong died in the \"Donkey Kong Country\" episode \"It's a Wonderful Life\", who was his guardian angel?",
+      "correct_answer": "Eddie the Mean Old Yeti",
+      "incorrect_answers": [
+        "Kiddy Kong",
+        "Diddy Kong",
+        "King K. Rool"
+      ],
+      "id": "ba0c91e74c04"
+    }
+  ]
+}

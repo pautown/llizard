@@ -1,0 +1,58 @@
+{
+  "category": "Politics",
+  "question_count": 4,
+  "questions": [
+    {
+      "id": "93e25b2c80e4",
+      "question": "Which former US president was nicknamed \"Teddy\" after he refused to shoot a defenseless black bear?",
+      "options": [
+        "Andrew Jackson",
+        "James F. Fielder",
+        "Theodore Roosevelt",
+        "Woodrow Wilson"
+      ],
+      "answer": "Theodore Roosevelt",
+      "difficulty": "easy",
+      "category": "Politics"
+    },
+    {
+      "id": "12c74b582e30",
+      "question": "What is former United States President Bill Clinton's full name?",
+      "options": [
+        "William Jefferson Clinton",
+        "William Lincoln Clinton",
+        "William Roosevelt Clinton",
+        "William Truman Clinton"
+      ],
+      "answer": "William Jefferson Clinton",
+      "difficulty": "medium",
+      "category": "Politics"
+    },
+    {
+      "id": "fc94d273b164",
+      "question": "Who succeeded Joseph Stalin as General Secretary of the Communist Party of the Soviet Union?",
+      "options": [
+        "Boris Yeltsin",
+        "Leonid Brezhnev",
+        "Mikhail Gorbachev",
+        "Nikita Khrushchev"
+      ],
+      "answer": "Nikita Khrushchev",
+      "difficulty": "medium",
+      "category": "Politics"
+    },
+    {
+      "id": "79e1796d1f70",
+      "question": "\"Yes, America Can!\" was this United States politician's de facto campaign slogan in 2004.",
+      "options": [
+        "Al Gore",
+        "Barack Obama",
+        "George W. Bush",
+        "John Kerry"
+      ],
+      "answer": "George W. Bush",
+      "difficulty": "hard",
+      "category": "Politics"
+    }
+  ]
+}

@@ -1,0 +1,760 @@
+{
+  "category": "Science: Computers",
+  "question_count": 58,
+  "questions": [
+    {
+      "id": "52c9084b294d",
+      "question": "Which operating system was released first?",
+      "options": [
+        "Linux",
+        "Mac OS",
+        "OS/2",
+        "Windows"
+      ],
+      "answer": "Mac OS",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "4272384d3728",
+      "question": "The computer OEM manufacturer Clevo, known for its Sager notebook line, is based in which country?",
+      "options": [
+        "China (People's Republic of)",
+        "Germany",
+        "Taiwan",
+        "United States"
+      ],
+      "answer": "Taiwan",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "0b5cd64db793",
+      "question": "What does the term MIME stand for, in regards to computing?",
+      "options": [
+        "Mail Interleave Method Exchange",
+        "Mail Internet Mail Exchange",
+        "Multipurpose Interleave Mail Exchange",
+        "Multipurpose Internet Mail Extensions"
+      ],
+      "answer": "Multipurpose Internet Mail Extensions",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "173101b05e7d",
+      "question": "What is the name of the default theme that is installed with Windows XP?",
+      "options": [
+        "Bliss",
+        "Luna",
+        "Neptune",
+        "Whistler"
+      ],
+      "answer": "Luna",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "558c24330bb1",
+      "question": "In the server hosting industry IaaS stands for...",
+      "options": [
+        "Infrastructure as a Server",
+        "Infrastructure as a Service",
+        "Internet and a Server",
+        "Internet as a Service"
+      ],
+      "answer": "Infrastructure as a Service",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "ff0c59fee18a",
+      "question": "Which of these programming languages is a low-level language?",
+      "options": [
+        "Assembly",
+        "C#",
+        "Pascal",
+        "Python"
+      ],
+      "answer": "Assembly",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "db0b9bca48d7",
+      "question": "Which of the following languages is used as a scripting language in the Unity 3D game engine?",
+      "options": [
+        "C#",
+        "C++",
+        "Java",
+        "Objective-C"
+      ],
+      "answer": "C#",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "50ec37b0eb5b",
+      "question": "What does the term GPU stand for?",
+      "options": [
+        "Gaming Processor Unit",
+        "Graphical Proprietary Unit",
+        "Graphics Processing Unit",
+        "Graphite Producing Unit"
+      ],
+      "answer": "Graphics Processing Unit",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "e05138a5bbaf",
+      "question": "Which of these is the name for the failed key escrow device introduced by the National Security Agency in 1993?",
+      "options": [
+        "Clipper Chip",
+        "Enigma Machine",
+        "Nautilus",
+        "Skipjack"
+      ],
+      "answer": "Clipper Chip",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "b2e77371831e",
+      "question": "Whistler was the codename of this Microsoft Operating System.",
+      "options": [
+        "Windows 2000",
+        "Windows 7",
+        "Windows 95",
+        "Windows XP"
+      ],
+      "answer": "Windows XP",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "0057e136147d",
+      "question": "In CSS, which of these values CANNOT be used with the \"position\" property?",
+      "options": [
+        "absolute",
+        "center",
+        "relative",
+        "static"
+      ],
+      "answer": "center",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "eca483811ecb",
+      "question": "What does AD stand for in relation to Windows Operating Systems? ",
+      "options": [
+        "Active Department",
+        "Active Directory",
+        "Alternative Drive",
+        "Automated Database"
+      ],
+      "answer": "Active Directory",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "583bde70b002",
+      "question": "Nvidia's headquarters are based in which Silicon Valley city?",
+      "options": [
+        "Cupertino",
+        "Mountain View",
+        "Palo Alto",
+        "Santa Clara"
+      ],
+      "answer": "Santa Clara",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "4f7df5aba8c4",
+      "question": "What five letter word is the motto of the IBM Computer company?",
+      "options": [
+        "Click",
+        "Logic",
+        "Pixel",
+        "Think"
+      ],
+      "answer": "Think",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "77cf87e31be7",
+      "question": "In programming, what do you call functions with the same name but different implementations?",
+      "options": [
+        "Abstracting",
+        "Inheriting",
+        "Overloading",
+        "Overriding"
+      ],
+      "answer": "Overloading",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "ae51484bebf0",
+      "question": "What does RAID stand for?",
+      "options": [
+        "Randomized Abstract Identification Description",
+        "Range of Applications with Identical Designs",
+        "Rapid Access for Indexed Devices",
+        "Redundant Array of Independent Disks"
+      ],
+      "answer": "Redundant Array of Independent Disks",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "04c3a3a4bd2e",
+      "question": "How many cores does the Intel i7-6950X have?",
+      "options": [
+        "10",
+        "12",
+        "4",
+        "8"
+      ],
+      "answer": "10",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "a0ef98effac8",
+      "question": ".at is the top-level domain for what country?",
+      "options": [
+        "Angola",
+        "Argentina",
+        "Australia",
+        "Austria"
+      ],
+      "answer": "Austria",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "adf057f52703",
+      "question": ".rs is the top-level domain for what country?",
+      "options": [
+        "Romania",
+        "Russia",
+        "Rwanda",
+        "Serbia"
+      ],
+      "answer": "Serbia",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "802d25ac61b1",
+      "question": "Which internet company began life as an online bookstore called 'Cadabra'?",
+      "options": [
+        "Amazon",
+        "Overstock",
+        "Shopify",
+        "eBay"
+      ],
+      "answer": "Amazon",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "513f51a2d375",
+      "question": "The name of technology company HP stands for what?",
+      "options": [
+        "Hellman-Pohl",
+        "Hewlett-Packard",
+        "Howard Packmann",
+        "Husker-Pollosk"
+      ],
+      "answer": "Hewlett-Packard",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "6b38a3b97dcd",
+      "question": "In computing terms, typically what does CLI stand for?",
+      "options": [
+        "Command Line Interface",
+        "Common Language Input",
+        "Common Language Interface",
+        "Control Line Interface"
+      ],
+      "answer": "Command Line Interface",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "13f97fce37eb",
+      "question": "In the programming language \"Python\", which of these statements would display the string \"Hello World\" correctly?",
+      "options": [
+        "console.log(\"Hello World\")",
+        "echo \"Hello World\"",
+        "print(\"Hello World\")",
+        "printf(\"Hello World\")"
+      ],
+      "answer": "print(\"Hello World\")",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "508485fef0e8",
+      "question": "On which day did the World Wide Web go online?",
+      "options": [
+        "December 17, 1996",
+        "December 20, 1990",
+        "November 12, 1990",
+        "November 24, 1995"
+      ],
+      "answer": "December 20, 1990",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "65f4c8b3e76a",
+      "question": "What was the first Android version specifically optimized for tablets?",
+      "options": [
+        "Eclair",
+        "Froyo",
+        "Honeycomb",
+        "Marshmellow"
+      ],
+      "answer": "Honeycomb",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "6407de970a91",
+      "question": "What does the 'S' in the RSA encryption algorithm stand for?",
+      "options": [
+        "Schottky",
+        "Secure",
+        "Shamir",
+        "Stable"
+      ],
+      "answer": "Shamir",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "64a24409a4be",
+      "question": "What is the number of keys on a standard Windows Keyboard?",
+      "options": [
+        "104",
+        "64",
+        "76",
+        "94"
+      ],
+      "answer": "104",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "f8c113d365c9",
+      "question": "Which of the following is a personal computer made by the Japanese company Fujitsu?",
+      "options": [
+        "FM-7",
+        "MSX",
+        "PC-9801",
+        "Xmillennium "
+      ],
+      "answer": "FM-7",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "a6d18faefc78",
+      "question": "The teapot often seen in many 3D modeling applications is called what?",
+      "options": [
+        "3D Teapot",
+        "Pixar Teapot",
+        "Tennessee Teapot",
+        "Utah Teapot"
+      ],
+      "answer": "Utah Teapot",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "0a8f6e1cc8e1",
+      "question": "What does \"LCD\" stand for?",
+      "options": [
+        "Language Control Design",
+        "Last Common Difference",
+        "Liquid Crystal Display",
+        "Long Continuous Design"
+      ],
+      "answer": "Liquid Crystal Display",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "9077fbc8358b",
+      "question": "How fast is USB 3.1 Gen 2 theoretically?",
+      "options": [
+        "1 Gb/s",
+        "10 Gb/s",
+        "5 Gb/s",
+        "8 Gb/s"
+      ],
+      "answer": "10 Gb/s",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "3350c98435a5",
+      "question": "Laserjet and inkjet printers are both examples of what type of printer?",
+      "options": [
+        "Daisywheel printer",
+        "Dot matrix printer",
+        "Impact printer",
+        "Non-impact printer"
+      ],
+      "answer": "Non-impact printer",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "91e94e989062",
+      "question": "When did the online streaming service \"Mixer\" launch?",
+      "options": [
+        "2009",
+        "2011",
+        "2013",
+        "2016"
+      ],
+      "answer": "2016",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "a32ed5ff85cd",
+      "question": "While Apple was formed in California, in which western state was Microsoft founded?",
+      "options": [
+        "Arizona",
+        "Colorado",
+        "New Mexico",
+        "Washington"
+      ],
+      "answer": "New Mexico",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "4618147f9aa7",
+      "question": "Which one of these is not an official development name for a Ubuntu release?",
+      "options": [
+        "Mystic Mansion",
+        "Trusty Tahr",
+        "Utopic Unicorn",
+        "Wily Werewolf"
+      ],
+      "answer": "Mystic Mansion",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "94b8a1c6dcc3",
+      "question": "What is known as \"the brain\" of the Computer?",
+      "options": [
+        "Central Processing Unit",
+        "Graphics Processing Unit",
+        "Keyboard",
+        "Motherboard"
+      ],
+      "answer": "Central Processing Unit",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "f4030f006f98",
+      "question": "In HTML, which non-standard tag used to be be used to make elements scroll across the viewport?",
+      "options": [
+        "<marquee></marquee>",
+        "<move></move>",
+        "<scroll></scroll>",
+        "<slide></slide>"
+      ],
+      "answer": "<marquee></marquee>",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "8bbd3fe9f5a2",
+      "question": "Approximately how many Apple I personal computers were created?",
+      "options": [
+        "100",
+        "1000",
+        "200",
+        "500"
+      ],
+      "answer": "200",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "6651f7ad93ae",
+      "question": "Generally, which component of a computer draws the most power?",
+      "options": [
+        "Hard Drive",
+        "Power Supply",
+        "Processor",
+        "Video Card"
+      ],
+      "answer": "Video Card",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "17594762df4e",
+      "question": "How many bytes are in a single Kibibyte?",
+      "options": [
+        "1000",
+        "1024",
+        "1240",
+        "2400"
+      ],
+      "answer": "1024",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "e33c5c7a1ba4",
+      "question": "What does the acronym CDN stand for in terms of networking?",
+      "options": [
+        "Compressed Data Network",
+        "Computational Data Network",
+        "Content Delivery Network",
+        "Content Distribution Network"
+      ],
+      "answer": "Content Delivery Network",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "f9522960ebab",
+      "question": "Which coding language was the #1 programming language in terms of usage on GitHub in 2015?",
+      "options": [
+        "C#",
+        "JavaScript",
+        "PHP",
+        "Python"
+      ],
+      "answer": "JavaScript",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "169ea6dbcff4",
+      "question": "All of the following programs are classified as raster graphics editors EXCEPT:",
+      "options": [
+        "Adobe Photoshop",
+        "GIMP",
+        "Inkscape",
+        "Paint.NET"
+      ],
+      "answer": "Inkscape",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "9803f3add96f",
+      "question": "Which programming language was developed by Sun Microsystems in 1995?",
+      "options": [
+        "C++",
+        "Java",
+        "Python",
+        "Solaris OS"
+      ],
+      "answer": "Java",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "97c592680d14",
+      "question": "In programming, the ternary operator is mostly defined with what symbol(s)?",
+      "options": [
+        "?",
+        "?:",
+        "??",
+        "if then"
+      ],
+      "answer": "?:",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "a052d05f717d",
+      "question": "Moore's law originally stated that the number of transistors on a microprocessor chip would double every...",
+      "options": [
+        "Eight Years",
+        "Four Years",
+        "Two Years",
+        "Year"
+      ],
+      "answer": "Year",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "b5b979e9184d",
+      "question": "Which of these people was NOT a founder of Apple Inc?",
+      "options": [
+        "Jonathan Ive",
+        "Ronald Wayne",
+        "Steve Jobs",
+        "Steve Wozniak"
+      ],
+      "answer": "Jonathan Ive",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "b3f639fd6970",
+      "question": "What is the main CPU is the Sega Mega Drive / Sega Genesis?",
+      "options": [
+        "Intel 8088",
+        "Motorola 68000",
+        "Yamaha YM2612",
+        "Zilog Z80"
+      ],
+      "answer": "Motorola 68000",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "1ec69df73da2",
+      "question": "What was the name given to Android 4.3?",
+      "options": [
+        "Froyo",
+        "Jelly Bean",
+        "Lollipop",
+        "Nutella"
+      ],
+      "answer": "Jelly Bean",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "2be6912fa58a",
+      "question": "When was the programming language \"C#\" released?",
+      "options": [
+        "1998",
+        "1999",
+        "2000",
+        "2001"
+      ],
+      "answer": "2000",
+      "difficulty": "medium",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "fb471fdb5a24",
+      "question": "Which of the following is NOT a computer science algorithm?",
+      "options": [
+        "Bubble Sort",
+        "Float Sort",
+        "Merge Sort",
+        "Quick Sort"
+      ],
+      "answer": "Float Sort",
+      "difficulty": "hard",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "9ee0c72fbddd",
+      "question": "What is the domain name for the country Tuvalu?",
+      "options": [
+        ".tl",
+        ".tt",
+        ".tu",
+        ".tv"
+      ],
+      "answer": ".tv",
+      "difficulty": "easy",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "ce3d3f0c9dba",
+      "question": "Released in 2001, the first edition of Apple's Mac OS X operating system (version 10.0) was given what animal code name?",
+      "options": [
+        "Cheetah",
+        "Leopard",
+        "Puma",
+        "Tiger"
+      ],
+      "answer": "Cheetah",
+      "difficulty": "hard",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "4dd2e7db549c",
+      "question": "What type of sound chip does the Super Nintendo Entertainment System (SNES) have?",
+      "options": [
+        "ADPCM Sampler",
+        "FM Synthesizer",
+        "PCM Sampler",
+        "Programmable Sound Generator (PSG)"
+      ],
+      "answer": "ADPCM Sampler",
+      "difficulty": "hard",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "731382176b68",
+      "question": "Australia, Japan, and Southeast Asia are in which ITU Region?",
+      "options": [
+        "Region 1",
+        "Region 2",
+        "Region 3",
+        "Region 4"
+      ],
+      "answer": "Region 3",
+      "difficulty": "hard",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "72b2cc003203",
+      "question": "Which computer language would you associate Django framework with?",
+      "options": [
+        "C#",
+        "C++",
+        "Java",
+        "Python"
+      ],
+      "answer": "Python",
+      "difficulty": "easy",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "bc5dc8c6562d",
+      "question": "In computing, what does LAN stand for?",
+      "options": [
+        "Land Address Navigation",
+        "Light Access Node",
+        "Local Area Network",
+        "Long Antenna Node"
+      ],
+      "answer": "Local Area Network",
+      "difficulty": "easy",
+      "category": "Science: Computers"
+    },
+    {
+      "id": "602a7488c44a",
+      "question": "What does the computer software acronym JVM stand for?",
+      "options": [
+        "Java Vendor Machine",
+        "Java Virtual Machine",
+        "Java Visual Machine",
+        "Just Virtual Machine"
+      ],
+      "answer": "Java Virtual Machine",
+      "difficulty": "easy",
+      "category": "Science: Computers"
+    }
+  ]
+}

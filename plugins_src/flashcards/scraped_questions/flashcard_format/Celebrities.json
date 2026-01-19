@@ -1,0 +1,58 @@
+{
+  "category": "Celebrities",
+  "question_count": 4,
+  "questions": [
+    {
+      "id": "741aa62d3477",
+      "question": "Which actress's real name was Frances Ethel Gumm?",
+      "options": [
+        "Doris Day",
+        "Judy Garland",
+        "Julie Andrews",
+        "Marilyn Monroe"
+      ],
+      "answer": "Judy Garland",
+      "difficulty": "medium",
+      "category": "Celebrities"
+    },
+    {
+      "id": "8711f5bdffe9",
+      "question": "What was James Coburn's last film role before his death?",
+      "options": [
+        "American Gun",
+        "Monsters Inc",
+        "Snow Dogs",
+        "Texas Rangers"
+      ],
+      "answer": "American Gun",
+      "difficulty": "easy",
+      "category": "Celebrities"
+    },
+    {
+      "id": "9824075cc0e0",
+      "question": "Billy Herrington is from which US state?",
+      "options": [
+        "Arizona",
+        "California",
+        "Georgia",
+        "New York"
+      ],
+      "answer": "New York",
+      "difficulty": "hard",
+      "category": "Celebrities"
+    },
+    {
+      "id": "8e70a1de4828",
+      "question": "Which television show has Dan Gheesling been on?",
+      "options": [
+        "Big Brother",
+        "Jeopardy",
+        "Survivor",
+        "The Bachelor"
+      ],
+      "answer": "Big Brother",
+      "difficulty": "medium",
+      "category": "Celebrities"
+    }
+  ]
+}
