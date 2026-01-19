@@ -63,7 +63,7 @@ CARTHING_PASS="llizardos"
 
 # Create plugins directory on CarThing if needed
 echo -e "${YELLOW}Creating plugins directory on CarThing...${NC}"
-sshpass -p "$CARTHING_PASS" ssh -o StrictHostKeyChecking=no "$CARTHING_USER@$CARTHING_IP" "mkdir -p /tmp/plugins"
+sshpass -p "$CARTHING_PASS" ssh -o StrictHostKeyChecking=no "$CARTHING_USER@$CARTHING_IP" "mkdir -p /usr/lib/llizard/plugins"
 
 # Deploy main executable
 echo -e "${YELLOW}Copying main executable...${NC}"
@@ -74,7 +74,7 @@ echo -e "${YELLOW}Copying plugins...${NC}"
 for plugin in *.so; do
     if [ -f "$plugin" ]; then
         echo "  - Deploying $plugin"
-        sshpass -p "$CARTHING_PASS" scp -o StrictHostKeyChecking=no "$plugin" "$CARTHING_USER@$CARTHING_IP:/tmp/plugins/"
+        sshpass -p "$CARTHING_PASS" scp -o StrictHostKeyChecking=no "$plugin" "$CARTHING_USER@$CARTHING_IP:/usr/lib/llizard/plugins/"
     fi
 done
 

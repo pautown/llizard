@@ -36,7 +36,7 @@ make -j$(nproc)
 CarThing device: IP `172.16.42.2`, user `root`, password `llizardos`
 ```bash
 scp build-armv7-drm/llizardgui-host root@172.16.42.2:/tmp/
-scp build-armv7-drm/nowplaying.so root@172.16.42.2:/tmp/plugins/
+scp build-armv7-drm/nowplaying.so root@172.16.42.2:/usr/lib/llizard/plugins/
 ```
 
 ## Architecture
@@ -287,3 +287,28 @@ See `supporting_projects/llizardOS/CLAUDE.md` for full documentation.
 
 ### `supporting_projects/mediadash-android`
 Android companion app that provides media metadata over BLE to the CarThing.
+
+### `supporting_projects/townhaus`
+Personal portfolio and creative showcase website hosted at pautown.github.io. An interactive web art space featuring a generative grid interface with contemplative design.
+
+**Key Features:**
+- Draggable fragment tiles with localStorage persistence
+- Atmospheric effects (particles, mist, grain texture, stillness-triggered vines)
+- Keyboard shortcuts: `[b]` breathing, `[d]` dark mode, `[s]` scatter
+- Project showcase pages including llizardOS
+
+**Structure:**
+- `index.html` - Main landing page with fragment grid
+- `shared.css` - Shared aesthetic system
+- `pages/` - Individual fragment pages (silence, orb, door, etc.)
+- `pages/projects/llizardos.html` - llizardOS project showcase
+- `docs/vibe.md` - Design philosophy guide
+
+**Development:**
+```bash
+cd supporting_projects/townhaus
+python3 -m http.server 8000
+# Open http://localhost:8000
+```
+
+See `supporting_projects/townhaus/CLAUDE.md` for full documentation.

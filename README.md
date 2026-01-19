@@ -42,7 +42,7 @@ Device: IP `172.16.42.2`, user `root`, password `llizardos`
 
 ```bash
 scp build-armv7-drm/llizardgui-host root@172.16.42.2:/tmp/
-scp build-armv7-drm/*.so root@172.16.42.2:/tmp/plugins/
+scp build-armv7-drm/*.so root@172.16.42.2:/usr/lib/llizard/plugins/
 ```
 
 ## Project Structure
