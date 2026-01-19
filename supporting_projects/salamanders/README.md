@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="salamander mushrooms.jpg" width="400" alt="Salamander Mushrooms">
+</p>
+
 # Salamanders - Per-Plugin Supporting Files
 
 This directory contains supporting files, resources, and documentation organized by plugin. Each subdirectory corresponds to a plugin in `plugins_src/`.
