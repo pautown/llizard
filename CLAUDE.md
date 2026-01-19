@@ -154,6 +154,7 @@ int width = LlzMeasureText("Text", 24);
 3. Add sources and target to `CMakeLists.txt` (see `nowplaying_plugin` example)
 4. Plugin `.so` is auto-copied to `plugins/` directory post-build
 5. Optional: Add `llz_notifications` to link libraries for popup notifications
+6. Optional: Create `supporting_projects/salamanders/yourplugin/` for plugin resources (question banks, data files, scripts)
 
 ## External Dependencies
 
@@ -230,6 +231,41 @@ mkdir build && cd build
 cmake .. && make
 ./carthing_installer
 ```
+
+### `supporting_projects/salamander`
+Desktop raylib application for managing plugin installation on CarThing via SSH/SCP.
+
+**Features:**
+- Three-section UI: Device Only, Synced, Local Only
+- Drag-and-drop plugin install/uninstall
+- Fire salamander visual theme
+
+**Build & Run:**
+```bash
+cd supporting_projects/salamander
+mkdir build && cd build
+cmake .. && make -j$(nproc)
+./salamander
+```
+
+### `supporting_projects/salamanders`
+Per-plugin supporting files directory. Contains one subfolder per plugin for resources that aren't source code.
+
+**Structure:**
+```
+salamanders/
+├── flashcards/
+│   ├── questions/           # Runtime question banks (copied to plugins/ at build)
+│   ├── scraped_questions/   # Raw OpenTDB scraped data
+│   ├── legacy_questions/    # Old question files
+│   └── scrape_opentdb.py    # Question scraper utility
+├── millionaire/
+│   └── questions/           # Runtime question bank
+├── nowplaying/              # Now Playing resources
+└── ...                      # One folder per plugin
+```
+
+**Build Integration:** CMakeLists.txt copies `salamanders/{plugin}/questions/` → `plugins/{plugin}/questions/` at build time.
 
 ### `supporting_projects/golang_ble_client`
 - Sourced from `llizardgui-raygui/supporting_projects` and mirrored here for reference/integration work.

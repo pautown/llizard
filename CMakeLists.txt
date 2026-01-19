@@ -398,7 +398,7 @@ add_custom_command(TARGET flashcards_plugin POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/plugins/flashcards
     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/plugins/flashcards/questions
     COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:flashcards_plugin> ${CMAKE_CURRENT_SOURCE_DIR}/plugins/
-    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/plugins_src/flashcards/questions ${CMAKE_CURRENT_SOURCE_DIR}/plugins/flashcards/questions
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/supporting_projects/salamanders/flashcards/questions ${CMAKE_CURRENT_SOURCE_DIR}/plugins/flashcards/questions
     COMMENT "Copying flashcards plugin and questions to runtime plugins directory"
 )
 
@@ -460,7 +460,7 @@ add_custom_command(TARGET millionaire_plugin POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/plugins/millionaire
     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/plugins/millionaire/questions
     COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:millionaire_plugin> ${CMAKE_CURRENT_SOURCE_DIR}/plugins/
-    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/plugins_src/millionaire/questions ${CMAKE_CURRENT_SOURCE_DIR}/plugins/millionaire/questions
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/supporting_projects/salamanders/millionaire/questions ${CMAKE_CURRENT_SOURCE_DIR}/plugins/millionaire/questions
     COMMENT "Copying millionaire plugin and questions to runtime plugins directory"
 )
 

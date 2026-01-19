@@ -33,6 +33,11 @@ static const Color COLOR_CARD_BORDER = {60, 55, 80, 255};
 static float g_scrollOffset = 0.0f;
 static float g_targetScrollOffset = 0.0f;
 
+// Plugin refresh state
+#define PLUGIN_REFRESH_INTERVAL 2.0f  // Check for changes every 2 seconds
+static float g_pluginRefreshTimer = 0.0f;
+static PluginDirSnapshot g_pluginSnapshot = {0};
+
 // Font
 static Font g_menuFont;
 static bool g_fontLoaded = false;
@@ -347,6 +352,9 @@ int main(void)
     PluginRegistry registry = {0};
     LoadPlugins(pluginDir, &registry);
 
+    // Create initial snapshot for change detection
+    g_pluginSnapshot = CreatePluginSnapshot(pluginDir);
+
     int selectedIndex = 0;
     if (selectedIndex >= registry.count) selectedIndex = registry.count - 1;
     bool runningPlugin = false;
@@ -362,6 +370,59 @@ int main(void)
         if (!runningPlugin) {
             // Update SDK background animations
             LlzBackgroundUpdate(delta);
+
+            // Periodic plugin directory check
+            g_pluginRefreshTimer += delta;
+            if (g_pluginRefreshTimer >= PLUGIN_REFRESH_INTERVAL) {
+                g_pluginRefreshTimer = 0.0f;
+
+                if (HasPluginDirectoryChanged(pluginDir, &g_pluginSnapshot)) {
+                    // Remember current selection name to restore after refresh
+                    char selectedName[128] = {0};
+                    if (selectedIndex >= 0 && selectedIndex < registry.count) {
+                        strncpy(selectedName, registry.items[selectedIndex].displayName,
+                                sizeof(selectedName) - 1);
+                    }
+
+                    // Refresh plugins
+                    int changes = RefreshPlugins(pluginDir, &registry);
+                    if (changes > 0) {
+                        printf("Plugins refreshed: %d change(s)\n", changes);
+
+                        // Update snapshot
+                        FreePluginSnapshot(&g_pluginSnapshot);
+                        g_pluginSnapshot = CreatePluginSnapshot(pluginDir);
+
+                        // Try to restore selection by name
+                        int newIndex = -1;
+                        if (selectedName[0]) {
+                            for (int i = 0; i < registry.count; i++) {
+                                if (strcmp(registry.items[i].displayName, selectedName) == 0) {
+                                    newIndex = i;
+                                    break;
+                                }
+                            }
+                        }
+
+                        // Update selection
+                        if (newIndex >= 0) {
+                            selectedIndex = newIndex;
+                        } else if (registry.count > 0) {
+                            // Clamp to valid range
+                            if (selectedIndex >= registry.count) {
+                                selectedIndex = registry.count - 1;
+                            }
+                        } else {
+                            selectedIndex = 0;
+                        }
+
+                        // Reset last plugin index if that plugin was removed
+                        if (lastPluginIndex >= registry.count) {
+                            lastPluginIndex = -1;
+                        }
+                    }
+                }
+            }
 
             bool downKey = IsKeyPressed(KEY_DOWN) || inputState.downPressed || (inputState.scrollDelta > 0.0f);
             bool upKey = IsKeyPressed(KEY_UP) || inputState.upPressed || (inputState.scrollDelta < 0.0f);
@@ -466,6 +527,7 @@ int main(void)
     if (active && active->api && active->api->shutdown) {
         active->api->shutdown();
     }
+    FreePluginSnapshot(&g_pluginSnapshot);
     UnloadPlugins(&registry);
     UnloadMenuFont();
     LlzBackgroundShutdown();

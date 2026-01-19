@@ -2,6 +2,11 @@
 
 # Build and deploy script for llizardgui-host to CarThing device
 # CarThing IP: 172.16.42.2, user: root, password: llizardos
+#
+# Plugin Resources:
+#   Source location: supporting_projects/salamanders/{plugin}/questions/
+#   Build copies to: plugins/{plugin}/questions/
+#   Deploy target:   /tmp/{plugin}/questions/ on CarThing
 
 set -e  # Exit on error
 
@@ -79,17 +84,31 @@ for plugin in *.so; do
 done
 
 # Deploy flashcards questions folder
-if [ -d "../plugins/flashcards/questions" ]; then
-    echo -e "${YELLOW}Copying flashcards questions...${NC}"
+# Source: supporting_projects/salamanders/flashcards/questions/ (copied to plugins/ at build time)
+FLASHCARDS_QUESTIONS="../plugins/flashcards/questions"
+FLASHCARDS_QUESTIONS_SRC="../supporting_projects/salamanders/flashcards/questions"
+if [ -d "$FLASHCARDS_QUESTIONS" ]; then
+    echo -e "${YELLOW}Copying flashcards questions (from build output)...${NC}"
     sshpass -p "$CARTHING_PASS" ssh -o StrictHostKeyChecking=no "$CARTHING_USER@$CARTHING_IP" "mkdir -p /tmp/flashcards/questions"
-    sshpass -p "$CARTHING_PASS" scp -r -o StrictHostKeyChecking=no ../plugins/flashcards/questions/* "$CARTHING_USER@$CARTHING_IP:/tmp/flashcards/questions/"
+    sshpass -p "$CARTHING_PASS" scp -r -o StrictHostKeyChecking=no "$FLASHCARDS_QUESTIONS"/* "$CARTHING_USER@$CARTHING_IP:/tmp/flashcards/questions/"
+elif [ -d "$FLASHCARDS_QUESTIONS_SRC" ]; then
+    echo -e "${YELLOW}Copying flashcards questions (from salamanders source)...${NC}"
+    sshpass -p "$CARTHING_PASS" ssh -o StrictHostKeyChecking=no "$CARTHING_USER@$CARTHING_IP" "mkdir -p /tmp/flashcards/questions"
+    sshpass -p "$CARTHING_PASS" scp -r -o StrictHostKeyChecking=no "$FLASHCARDS_QUESTIONS_SRC"/* "$CARTHING_USER@$CARTHING_IP:/tmp/flashcards/questions/"
 fi
 
 # Deploy millionaire questions folder
-if [ -d "../plugins/millionaire/questions" ]; then
-    echo -e "${YELLOW}Copying millionaire questions...${NC}"
+# Source: supporting_projects/salamanders/millionaire/questions/ (copied to plugins/ at build time)
+MILLIONAIRE_QUESTIONS="../plugins/millionaire/questions"
+MILLIONAIRE_QUESTIONS_SRC="../supporting_projects/salamanders/millionaire/questions"
+if [ -d "$MILLIONAIRE_QUESTIONS" ]; then
+    echo -e "${YELLOW}Copying millionaire questions (from build output)...${NC}"
     sshpass -p "$CARTHING_PASS" ssh -o StrictHostKeyChecking=no "$CARTHING_USER@$CARTHING_IP" "mkdir -p /tmp/millionaire/questions"
-    sshpass -p "$CARTHING_PASS" scp -r -o StrictHostKeyChecking=no ../plugins/millionaire/questions/* "$CARTHING_USER@$CARTHING_IP:/tmp/millionaire/questions/"
+    sshpass -p "$CARTHING_PASS" scp -r -o StrictHostKeyChecking=no "$MILLIONAIRE_QUESTIONS"/* "$CARTHING_USER@$CARTHING_IP:/tmp/millionaire/questions/"
+elif [ -d "$MILLIONAIRE_QUESTIONS_SRC" ]; then
+    echo -e "${YELLOW}Copying millionaire questions (from salamanders source)...${NC}"
+    sshpass -p "$CARTHING_PASS" ssh -o StrictHostKeyChecking=no "$CARTHING_USER@$CARTHING_IP" "mkdir -p /tmp/millionaire/questions"
+    sshpass -p "$CARTHING_PASS" scp -r -o StrictHostKeyChecking=no "$MILLIONAIRE_QUESTIONS_SRC"/* "$CARTHING_USER@$CARTHING_IP:/tmp/millionaire/questions/"
 fi
 
 # Deploy fonts (if any exist locally that aren't on the device)

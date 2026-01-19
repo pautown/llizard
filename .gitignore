@@ -3,8 +3,10 @@ build/
 build-*/
 image-build-output/
 
-# Compiled plugins (source is in plugins_src/)
+# Compiled plugins (source is in plugins_src/, resources in salamanders/)
 plugins/*.so
+plugins/flashcards/
+plugins/millionaire/
 
 # External dependencies are managed as git submodules in external/
 # Root-level copies are duplicates (ignore them)
@@ -15,6 +17,8 @@ raygui/
 supporting_projects/golang_ble_client/
 supporting_projects/mediadash-android/
 supporting_projects/llizardOS/
+supporting_projects/salamander/
+supporting_projects/townhaus/
 
 # IDE and editor files
 .vscode/

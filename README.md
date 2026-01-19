@@ -82,14 +82,39 @@ llizardgui-host/
 │   ├── millionaire/        # Trivia game
 │   ├── flashcards/         # Quiz/flashcard system
 │   └── alchemy/            # Cauldron Cascade game
+├── plugins/                # Built plugins (auto-populated at build time)
 ├── include/                # Shared headers
 │   └── llizard_plugin.h    # Plugin API definition
-├── plugins/                # Built plugins (auto-populated)
+├── supporting_projects/    # Related tools and resources
+│   ├── salamander/         # Desktop plugin manager (SSH/SCP deploy)
+│   └── salamanders/        # Per-plugin resources (see below)
 └── external/               # Dependencies (git submodules)
     ├── raylib/             # Graphics library
     ├── raygui/             # Immediate-mode GUI
     └── hiredis/            # Redis C client
 ```
+
+### Plugin Resources (salamanders/)
+
+Plugin resources (question banks, scraped data, utility scripts) are organized separately from source code in `supporting_projects/salamanders/`:
+
+```
+supporting_projects/salamanders/
+├── flashcards/
+│   ├── questions/           # Runtime question banks (copied to plugins/ at build)
+│   ├── scraped_questions/   # Raw OpenTDB scraped data
+│   ├── legacy_questions/    # Old question files
+│   └── scrape_opentdb.py    # Question scraper utility
+├── millionaire/
+│   └── questions/           # Runtime question bank (copied to plugins/ at build)
+├── nowplaying/              # Now Playing resources
+├── clock/                   # Clock resources
+└── ...                      # One folder per plugin
+```
+
+**Build Flow:** `CMakeLists.txt` copies `salamanders/{plugin}/questions/` → `plugins/{plugin}/questions/` at build time.
+
+**Deploy Flow:** `build-deploy-carthing.sh` copies `plugins/{plugin}/questions/` → `/tmp/{plugin}/questions/` on CarThing.
 
 ## Available Plugins
 
@@ -214,6 +239,11 @@ add_custom_command(TARGET myplugin_plugin POST_BUILD
 ```
 
 3. Build and the plugin will appear in `plugins/`
+
+4. (Optional) For plugins with runtime resources (question banks, data files):
+   - Create `supporting_projects/salamanders/yourplugin/`
+   - Add resources there (e.g., `questions/`, `data/`)
+   - Update `CMakeLists.txt` to copy resources to `plugins/yourplugin/` at build time
 
 ## CarThing Redis Setup
 
