@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Build and deploy script for golang_ble_client to CarThing device
-# CarThing IP: 172.16.42.2, user: root, password: nocturne
+# CarThing IP: 172.16.42.2, user: root, password: llizardos
 
 set -e  # Exit on error
 
@@ -56,7 +56,7 @@ echo -e "${GREEN}=== Deploying to CarThing ===${NC}"
 # CarThing connection details
 CARTHING_IP="172.16.42.2"
 CARTHING_USER="root"
-CARTHING_PASS="nocturne"
+CARTHING_PASS="llizardos"
 
 # Deploy main executable
 echo -e "${YELLOW}Copying mediadash-client to CarThing...${NC}"

@@ -38,7 +38,7 @@ make -j$(nproc)
 
 ### Deployment to CarThing
 
-Device: IP `172.16.42.2`, user `root`, password `nocturne`
+Device: IP `172.16.42.2`, user `root`, password `llizardos`
 
 ```bash
 scp build-armv7-drm/llizardgui-host root@172.16.42.2:/tmp/
@@ -52,88 +52,121 @@ llizardgui-host/
 ├── src/                    # Host application
 │   ├── main.c              # Plugin menu and main loop
 │   └── plugin_loader.c     # Dynamic plugin loading
-├── sdk/                    # llizardgui SDK
+├── sdk/                    # llizardgui SDK (10 modules)
 │   ├── include/            # Public headers
-│   │   ├── llz_sdk.h           # Main include
-│   │   ├── llz_sdk_display.h   # Display abstraction
+│   │   ├── llz_sdk.h           # Master include (includes all)
+│   │   ├── llz_sdk_display.h   # Display abstraction (800x480 canvas)
 │   │   ├── llz_sdk_input.h     # Input/gesture system
 │   │   ├── llz_sdk_layout.h    # Layout helpers
-│   │   ├── llz_sdk_media.h     # Redis media state
-│   │   ├── llz_sdk_image.h     # Blur and scaling
-│   │   └── llz_sdk_config.h    # Configuration system
+│   │   ├── llz_sdk_media.h     # Redis media state, podcasts, lyrics
+│   │   ├── llz_sdk_image.h     # Blur effects, cover/contain scaling
+│   │   ├── llz_sdk_config.h    # Global and plugin configuration
+│   │   ├── llz_sdk_background.h # 9 animated background styles
+│   │   ├── llz_sdk_subscribe.h # Event-driven media callbacks
+│   │   ├── llz_sdk_navigation.h # Inter-plugin navigation
+│   │   └── llz_sdk_font.h      # Font loading and text helpers
 │   └── llz_sdk/            # Implementation
-├── plugins_src/            # Plugin source code
-│   ├── nowplaying/         # Music player UI
+├── shared/                 # Shared libraries
+│   └── notifications/      # Popup notification system (opt-in)
+├── plugins_src/            # Plugin source code (13 plugins)
+│   ├── nowplaying/         # Music player UI with themes
+│   ├── lyrics/             # Synced lyrics display
+│   ├── podcast/            # Podcast browser
+│   ├── album_art_viewer/   # Album art browser
+│   ├── clock/              # Multi-style clock
 │   ├── settings/           # System settings
 │   ├── redis_status/       # Redis/BLE status display
-│   ├── swipe_2048/         # 2048 game
-│   ├── alchemy/            # Alchemy game
-│   └── album_art_viewer/   # Album art display
+│   ├── swipe_2048/         # 2048 puzzle game
+│   ├── llzblocks/          # Tetris-style block game
+│   ├── llzsolipskier/      # Line-drawing ski game
+│   ├── millionaire/        # Trivia game
+│   ├── flashcards/         # Quiz/flashcard system
+│   └── alchemy/            # Cauldron Cascade game
 ├── include/                # Shared headers
 │   └── llizard_plugin.h    # Plugin API definition
 ├── plugins/                # Built plugins (auto-populated)
-└── external/               # Dependencies (raylib, hiredis)
+└── external/               # Dependencies (git submodules)
+    ├── raylib/             # Graphics library
+    ├── raygui/             # Immediate-mode GUI
+    └── hiredis/            # Redis C client
 ```
 
 ## Available Plugins
 
 | Plugin | Description |
 |--------|-------------|
-| **nowplaying** | Music player UI with multiple display modes, themes, clock overlay |
-| **settings** | System settings (brightness, orientation) |
-| **redis_status** | Live Redis/MediaDash state display |
-| **swipe_2048** | 2048 puzzle game |
-| **alchemy** | Cauldron Cascade alchemy game |
-| **album_art_viewer** | Full-screen album art display |
+| **Now Playing** | Now playing screen with clock overlay and theming |
+| **Lyrics** | Display synced lyrics for current track |
+| **Podcasts** | Browse podcasts and episodes |
+| **Album Art Viewer** | Browse cached album art |
+| **Clock** | Modern clock with multiple styles |
+| **Settings** | System settings - brightness, lyrics |
+| **Redis Status** | Displays Redis/MediaDash state |
+| **Swipe 2048** | Touch-friendly 2048 clone with swipe + hardware input |
+| **LLZ Blocks** | Block-stacking puzzle with Marathon, Sprint, Ultra & Zen modes |
+| **LLZ Solipskier** | Draw snow lines for a skier to ride! |
+| **Millionaire** | Who Wants to Be a Millionaire trivia game |
+| **Flashcards** | Multiple choice quiz tester |
+| **Cauldron Cascade** | Gold becoming aware of itself becoming gold |
 
 ## SDK Overview
 
-The SDK provides a consistent interface for plugins regardless of platform:
+The SDK provides 10 modules that abstract platform differences and provide common functionality:
 
-### Display (800x480 logical canvas)
+| Module | Header | Description |
+|--------|--------|-------------|
+| Display | `llz_sdk_display.h` | 800x480 logical canvas with DRM rotation handling |
+| Input | `llz_sdk_input.h` | Unified buttons, touch, gestures, button hold detection |
+| Layout | `llz_sdk_layout.h` | Rectangle subdivision helpers |
+| Media | `llz_sdk_media.h` | Redis-backed track metadata, podcasts, lyrics, playback commands |
+| Image | `llz_sdk_image.h` | Blur effects, CSS-like cover/contain scaling |
+| Config | `llz_sdk_config.h` | Global settings (brightness, auto-brightness) + per-plugin configs |
+| Background | `llz_sdk_background.h` | 9 animated background styles (Aurora, Bokeh, etc.) |
+| Subscribe | `llz_sdk_subscribe.h` | Event callbacks for media changes (no polling needed) |
+| Navigation | `llz_sdk_navigation.h` | Inter-plugin navigation requests |
+| Font | `llz_sdk_font.h` | Centralized font loading with path resolution |
+
+### Quick Examples
+
 ```c
+// Display - all plugins draw to 800x480 canvas
 LlzDisplayInit();
 LlzDisplayBegin();
-// Draw your UI here
+DrawText("Hello!", 100, 100, 32, WHITE);
 LlzDisplayEnd();
-LlzDisplayShutdown();
-```
 
-### Input (buttons, touch, gestures)
-```c
+// Input - unified gestures and button handling
 void PluginUpdate(const LlzInputState *input, float dt) {
     if (input->tap) HandleTap(input->tapPosition);
     if (input->swipeLeft) NextScreen();
     if (input->backPressed) ExitPlugin();
+    if (input->selectHold) ShowContextMenu();  // Long press
+    if (input->scrollDelta) AdjustVolume(input->scrollDelta);
 }
-```
 
-### Media (Redis integration)
-```c
+// Media - Redis integration with playback control
 LlzMediaState media;
 LlzMediaGetState(&media);
 printf("Now Playing: %s - %s\n", media.artist, media.track);
 LlzMediaSendCommand(LLZ_PLAYBACK_TOGGLE, 0);
-```
 
-### Configuration
-```c
-// Global config
+// Subscriptions - event-driven updates
+LlzSubscribeTrackChanged(OnTrackChanged, NULL);
+LlzSubscribePlaystateChanged(OnPlaystateChanged, NULL);
+
+// Config - global and per-plugin settings
 LlzConfigSetBrightness(75);
+LlzConfigSetAutoBrightness();  // Use ambient sensor
 
-// Plugin config (auto-creates file if missing)
-LlzPluginConfigEntry defaults[] = {{"theme", "dark"}};
-LlzPluginConfigInit(&config, "myplugin", defaults, 1);
-```
-
-### Image Utilities
-```c
+// Image - blur and scaling
 Texture2D blurred = LlzTextureBlur(albumArt, 15, 0.4f);
-LlzDrawTextureCover(blurred, screenRect, WHITE);  // Stretch to fill
-LlzDrawTextureContain(albumArt, artRect, WHITE);  // Fit within
+LlzDrawTextureCover(blurred, screenRect, WHITE);
+
+// Fonts - automatic path resolution
+LlzDrawTextCentered("Title", 400, 50, 36, GOLD);
 ```
 
-See [sdk/README.md](sdk/README.md) for full SDK documentation.
+See [sdk/README.md](sdk/README.md) for complete API documentation.
 
 ## Creating a Plugin
 

@@ -33,7 +33,7 @@ make -j$(nproc)
 - `build-armv7-drm/*.so` - ARM plugins
 
 ### Deployment
-CarThing device: IP `172.16.42.2`, user `root`, password `nocturne`
+CarThing device: IP `172.16.42.2`, user `root`, password `llizardos`
 ```bash
 scp build-armv7-drm/llizardgui-host root@172.16.42.2:/tmp/
 scp build-armv7-drm/nowplaying.so root@172.16.42.2:/tmp/plugins/
@@ -175,13 +175,13 @@ int width = LlzMeasureText("Text", 24);
 The redis_status plugin requires Redis running on the CarThing:
 ```bash
 # Check status
-sshpass -p nocturne ssh root@172.16.42.2 "sv status redis"
+sshpass -p llizardos ssh root@172.16.42.2 "sv status redis"
 
 # Start Redis
-sshpass -p nocturne ssh root@172.16.42.2 "sv start redis"
+sshpass -p llizardos ssh root@172.16.42.2 "sv start redis"
 
 # Test connection
-sshpass -p nocturne ssh root@172.16.42.2 "redis-cli ping"
+sshpass -p llizardos ssh root@172.16.42.2 "redis-cli ping"
 ```
 
 Redis is populated by the `golang_ble_client` daemon which bridges BLE media data to Redis keys.

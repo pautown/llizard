@@ -1,16 +1,19 @@
 # llizardgui SDK
 
-This SDK packages the pieces every DRM plugin or host needs so you don't have to re-copy full projects. It currently provides nine layers:
+This SDK packages the pieces every DRM plugin or host needs so you don't have to re-copy full projects. It currently provides ten layers:
 
-1. **Display (llz_sdk_display.h)** – wraps raylib window/texture setup so both the host and plugins target a logical 800×480 canvas while the SDK handles DRM rotation and render textures under the hood.
-2. **Input (llz_sdk_input.h)** – unified CarThing/desktop input module with full gesture recognition. See [Input System](#input-system) below.
-3. **Layout helpers (llz_sdk_layout.h)** – a tiny set of functions to carve up the logical canvas without rewriting rectangle math each time. Useful for plugins trying to match the llizardgui look.
-4. **Media helpers (llz_sdk_media.h)** – Redis-backed accessors for track metadata, playback progress, BLE connection status, and playback commands routed through the MediaDash Go client.
-5. **Image utilities (llz_sdk_image.h)** – blur effects and CSS-like cover/contain image scaling for album art backgrounds and UI elements.
-6. **Configuration (llz_sdk_config.h)** – global system config (brightness, orientation) and per-plugin configuration with automatic file creation and INI persistence.
-7. **Background system (llz_sdk_background.h)** – 9 animated background styles (Pulse, Aurora, Wave, Constellation, Bokeh, etc.) with color palettes and playback-responsive energy levels.
-8. **Subscription system (llz_sdk_subscribe.h)** – event-driven callbacks for media changes (track, playstate, volume, position, connection, album art) without polling.
-9. **Font system (llz_sdk_font.h)** – centralized font loading with automatic path resolution across CarThing and desktop, plus text drawing helpers.
+1. **Display (llz_sdk_display.h)** - wraps raylib window/texture setup so both the host and plugins target a logical 800x480 canvas while the SDK handles DRM rotation and render textures under the hood.
+2. **Input (llz_sdk_input.h)** - unified CarThing/desktop input module with full gesture recognition and button hold detection. See [Input System](#input-system) below.
+3. **Layout helpers (llz_sdk_layout.h)** - a tiny set of functions to carve up the logical canvas without rewriting rectangle math each time. Useful for plugins trying to match the llizardgui look.
+4. **Media helpers (llz_sdk_media.h)** - Redis-backed accessors for track metadata, playback progress, BLE connection status, playback commands, podcasts, and lyrics routed through the MediaDash Go client.
+5. **Image utilities (llz_sdk_image.h)** - blur effects and CSS-like cover/contain image scaling for album art backgrounds and UI elements.
+6. **Configuration (llz_sdk_config.h)** - global system config (brightness, auto-brightness, orientation) and per-plugin configuration with automatic file creation and INI persistence.
+7. **Background system (llz_sdk_background.h)** - 9 animated background styles (Pulse, Aurora, Wave, Constellation, Bokeh, etc.) with color palettes and playback-responsive energy levels.
+8. **Subscription system (llz_sdk_subscribe.h)** - event-driven callbacks for media changes (track, playstate, volume, position, connection, album art) without polling.
+9. **Navigation system (llz_sdk_navigation.h)** - inter-plugin navigation requests allowing plugins to request opening other plugins.
+10. **Font system (llz_sdk_font.h)** - centralized font loading with automatic path resolution across CarThing and desktop, plus text drawing helpers.
+
+---
 
 ## Input System
 
@@ -20,15 +23,31 @@ The input module (`llz_sdk_input.h`) provides a unified `LlzInputState` struct t
 
 | Field | CarThing Button | Desktop Key | Description |
 |-------|-----------------|-------------|-------------|
-| `backPressed` | Back (preset 4) | ESC | Exit/back navigation |
-| `selectPressed` | Front dial click | ENTER | Confirm/select action |
-| `playPausePressed` | Front dial click | ENTER | Alias for select (media control) |
+| `backPressed` | Back (preset 4) | ESC | Exit/back navigation (pressed this frame) |
+| `backReleased` | Back (preset 4) | ESC | Back button just released |
+| `selectPressed` | Front dial click | ENTER | Confirm/select action (quick click) |
+| `selectDown` | Front dial click | ENTER | Select button currently held |
+| `selectHold` | Front dial click | ENTER | Select held past threshold (0.5s, edge-triggered) |
+| `selectHoldTime` | - | - | Duration select has been held (seconds) |
+| `playPausePressed` | Front dial click | ENTER | Alias for selectPressed (media control) |
 | `upPressed` | Preset 1 | 1 | Up/previous navigation |
 | `downPressed` | Preset 2 | 2 | Down/next navigation |
 | `displayModeNext` | Preset 3 | 3 or M | Cycle display modes |
 | `styleCyclePressed` | Preset 4 | 4 or B | Cycle visual styles |
 | `screenshotPressed` | Screenshot | 5 or F1 | Screenshot/special action |
-| `button1Pressed` - `button5Pressed` | Preset 1-4 + Screenshot | 1-5 | Generic button states |
+
+### Generic Button States
+
+Each hardware button has three state fields for flexible handling:
+
+| Field Pattern | Type | Description |
+|---------------|------|-------------|
+| `buttonNPressed` | `bool` | Quick click detected (released before hold threshold) |
+| `buttonNDown` | `bool` | Button currently held down |
+| `buttonNHold` | `bool` | Button held past 0.5s threshold (edge-triggered, fires once) |
+| `buttonNHoldTime` | `float` | Duration button has been held (seconds) |
+
+Buttons 1-5 map to Preset 1-4 + Screenshot. Button 6 maps to the screenshot button and includes special brightness toggle behavior on quick press.
 
 ### Rotary Encoder / Scroll
 
@@ -87,8 +106,18 @@ The SDK automatically detects common gestures from touch/mouse input:
 
 - **Tap**: < 30px movement, < 0.3s duration
 - **Double tap**: Two taps within 0.35s, < 30px apart
-- **Hold/Long press**: > 0.7s stationary
+- **Hold/Long press**: > 0.7s stationary (touch gestures)
+- **Button hold**: > 0.5s held (hardware buttons)
 - **Swipe**: > 80px movement in a direction
+
+### Input API Functions
+
+| Function | Returns | Description |
+|----------|---------|-------------|
+| `LlzInputInit()` | `void` | Initialize input subsystem. Starts CarThing input backend on DRM. |
+| `LlzInputUpdate(state)` | `void` | Update input state. Call once per frame. Pass NULL to update internal state. |
+| `LlzInputShutdown()` | `void` | Shutdown input subsystem. |
+| `LlzInputGetState()` | `const LlzInputState*` | Get pointer to current input state. |
 
 ### Usage Example
 
@@ -96,7 +125,8 @@ The SDK automatically detects common gestures from touch/mouse input:
 void PluginUpdate(const LlzInputState *input, float deltaTime) {
     // Button navigation
     if (input->backPressed) { /* go back */ }
-    if (input->selectPressed) { /* confirm */ }
+    if (input->selectPressed) { /* confirm (quick click) */ }
+    if (input->selectHold) { /* long press action */ }
 
     // Rotary/scroll for volume or list navigation
     if (input->scrollDelta != 0) {
@@ -114,6 +144,11 @@ void PluginUpdate(const LlzInputState *input, float deltaTime) {
         // Scrubbing, scrolling, etc.
         UpdateScrubPosition(input->dragCurrent.x);
     }
+
+    // Button hold detection
+    if (input->button1Hold) {
+        // Button 1 held for 0.5s - trigger alternate action
+    }
 }
 ```
 
@@ -124,11 +159,15 @@ For advanced use cases (e.g., input injection), the SDK exposes:
 - `llzSimulatedMousePos`
 - `llzSimulatedScrollWheel`
 
+---
+
 ## Why this SDK?
 
-- **Consistency** – Every plugin sees the exact same coordinate system, input behaviours, and touch mapping, so gestures map 1:1 with the host and legacy apps.
-- **Ease of authoring** – Plugin authors can focus on their UI instead of re-implementing DRM rotation, input polling, layout math, or Redis plumbing. They simply include `llz_sdk.h` and link against `llz_sdk`.
-- **Future-proofing** – Central fixes (e.g., touch deadzones, display timing, new hardware quirks) land here once and automatically benefit the host and all plugins.
+- **Consistency** - Every plugin sees the exact same coordinate system, input behaviours, and touch mapping, so gestures map 1:1 with the host and legacy apps.
+- **Ease of authoring** - Plugin authors can focus on their UI instead of re-implementing DRM rotation, input polling, layout math, or Redis plumbing. They simply include `llz_sdk.h` and link against `llz_sdk`.
+- **Future-proofing** - Central fixes (e.g., touch deadzones, display timing, new hardware quirks) land here once and automatically benefit the host and all plugins.
+
+---
 
 ## Integrating the SDK
 
@@ -145,7 +184,7 @@ For advanced use cases (e.g., input injection), the SDK exposes:
 
 ## Display System
 
-The display module (`llz_sdk_display.h`) abstracts the differences between desktop development and CarThing DRM deployment. It ensures all plugins draw to a consistent 800×480 logical canvas regardless of the underlying platform.
+The display module (`llz_sdk_display.h`) abstracts the differences between desktop development and CarThing DRM deployment. It ensures all plugins draw to a consistent 800x480 logical canvas regardless of the underlying platform.
 
 ### Constants
 
@@ -158,17 +197,17 @@ The display module (`llz_sdk_display.h`) abstracts the differences between deskt
 
 | Function | Returns | Description |
 |----------|---------|-------------|
-| `LlzDisplayInit()` | `bool` | Initialize the display subsystem. Returns `true` on success. Handles DRM rotation setup on CarThing. |
-| `LlzDisplayBegin()` | `void` | Begin a frame. Call before any drawing operations. |
-| `LlzDisplayEnd()` | `void` | End a frame. Handles render texture blitting and rotation on DRM. |
+| `LlzDisplayInit()` | `bool` | Initialize the display subsystem. Returns `true` on success. Handles DRM rotation setup on CarThing. Sets target FPS to 60. |
+| `LlzDisplayBegin()` | `void` | Begin a frame. Call before any drawing operations. Clears to BLACK. |
+| `LlzDisplayEnd()` | `void` | End a frame. Handles render texture blitting and 90 degree rotation on DRM. |
 | `LlzDisplayShutdown()` | `void` | Clean up display resources. Call when exiting. |
 
 ### Platform Behavior
 
 | Platform | Native Resolution | Notes |
 |----------|-------------------|-------|
-| Desktop | 800×480 | Resizable window, direct drawing |
-| DRM (CarThing) | 480×800 | Render texture + 90° rotation to match physical display orientation |
+| Desktop | 800x480 | Resizable window, direct drawing |
+| DRM (CarThing) | 480x800 | Render texture + 90 degree rotation to match physical display orientation |
 
 ### Usage Example
 
@@ -183,7 +222,7 @@ if (!LlzDisplayInit()) {
 while (!WindowShouldClose()) {
     LlzDisplayBegin();
 
-    // Draw to 800×480 logical canvas
+    // Draw to 800x480 logical canvas
     DrawRectangle(0, 0, LLZ_LOGICAL_WIDTH, LLZ_LOGICAL_HEIGHT, BLACK);
     DrawText("Hello!", 100, 100, 32, WHITE);
 
@@ -211,12 +250,12 @@ typedef struct {
 
 ### API Functions
 
-| Function | Description |
-|----------|-------------|
-| `LlzLayoutSection(bounds, top, height)` | Extract a horizontal section starting at `top` offset with given `height` |
-| `LlzLayoutInset(bounds, inset)` | Shrink a rectangle by `inset` pixels on all sides |
-| `LlzLayoutSplitHorizontal(bounds, ratio, left, right)` | Split horizontally at `ratio` (0.0–1.0), output to `left` and `right` |
-| `LlzLayoutSplitVertical(bounds, ratio, top, bottom)` | Split vertically at `ratio` (0.0–1.0), output to `top` and `bottom` |
+| Function | Returns | Description |
+|----------|---------|-------------|
+| `LlzLayoutSection(bounds, top, height)` | `Rectangle` | Extract a horizontal section starting at `top` offset with given `height` |
+| `LlzLayoutInset(bounds, inset)` | `Rectangle` | Shrink a rectangle by `inset` pixels on all sides |
+| `LlzLayoutSplitHorizontal(bounds, ratio, left, right)` | `void` | Split horizontally at `ratio` (0.0-1.0), output to `left` and `right` |
+| `LlzLayoutSplitVertical(bounds, ratio, top, bottom)` | `void` | Split vertically at `ratio` (0.0-1.0), output to `top` and `bottom` |
 
 ### Usage Example
 
@@ -242,7 +281,7 @@ void DrawUI(void) {
 
 ## Media System
 
-The media module (`llz_sdk_media.h`) provides Redis-backed access to media metadata, playback state, BLE connection status, and playback command dispatch. It integrates with the `golang_ble_client` daemon running on CarThing.
+The media module (`llz_sdk_media.h`) provides Redis-backed access to media metadata, playback state, BLE connection status, playback command dispatch, podcast support, and lyrics. It integrates with the `golang_ble_client` daemon running on CarThing.
 
 ### Constants
 
@@ -250,6 +289,8 @@ The media module (`llz_sdk_media.h`) provides Redis-backed access to media metad
 |----------|-------|-------------|
 | `LLZ_MEDIA_TEXT_MAX` | 128 | Maximum length for text fields (track, artist, album, device name) |
 | `LLZ_MEDIA_PATH_MAX` | 256 | Maximum length for file paths (album art) |
+| `LLZ_LYRICS_LINE_MAX` | 256 | Maximum length for a lyrics line |
+| `LLZ_LYRICS_MAX_LINES` | 500 | Maximum number of lyrics lines |
 
 ### Types
 
@@ -265,7 +306,7 @@ Current media playback information:
 | `isPlaying` | `bool` | Currently playing or paused |
 | `durationSeconds` | `int` | Total track duration |
 | `positionSeconds` | `int` | Current playback position |
-| `volumePercent` | `int` | Volume level (0–100, or -1 if unavailable) |
+| `volumePercent` | `int` | Volume level (0-100, or -1 if unavailable) |
 | `updatedAt` | `int64_t` | Unix timestamp of last update |
 
 #### LlzConnectionStatus
@@ -275,6 +316,40 @@ BLE connection state:
 |-------|------|-------------|
 | `connected` | `bool` | Whether BLE device is connected |
 | `deviceName` | `char[128]` | Name of connected device |
+
+#### LlzPodcastState
+Podcast playback information:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `showName` | `char[128]` | Podcast show name |
+| `episodeTitle` | `char[128]` | Current episode title |
+| `episodeDescription` | `char[512]` | Episode description |
+| `author` | `char[128]` | Podcast author |
+| `artPath` | `char[256]` | Path to podcast art |
+| `episodeCount` | `int` | Total episode count |
+| `currentEpisodeIndex` | `int` | Current episode index |
+| `durationSeconds` | `int` | Episode duration |
+| `positionSeconds` | `int` | Current position |
+| `isPlaying` | `bool` | Currently playing |
+
+#### LlzLyricsLine
+A single line of lyrics:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `timestampMs` | `int64_t` | Timestamp in milliseconds (0 if unsynced) |
+| `text` | `char[256]` | Lyrics text |
+
+#### LlzLyricsData
+Complete lyrics data:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `hash` | `char[64]` | CRC32 hash of "artist|track" |
+| `synced` | `bool` | True if lyrics have timestamps |
+| `lineCount` | `int` | Number of lines |
+| `lines` | `LlzLyricsLine*` | Dynamically allocated array (caller must free) |
 
 #### LlzPlaybackCommand
 Commands to send to the media daemon:
@@ -287,26 +362,12 @@ Commands to send to the media daemon:
 | `LLZ_PLAYBACK_NEXT` | 3 | Skip to next track |
 | `LLZ_PLAYBACK_PREVIOUS` | 4 | Go to previous track |
 | `LLZ_PLAYBACK_SEEK_TO` | 5 | Seek to position (value = seconds) |
-| `LLZ_PLAYBACK_SET_VOLUME` | 6 | Set volume (value = 0–100) |
+| `LLZ_PLAYBACK_SET_VOLUME` | 6 | Set volume (value = 0-100) |
 
 #### LlzMediaKeyMap
-Optional custom Redis key mapping for non-standard setups:
+Optional custom Redis key mapping for non-standard setups. All fields are `const char*` and can be NULL to use defaults.
 
-| Field | Default Key | Description |
-|-------|-------------|-------------|
-| `trackTitle` | `media:track` | Track name |
-| `artistName` | `media:artist` | Artist name |
-| `albumName` | `media:album` | Album name |
-| `isPlaying` | `media:playing` | Playback state |
-| `durationSeconds` | `media:duration` | Track duration |
-| `progressSeconds` | `media:progress` | Current position |
-| `albumArtPath` | `media:album_art_path` | Album art file path |
-| `volumePercent` | `media:volume` | Volume level |
-| `bleConnected` | `system:ble_connected` | BLE connection flag |
-| `bleName` | `system:ble_name` | BLE device name |
-| `playbackCommandQueue` | `system:playback_cmd_q` | Command queue for playback |
-
-### API Functions
+### Core Media API Functions
 
 | Function | Returns | Description |
 |----------|---------|-------------|
@@ -314,10 +375,64 @@ Optional custom Redis key mapping for non-standard setups:
 | `LlzMediaShutdown()` | `void` | Disconnect and clean up. |
 | `LlzMediaGetState(outState)` | `bool` | Fetch current media state from Redis. |
 | `LlzMediaGetConnection(outStatus)` | `bool` | Fetch BLE connection status. |
-| `LlzMediaGetProgressPercent(state)` | `float` | Calculate progress as 0.0–1.0 from state. |
+| `LlzMediaGetProgressPercent(state)` | `float` | Calculate progress as 0.0-1.0 from state. |
 | `LlzMediaSendCommand(action, value)` | `bool` | Push a playback command to Redis queue. |
 | `LlzMediaSeekSeconds(seconds)` | `bool` | Seek to absolute position (shortcut for seek command). |
-| `LlzMediaSetVolume(percent)` | `bool` | Set volume 0–100 (shortcut for volume command). |
+| `LlzMediaSetVolume(percent)` | `bool` | Set volume 0-100 (shortcut for volume command). |
+
+### Album Art Functions
+
+| Function | Returns | Description |
+|----------|---------|-------------|
+| `LlzMediaRequestAlbumArt(hash)` | `bool` | Request album art from Android companion. Hash from `LlzMediaGenerateArtHash`. |
+| `LlzMediaGenerateArtHash(artist, album)` | `const char*` | Generate CRC32 hash for album art lookup. Returns static buffer. |
+
+### BLE Functions
+
+| Function | Returns | Description |
+|----------|---------|-------------|
+| `LlzMediaRequestBLEReconnect()` | `bool` | Signal golang_ble_client to attempt BLE reconnection. |
+
+### Podcast Functions
+
+| Function | Returns | Description |
+|----------|---------|-------------|
+| `LlzMediaRequestPodcastInfo()` | `bool` | Request podcast metadata from Android companion. |
+| `LlzMediaGetPodcastState(outState)` | `bool` | Fetch current podcast state from Redis. |
+| `LlzMediaGetPodcastEpisodes(outJson, maxLen)` | `bool` | Get episode list as JSON string. |
+| `LlzMediaGetPodcastCount()` | `int` | Get number of podcasts in library. |
+| `LlzMediaGetPodcastLibrary(outJson, maxLen)` | `bool` | Get full podcast library as JSON. |
+| `LlzMediaPlayEpisode(episodeHash)` | `bool` | Play episode by hash (preferred method). |
+| `LlzMediaPlayPodcastEpisode(podcastId, episodeIndex)` | `bool` | Play episode by index (DEPRECATED). |
+
+### Lazy Loading Podcast API
+
+For efficient podcast browsing without loading all data upfront:
+
+| Function | Returns | Description |
+|----------|---------|-------------|
+| `LlzMediaRequestPodcastList()` | `bool` | Request podcast channel list (names only, no episodes). |
+| `LlzMediaRequestRecentEpisodes(limit)` | `bool` | Request recent episodes across all podcasts. Default limit 30. |
+| `LlzMediaRequestPodcastEpisodes(podcastId, offset, limit)` | `bool` | Request episodes for a specific podcast with pagination. |
+| `LlzMediaGetPodcastList(outJson, maxLen)` | `bool` | Get cached podcast list from Redis. |
+| `LlzMediaGetRecentEpisodes(outJson, maxLen)` | `bool` | Get cached recent episodes from Redis. |
+| `LlzMediaGetPodcastEpisodesForId(podcastId, outJson, maxLen)` | `bool` | Get cached episodes for specific podcast. |
+
+### Lyrics API Functions
+
+| Function | Returns | Description |
+|----------|---------|-------------|
+| `LlzLyricsIsEnabled()` | `bool` | Check if lyrics feature is enabled. |
+| `LlzLyricsSetEnabled(enabled)` | `bool` | Enable/disable lyrics feature. |
+| `LlzLyricsGet(outLyrics)` | `bool` | Get parsed lyrics data. Caller must call `LlzLyricsFree`. |
+| `LlzLyricsFree(lyrics)` | `void` | Free lyrics data allocated by `LlzLyricsGet`. |
+| `LlzLyricsGetJson(outJson, maxLen)` | `bool` | Get raw lyrics JSON string. |
+| `LlzLyricsGetHash(outHash, maxLen)` | `bool` | Get current lyrics hash for change detection. |
+| `LlzLyricsAreSynced()` | `bool` | Check if current lyrics have timestamps. |
+| `LlzLyricsFindCurrentLine(positionMs, lyrics)` | `int` | Find lyrics line index for playback position. Returns -1 if not found. |
+| `LlzLyricsGenerateHash(artist, track)` | `const char*` | Generate hash for lyrics lookup. Returns static buffer. |
+| `LlzLyricsRequest(artist, track)` | `bool` | Request lyrics from Android companion via BLE. |
+| `LlzLyricsStore(lyricsJson, hash, synced)` | `bool` | Store lyrics to Redis (used when lyrics received). |
 
 ### Redis Schema
 
@@ -340,6 +455,16 @@ system:ble_name      -> "iPhone 15 Pro"
 
 # Command queue (write-only, consumed by golang_ble_client)
 system:playback_cmd_q -> LPUSH '{"action":"play","value":0,"timestamp":1234567890}'
+
+# Podcast state
+podcast:show_name, podcast:episode_title, podcast:author, podcast:art_path, etc.
+podcast:list, podcast:recent_episodes, podcast:episodes:<podcastId>
+
+# Lyrics
+lyrics:enabled -> "true" | "false"
+lyrics:data -> JSON lyrics data
+lyrics:hash -> CRC32 hash string
+lyrics:synced -> "true" | "false"
 ```
 
 ### Usage Example
@@ -371,7 +496,7 @@ if (input->playPausePressed) {
 
 if (input->scrollDelta != 0) {
     int newVolume = media.volumePercent + (int)(input->scrollDelta * 5);
-    LlzMediaSetVolume(newVolume);  // Clamped to 0–100 internally
+    LlzMediaSetVolume(newVolume);  // Clamped to 0-100 internally
 }
 
 // Seek on drag
@@ -379,6 +504,18 @@ if (input->dragActive) {
     float pct = input->dragCurrent.x / LLZ_LOGICAL_WIDTH;
     int seekPos = (int)(pct * media.durationSeconds);
     LlzMediaSeekSeconds(seekPos);
+}
+
+// Lyrics example
+if (LlzLyricsIsEnabled()) {
+    LlzLyricsData lyrics;
+    if (LlzLyricsGet(&lyrics)) {
+        int currentLine = LlzLyricsFindCurrentLine(media.positionSeconds * 1000, &lyrics);
+        if (currentLine >= 0) {
+            printf("Lyrics: %s\n", lyrics.lines[currentLine].text);
+        }
+        LlzLyricsFree(&lyrics);
+    }
 }
 
 // Shutdown
@@ -415,8 +552,8 @@ The image module (`llz_sdk_image.h`) provides blur effects and CSS-like image sc
 
 | Function | Returns | Description |
 |----------|---------|-------------|
-| `LlzImageBlur(source, blurRadius, darkenAmount)` | `Image` | Apply box blur and darken an image. Returns new image (caller must unload). |
-| `LlzTextureBlur(source, blurRadius, darkenAmount)` | `Texture2D` | Create a blurred texture from a source texture. Returns new texture (caller must unload). |
+| `LlzImageBlur(source, blurRadius, darkenAmount)` | `Image` | Apply box blur and darken an image. Returns new image (caller must call `UnloadImage`). |
+| `LlzTextureBlur(source, blurRadius, darkenAmount)` | `Texture2D` | Create a blurred texture from a source texture. Returns new texture (caller must call `UnloadTexture`). |
 | `LlzDrawTextureCover(texture, destRect, tint)` | `void` | Draw texture stretched to fill rect (like CSS `background-size: cover`). May crop edges. |
 | `LlzDrawTextureContain(texture, destRect, tint)` | `void` | Draw texture scaled to fit within rect (like CSS `background-size: contain`). May letterbox. |
 
@@ -424,15 +561,21 @@ The image module (`llz_sdk_image.h`) provides blur effects and CSS-like image sc
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `blurRadius` | `int` | Blur strength (1-50 recommended). Higher = more blur. |
+| `blurRadius` | `int` | Blur strength (1-20 recommended, higher = more blur). |
 | `darkenAmount` | `float` | Darken factor (0.0-1.0). 0.0 = no darkening, 1.0 = fully black. |
 
 ### Usage Example
 
 ```c
-// Create a blurred background from album art
+// Create a blurred background from album art (from texture)
 Texture2D albumArt = LoadTexture("album.png");
 Texture2D blurredBg = LlzTextureBlur(albumArt, 15, 0.4f);  // radius 15, 40% darker
+
+// Or from image
+Image img = LoadImage("album.png");
+Image blurredImg = LlzImageBlur(img, 15, 0.4f);
+Texture2D blurredBg2 = LoadTextureFromImage(blurredImg);
+UnloadImage(blurredImg);
 
 void PluginDraw(void) {
     Rectangle screen = {0, 0, LLZ_LOGICAL_WIDTH, LLZ_LOGICAL_HEIGHT};
@@ -473,8 +616,16 @@ The host application initializes the global config on startup. Plugins can read 
 
 | Setting | Type | Range | Description |
 |---------|------|-------|-------------|
-| `brightness` | `int` | 0-100 | Screen brightness percentage. Applied to backlight on CarThing. |
+| `brightness` | `int` | 0-100 or `LLZ_BRIGHTNESS_AUTO` | Screen brightness percentage. Applied to backlight on CarThing. |
 | `rotation` | `LlzRotation` | 0, 90, 180, 270 | Screen orientation. |
+
+#### Constants
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `LLZ_BRIGHTNESS_AUTO` | -1 | Special value for automatic brightness mode |
+| `LLZ_CONFIG_PATH_CARTHING` | `/var/llizard/config.ini` | Config path on CarThing |
+| `LLZ_CONFIG_PATH_DESKTOP` | `./llizard_config.ini` | Config path on desktop |
 
 #### LlzRotation Values
 
@@ -489,15 +640,22 @@ The host application initializes the global config on startup. Plugins can read 
 
 | Function | Returns | Description |
 |----------|---------|-------------|
+| `LlzConfigInit()` | `bool` | Initialize config system. Loads config from file or creates defaults. Called by host. |
+| `LlzConfigShutdown()` | `void` | Save pending changes and shutdown. |
 | `LlzConfigGet()` | `const LlzConfig*` | Get pointer to current global config |
-| `LlzConfigGetBrightness()` | `int` | Get current brightness (0-100) |
-| `LlzConfigSetBrightness(value)` | `bool` | Set brightness and apply to hardware |
+| `LlzConfigGetBrightness()` | `int` | Get current brightness (0-100 or `LLZ_BRIGHTNESS_AUTO`) |
+| `LlzConfigSetBrightness(value)` | `bool` | Set brightness and apply to hardware. Stops auto service when setting manual. |
+| `LlzConfigIsAutoBrightness()` | `bool` | Check if brightness is in automatic mode |
+| `LlzConfigSetAutoBrightness()` | `bool` | Enable automatic brightness (starts auto_brightness service on CarThing) |
+| `LlzConfigReadAmbientLight()` | `int` | Read ambient light level in lux from sensor. Returns -1 if unavailable. |
+| `LlzConfigToggleBrightness()` | `bool` | Toggle screen on/off. Returns true if screen is now on. |
 | `LlzConfigGetRotation()` | `LlzRotation` | Get current rotation |
 | `LlzConfigSetRotation(value)` | `bool` | Set rotation |
 | `LlzConfigGetPath()` | `const char*` | Get path to global config file |
 | `LlzConfigGetDirectory()` | `const char*` | Get config directory path |
 | `LlzConfigSave()` | `bool` | Force save config to disk |
 | `LlzConfigReload()` | `bool` | Reload config from disk |
+| `LlzConfigApplyBrightness()` | `void` | Apply current brightness to hardware (CarThing backlight) |
 
 #### Config File Locations
 
@@ -516,6 +674,23 @@ printf("Brightness: %d%%\n", cfg->brightness);
 // Modify brightness (auto-saves and applies to hardware)
 LlzConfigSetBrightness(75);
 
+// Enable auto brightness
+LlzConfigSetAutoBrightness();
+
+// Check if auto mode
+if (LlzConfigIsAutoBrightness()) {
+    printf("Using ambient light sensor\n");
+}
+
+// Read ambient light (CarThing only)
+int lux = LlzConfigReadAmbientLight();
+if (lux >= 0) {
+    printf("Ambient light: %d lux\n", lux);
+}
+
+// Toggle screen on/off (for hardware button)
+bool screenOn = LlzConfigToggleBrightness();
+
 // Check orientation
 if (LlzConfigGetRotation() == LLZ_ROTATION_90) {
     printf("Portrait mode\n");
@@ -525,6 +700,12 @@ if (LlzConfigGetRotation() == LLZ_ROTATION_90) {
 ### Plugin Configuration
 
 Each plugin can have its own config file with custom key-value settings. If the config file doesn't exist, it's automatically created with provided defaults.
+
+#### Constants
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `LLZ_PLUGIN_CONFIG_MAX_ENTRIES` | 64 | Maximum entries per plugin config |
 
 #### Plugin Config API
 
@@ -627,6 +808,15 @@ The background module (`llz_sdk_background.h`) provides 9 animated background st
 | Liquid Gradient | `LLZ_BG_STYLE_LIQUID` | Morphing color blobs with fluid motion |
 | Bokeh Lights | `LLZ_BG_STYLE_BOKEH` | Soft floating circles with depth |
 
+### Types
+
+```c
+// Color palette for backgrounds (6 colors derived from primary/accent)
+typedef struct {
+    Color colors[6];
+} LlzBackgroundPalette;
+```
+
 ### API Functions
 
 | Function | Returns | Description |
@@ -646,7 +836,7 @@ The background module (`llz_sdk_background.h`) provides 9 animated background st
 | `LlzBackgroundSetBlurTexture(tex, prev, alpha, prevAlpha)` | `void` | Set blurred texture for BLUR style with crossfade. |
 | `LlzBackgroundSetEnergy(energy)` | `void` | Set energy level (0.0-1.0) for responsive styles. |
 | `LlzBackgroundGetStyleName(style)` | `const char*` | Get human-readable name of style. |
-| `LlzBackgroundGetStyleCount()` | `int` | Get total number of styles. |
+| `LlzBackgroundGetStyleCount()` | `int` | Get total number of styles (9). |
 | `LlzBackgroundGetPalette()` | `const LlzBackgroundPalette*` | Get current 6-color palette. |
 
 ### Usage Example
@@ -820,6 +1010,54 @@ Use subscriptions when you need to react to changes. Use direct polling (`LlzMed
 
 ---
 
+## Navigation System
+
+The navigation module (`llz_sdk_navigation.h`) enables inter-plugin navigation, allowing one plugin to request that the host open a different plugin.
+
+### Constants
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `LLZ_PLUGIN_NAME_MAX` | 128 | Maximum length for plugin names |
+
+### API Functions
+
+| Function | Returns | Description |
+|----------|---------|-------------|
+| `LlzRequestOpenPlugin(pluginName)` | `bool` | Request host to open a different plugin after current plugin closes. Returns true on success. |
+| `LlzGetRequestedPlugin()` | `const char*` | Get the requested plugin name. Returns NULL if no request pending. |
+| `LlzClearRequestedPlugin()` | `void` | Clear any pending plugin request. Host should call after handling. |
+| `LlzHasRequestedPlugin()` | `bool` | Check if a plugin request is pending. |
+
+### Usage Example
+
+```c
+// In a notification tap handler
+void OnNotificationTap(void *userData) {
+    // Request to open the Now Playing plugin
+    LlzRequestOpenPlugin("Now Playing");
+
+    // Signal that this plugin wants to close (let host handle navigation)
+    g_wantsClose = true;
+}
+
+// Host-side code (in main loop)
+if (plugin->wants_close && plugin->wants_close()) {
+    // Check if plugin requested to open another plugin
+    if (LlzHasRequestedPlugin()) {
+        const char *nextPlugin = LlzGetRequestedPlugin();
+        // Find and activate the requested plugin
+        ActivatePluginByName(nextPlugin);
+        LlzClearRequestedPlugin();
+    } else {
+        // Return to menu
+        currentPlugin = NULL;
+    }
+}
+```
+
+---
+
 ## Font System
 
 The font module (`llz_sdk_font.h`) provides centralized font loading with automatic path resolution across CarThing and desktop environments. Fonts are cached internally for efficient reuse.
@@ -828,9 +1066,9 @@ The font module (`llz_sdk_font.h`) provides centralized font loading with automa
 
 | Type | Constant | Description |
 |------|----------|-------------|
-| UI | `LLZ_FONT_UI` | Primary UI font (ZegoeUI on CarThing) |
+| UI | `LLZ_FONT_UI` | Primary UI font (ZegoeUI on CarThing) - good for menus, labels |
 | UI Bold | `LLZ_FONT_UI_BOLD` | Bold variant of UI font |
-| Mono | `LLZ_FONT_MONO` | Monospace font (DejaVuSansMono) |
+| Mono | `LLZ_FONT_MONO` | Monospace font for code/technical display (DejaVuSansMono) |
 
 ### Font Size Constants
 
@@ -858,7 +1096,7 @@ The font module (`llz_sdk_font.h`) provides centralized font loading with automa
 |----------|---------|-------------|
 | `LlzFontGetDefault()` | `Font` | Get default 20px UI font (cached) |
 | `LlzFontGet(type, size)` | `Font` | Get font at specific size (cached) |
-| `LlzFontLoadCustom(type, size, codepoints, count)` | `Font` | Load custom font (caller must unload) |
+| `LlzFontLoadCustom(type, size, codepoints, count)` | `Font` | Load custom font (caller must unload with `UnloadFont`) |
 | `LlzFontGetPath(type)` | `const char*` | Get path to font file |
 | `LlzFontGetDirectory()` | `const char*` | Get fonts directory path |
 
@@ -1030,7 +1268,7 @@ typedef struct {
     // Content
     char title[256];                // Title (dialogs)
     char message[256];              // Main text
-    char iconText[8];               // Unicode icon (e.g., "♪", "!")
+    char iconText[8];               // Unicode icon (e.g., "!", "*")
 
     // Timing
     float duration;                 // Auto-dismiss time (0 = manual only)
@@ -1075,7 +1313,7 @@ void OnTrackChanged(const char *track, const char *artist, const char *album, vo
 
     LlzNotifyConfig config = LlzNotifyConfigDefault(LLZ_NOTIFY_BANNER);
     strncpy(config.message, message, 255);
-    strncpy(config.iconText, "♪", 8);
+    strncpy(config.iconText, "*", 8);  // Use ASCII for compatibility
     config.duration = 5.0f;
     strncpy(config.openPluginOnTap, "Now Playing", 128);
 
@@ -1088,7 +1326,7 @@ void OnTrackChanged(const char *track, const char *artist, const char *album, vo
 ```c
 LlzNotifyConfig config = LlzNotifyConfigDefault(LLZ_NOTIFY_TOAST);
 strncpy(config.message, "BLE Connected", 255);
-strncpy(config.iconText, "✓", 8);
+strncpy(config.iconText, "+", 8);
 config.accentColor = GREEN;
 config.duration = 3.0f;
 config.position = LLZ_NOTIFY_POS_BOTTOM_RIGHT;
@@ -1165,21 +1403,22 @@ shared/notifications/
 ## Extending the SDK
 
 **Implemented:**
-- ✅ Display abstraction with DRM rotation handling (`llz_sdk_display.h`)
-- ✅ Gesture classification (tap, double-tap, hold, swipe, drag) - built into `LlzInputState`
-- ✅ Layout helpers for rectangle subdivision (`llz_sdk_layout.h`)
-- ✅ Media state access via Redis (`llz_sdk_media.h`)
-- ✅ Image utilities with blur effects and cover/contain scaling (`llz_sdk_image.h`)
-- ✅ Global configuration system with brightness/orientation (`llz_sdk_config.h`)
-- ✅ Per-plugin configuration with automatic file creation (`llz_sdk_config.h`)
-- ✅ Animated background system with 9 styles (`llz_sdk_background.h`)
-- ✅ Event subscription system for media changes (`llz_sdk_subscribe.h`)
-- ✅ Font loading with path resolution and text drawing helpers (`llz_sdk_font.h`)
+- Display abstraction with DRM rotation handling (`llz_sdk_display.h`)
+- Gesture classification (tap, double-tap, hold, swipe, drag) with button hold detection - built into `LlzInputState`
+- Layout helpers for rectangle subdivision (`llz_sdk_layout.h`)
+- Media state access via Redis with podcast and lyrics support (`llz_sdk_media.h`)
+- Image utilities with blur effects and cover/contain scaling (`llz_sdk_image.h`)
+- Global configuration system with brightness/auto-brightness/orientation (`llz_sdk_config.h`)
+- Per-plugin configuration with automatic file creation (`llz_sdk_config.h`)
+- Animated background system with 9 styles (`llz_sdk_background.h`)
+- Event subscription system for media changes (`llz_sdk_subscribe.h`)
+- Inter-plugin navigation system (`llz_sdk_navigation.h`)
+- Font loading with path resolution and text drawing helpers (`llz_sdk_font.h`)
 
 **Planned additions:**
 - **Asset helpers**: optional utilities for loading shared icons and caches.
 
-Contributions should live in `sdk/llz_sdk/` (sources) and `sdk/include/` (headers). Keep the API minimal but cohesive—if a helper requires input and display, think about whether it belongs in a higher-level module.
+Contributions should live in `sdk/llz_sdk/` (sources) and `sdk/include/` (headers). Keep the API minimal but cohesive - if a helper requires input and display, think about whether it belongs in a higher-level module.
 
 ---
 
@@ -1224,3 +1463,20 @@ static LlzPluginAPI api = {
 };
 
 LlzPluginAPI *LlzGetPlugin(void) { return &api; }
+```
+
+### All SDK Headers
+
+| Header | Purpose |
+|--------|---------|
+| `llz_sdk.h` | Master include - includes all SDK headers |
+| `llz_sdk_display.h` | Display init, begin/end frame, constants |
+| `llz_sdk_input.h` | Input state, gestures, button hold detection |
+| `llz_sdk_layout.h` | Layout helpers for UI composition |
+| `llz_sdk_media.h` | Redis media state, commands, podcasts, lyrics |
+| `llz_sdk_image.h` | Blur effects, cover/contain scaling |
+| `llz_sdk_config.h` | Global and plugin configuration |
+| `llz_sdk_background.h` | Animated background system |
+| `llz_sdk_subscribe.h` | Event subscription callbacks |
+| `llz_sdk_navigation.h` | Inter-plugin navigation |
+| `llz_sdk_font.h` | Font loading and text helpers |

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Copy fonts from CarThing device to local fonts directory
-# CarThing IP: 172.16.42.2, user: root, password: nocturne
+# CarThing IP: 172.16.42.2, user: root, password: llizardos
 
 set -e
 
@@ -12,7 +12,7 @@ NC='\033[0m'
 
 CARTHING_IP="172.16.42.2"
 CARTHING_USER="root"
-CARTHING_PASS="nocturne"
+CARTHING_PASS="llizardos"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
