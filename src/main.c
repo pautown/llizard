@@ -80,24 +80,25 @@ static void LoadMenuFont(void) {
     int codepointCount = 0;
     int *codepoints = BuildUnicodeCodepoints(&codepointCount);
 
-    const char *fontPaths[] = {
-#ifdef PLATFORM_DRM
-        "/var/local/fonts/ZegoeUI-U.ttf",
-#endif
-        "fonts/ZegoeUI-U.ttf",
-        "../fonts/ZegoeUI-U.ttf"
-    };
+    // Initialize SDK font system and use its path discovery
+    LlzFontInit();
 
-    g_menuFont = GetFontDefault();
-    for (int i = 0; i < (int)(sizeof(fontPaths)/sizeof(fontPaths[0])); i++) {
-        Font loaded = LoadFontEx(fontPaths[i], 48, codepoints, codepointCount);
+    // Try to load via SDK which searches all the correct paths
+    const char *fontPath = LlzFontGetPath(LLZ_FONT_UI);
+    if (fontPath) {
+        Font loaded = LoadFontEx(fontPath, 48, codepoints, codepointCount);
         if (loaded.texture.id != 0) {
             g_menuFont = loaded;
             g_fontLoaded = true;
             SetTextureFilter(g_menuFont.texture, TEXTURE_FILTER_BILINEAR);
-            printf("Menu: Loaded font %s\n", fontPaths[i]);
-            break;
+            printf("Menu: Loaded font %s\n", fontPath);
         }
+    }
+
+    // Fallback to default if SDK font not found
+    if (!g_fontLoaded) {
+        g_menuFont = GetFontDefault();
+        printf("Menu: Using default font\n");
     }
 
     if (codepoints) free(codepoints);
