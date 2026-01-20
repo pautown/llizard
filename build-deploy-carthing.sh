@@ -66,6 +66,14 @@ CARTHING_IP="172.16.42.2"
 CARTHING_USER="root"
 CARTHING_PASS="llizardos"
 
+# Stop running host and plugins before deploying
+echo -e "${YELLOW}Stopping llizardgui-host and plugins on CarThing...${NC}"
+sshpass -p "$CARTHING_PASS" ssh -o StrictHostKeyChecking=no "$CARTHING_USER@$CARTHING_IP" "sv stop llizardGUI 2>/dev/null || true; killall llizardgui-host 2>/dev/null || true"
+
+# Remount filesystem as read-write if needed
+echo -e "${YELLOW}Ensuring filesystem is writable...${NC}"
+sshpass -p "$CARTHING_PASS" ssh -o StrictHostKeyChecking=no "$CARTHING_USER@$CARTHING_IP" "mount -o remount,rw / 2>/dev/null || true"
+
 # Create plugins directory on CarThing if needed
 echo -e "${YELLOW}Creating plugins directory on CarThing...${NC}"
 sshpass -p "$CARTHING_PASS" ssh -o StrictHostKeyChecking=no "$CARTHING_USER@$CARTHING_IP" "mkdir -p /usr/lib/llizard/plugins"
@@ -79,7 +87,13 @@ echo -e "${YELLOW}Copying plugins...${NC}"
 for plugin in *.so; do
     if [ -f "$plugin" ]; then
         echo "  - Deploying $plugin"
-        sshpass -p "$CARTHING_PASS" scp -o StrictHostKeyChecking=no "$plugin" "$CARTHING_USER@$CARTHING_IP:/usr/lib/llizard/plugins/"
+        DEST_PATH="/usr/lib/llizard/plugins/$plugin"
+        if ! sshpass -p "$CARTHING_PASS" scp -o StrictHostKeyChecking=no "$plugin" "$CARTHING_USER@$CARTHING_IP:$DEST_PATH" 2>/dev/null; then
+            echo -e "${YELLOW}    File in use, killing process holding $plugin...${NC}"
+            sshpass -p "$CARTHING_PASS" ssh -o StrictHostKeyChecking=no "$CARTHING_USER@$CARTHING_IP" "fuser -k $DEST_PATH 2>/dev/null || true"
+            sleep 0.5
+            sshpass -p "$CARTHING_PASS" scp -o StrictHostKeyChecking=no "$plugin" "$CARTHING_USER@$CARTHING_IP:$DEST_PATH"
+        fi
     fi
 done
 
@@ -124,7 +138,12 @@ if [ -d "../fonts" ] && [ "$(ls -A ../fonts/*.ttf 2>/dev/null)" ]; then
     done
 fi
 
+# Remount filesystem as read-only
+echo -e "${YELLOW}Remounting filesystem as read-only...${NC}"
+sshpass -p "$CARTHING_PASS" ssh -o StrictHostKeyChecking=no "$CARTHING_USER@$CARTHING_IP" "mount -o remount,ro /"
+
+# Restart llizardGUI service
+echo -e "${YELLOW}Restarting llizardGUI service...${NC}"
+sshpass -p "$CARTHING_PASS" ssh -o StrictHostKeyChecking=no "$CARTHING_USER@$CARTHING_IP" "sv start llizardGUI"
+
 echo -e "${GREEN}=== Deployment complete! ===${NC}"
-echo -e "${GREEN}To run on CarThing:${NC}"
-echo "  ssh root@$CARTHING_IP"
-echo "  cd /tmp && ./llizardgui-host"

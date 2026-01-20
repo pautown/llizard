@@ -36,6 +36,10 @@ typedef struct {
     bool reconnectButtonHover;
     float reconnectFeedbackTimer;
     bool reconnectSuccess;
+    // Restart Janus button state
+    bool restartButtonHover;
+    float restartFeedbackTimer;
+    bool restartSuccess;
 } RedisStatusState;
 
 static RedisStatusState g_state;
@@ -134,6 +138,17 @@ static Rectangle GetReconnectButtonRect(void)
     };
 }
 
+// Get restart janus button rectangle
+static Rectangle GetRestartButtonRect(void)
+{
+    return (Rectangle){
+        RS_SPACING_MD + 150.0f,
+        g_screenHeight - 48.0f,
+        130.0f,
+        36.0f
+    };
+}
+
 static void PluginUpdate(const LlzInputState *input, float deltaTime)
 {
     if (input && input->backReleased) {
@@ -156,21 +171,39 @@ static void PluginUpdate(const LlzInputState *input, float deltaTime)
         }
     }
 
+    // Update restart feedback timer
+    if (g_state.restartFeedbackTimer > 0.0f) {
+        g_state.restartFeedbackTimer -= deltaTime;
+        if (g_state.restartFeedbackTimer < 0.0f) {
+            g_state.restartFeedbackTimer = 0.0f;
+        }
+    }
+
     if (input && input->selectPressed && g_state.mediaValid) {
         LlzMediaSendCommand(LLZ_PLAYBACK_TOGGLE, 0);
     }
 
-    // Check for reconnect button tap
+    // Check for button taps
     Rectangle reconnectBtn = GetReconnectButtonRect();
+    Rectangle restartBtn = GetRestartButtonRect();
     g_state.reconnectButtonHover = false;
+    g_state.restartButtonHover = false;
 
     if (input && input->tap) {
+        // Reconnect button - sends Redis signal to janus
         if (CheckCollisionPointRec(input->tapPosition, reconnectBtn)) {
-            // Attempt BLE reconnect
             bool success = LlzMediaRequestBLEReconnect();
-            g_state.reconnectSuccess = success;
-            g_state.reconnectFeedbackTimer = 2.0f;  // Show feedback for 2 seconds
             printf("[REDIS_STATUS] BLE reconnect request %s\n", success ? "sent" : "failed");
+            g_state.reconnectSuccess = success;
+            g_state.reconnectFeedbackTimer = 2.0f;
+        }
+        // Restart Janus button - fully restarts the service
+        else if (CheckCollisionPointRec(input->tapPosition, restartBtn)) {
+            printf("[REDIS_STATUS] Restarting janus service...\n");
+            bool success = LlzMediaRestartBLEService();
+            printf("[REDIS_STATUS] Janus restart %s\n", success ? "initiated" : "failed");
+            g_state.restartSuccess = success;
+            g_state.restartFeedbackTimer = 2.0f;
         }
     }
 
@@ -178,6 +211,7 @@ static void PluginUpdate(const LlzInputState *input, float deltaTime)
     if (input && (input->mousePressed || input->hold)) {
         Vector2 pos = input->mousePressed ? input->mousePos : input->holdPosition;
         g_state.reconnectButtonHover = CheckCollisionPointRec(pos, reconnectBtn);
+        g_state.restartButtonHover = CheckCollisionPointRec(pos, restartBtn);
     }
 }
 
@@ -190,18 +224,25 @@ static void DrawHeader(void)
     // Title
     DrawText("Redis Status", (int)RS_SPACING_MD, 16, 28, RS_TEXT_PRIMARY);
 
-    // Connection indicators on right side
-    float indicatorX = g_screenWidth - RS_SPACING_MD - 120;
+    // Connection indicators on right side (3 indicators now)
+    float indicatorX = g_screenWidth - RS_SPACING_MD - 180;
+
+    // Janus service status
+    bool janusOk = LlzMediaIsBLEServiceRunning();
+    DrawText("Janus", (int)indicatorX, 12, 14, RS_TEXT_MUTED);
+    DrawStatusIndicator(indicatorX + 55, 20, janusOk);
 
     // Redis connection
+    indicatorX += 70;
     bool redisOk = g_state.mediaInitDone;
     DrawText("Redis", (int)indicatorX, 12, 14, RS_TEXT_MUTED);
-    DrawStatusIndicator(indicatorX + 70, 20, redisOk);
+    DrawStatusIndicator(indicatorX + 55, 20, redisOk);
 
-    // BLE connection
+    // BLE connection (second row)
+    indicatorX = g_screenWidth - RS_SPACING_MD - 110;
     bool bleOk = g_state.connValid && g_state.conn.connected;
     DrawText("BLE", (int)indicatorX, 32, 14, RS_TEXT_MUTED);
-    DrawStatusIndicator(indicatorX + 70, 40, bleOk);
+    DrawStatusIndicator(indicatorX + 55, 40, bleOk);
 }
 
 static void DrawConnectionCard(Rectangle bounds)
@@ -323,7 +364,7 @@ static void DrawReconnectButton(void)
     } else if (g_state.reconnectButtonHover) {
         bgColor = ColorAlpha(RS_ACCENT_COLOR, 0.15f);
     } else if (bleDisconnected) {
-        // Highlight when BLE is disconnected
+        // BLE disconnected - warning (yellow)
         borderColor = RS_WARNING_COLOR;
         textColor = RS_WARNING_COLOR;
     }
@@ -346,17 +387,64 @@ static void DrawReconnectButton(void)
     DrawText(btnText, (int)textX, (int)textY, 16, textColor);
 }
 
+static void DrawRestartButton(void)
+{
+    Rectangle btn = GetRestartButtonRect();
+    bool serviceRunning = LlzMediaIsBLEServiceRunning();
+
+    // Button colors - orange/red theme for restart action
+    Color bgColor = RS_PANEL_COLOR;
+    Color borderColor = (Color){255, 140, 60, 255};  // Orange
+    Color textColor = (Color){255, 140, 60, 255};
+
+    if (g_state.restartFeedbackTimer > 0.0f) {
+        // Show feedback
+        if (g_state.restartSuccess) {
+            bgColor = ColorAlpha(RS_SUCCESS_COLOR, 0.2f);
+            borderColor = RS_SUCCESS_COLOR;
+            textColor = RS_SUCCESS_COLOR;
+        } else {
+            bgColor = ColorAlpha(RS_ERROR_COLOR, 0.2f);
+            borderColor = RS_ERROR_COLOR;
+            textColor = RS_ERROR_COLOR;
+        }
+    } else if (g_state.restartButtonHover) {
+        bgColor = ColorAlpha((Color){255, 140, 60, 255}, 0.15f);
+    } else if (!serviceRunning) {
+        // Service not running - more urgent (red)
+        borderColor = RS_ERROR_COLOR;
+        textColor = RS_ERROR_COLOR;
+    }
+
+    // Draw button background
+    DrawRectangleRounded(btn, 0.3f, 8, bgColor);
+    DrawRectangleRoundedLines(btn, 0.3f, 8, borderColor);
+
+    // Button text
+    const char *btnText;
+    if (g_state.restartFeedbackTimer > 0.0f) {
+        btnText = g_state.restartSuccess ? "Restarting..." : "Failed";
+    } else {
+        btnText = "Restart Janus";
+    }
+
+    int textWidth = MeasureText(btnText, 16);
+    float textX = btn.x + (btn.width - textWidth) / 2;
+    float textY = btn.y + (btn.height - 16) / 2;
+    DrawText(btnText, (int)textX, (int)textY, 16, textColor);
+}
+
 static void DrawHelpFooter(void)
 {
     float footerY = g_screenHeight - 40;
 
-    // Draw reconnect button on the left
+    // Draw buttons on the left
     DrawReconnectButton();
+    DrawRestartButton();
 
-    // Hint text (shifted right to make room for button)
-    float hintX = RS_SPACING_MD + 160;
+    // Hint text (shifted right to make room for buttons)
+    float hintX = RS_SPACING_MD + 300;
     DrawText("BACK Exit", (int)hintX, (int)footerY + 10, 16, RS_TEXT_MUTED);
-    DrawText("SELECT Play/Pause", (int)(hintX + 100), (int)footerY + 10, 16, RS_TEXT_MUTED);
 
     // Refresh indicator
     char refresh[32];

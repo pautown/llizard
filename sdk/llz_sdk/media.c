@@ -634,6 +634,31 @@ bool LlzMediaRequestBLEReconnect(void)
     return success;
 }
 
+bool LlzMediaIsBLEServiceRunning(void)
+{
+#ifdef PLATFORM_DRM
+    // Use runit sv status to check if janus service is running
+    // sv status returns 0 if service is running, non-zero otherwise
+    int result = system("sv status janus > /dev/null 2>&1");
+    return (result == 0);
+#else
+    // On desktop, assume service is always "running" (development mode)
+    return true;
+#endif
+}
+
+bool LlzMediaRestartBLEService(void)
+{
+#ifdef PLATFORM_DRM
+    // Use runit sv restart to restart the janus service
+    int result = system("sv restart janus");
+    return (result == 0);
+#else
+    // On desktop, just return true (no service to restart)
+    return true;
+#endif
+}
+
 bool LlzMediaRequestPodcastInfo(void)
 {
     // Use the playback command queue so the golang BLE client picks it up
