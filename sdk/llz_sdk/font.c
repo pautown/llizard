@@ -29,6 +29,8 @@ static const char* FONT_FILENAMES[LLZ_FONT_COUNT] = {
 static const char* FONT_SEARCH_PATHS[] = {
     // CarThing system fonts
     "/var/local/fonts/",
+    // llizardOS system partition fonts
+    "/usr/lib/llizard/data/fonts/",
     // Deployed fonts
     "/tmp/fonts/",
     // Desktop development paths
