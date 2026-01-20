@@ -1,4 +1,5 @@
 #include "nowplaying/core/np_theme.h"
+#include "llz_sdk.h"
 #include <string.h>
 #include <ctype.h>
 #include <stdio.h>
@@ -235,26 +236,18 @@ void NpThemeInit(int width, int height) {
     int codepointCount = 0;
     int *codepoints = BuildUnicodeCodepoints(&codepointCount);
 
-    // Try to load custom font, fall back to default
-    const char *fontPaths[] = {
-#ifdef PLATFORM_DRM
-        "/var/local/fonts/ZegoeUI-U.ttf",
-        "/var/local/fonts/ZegoeLight-U.ttf",
-#endif
-        "fonts/ZegoeUI-U.ttf",
-        "fonts/ZegoeLight-U.ttf",
-        "../fonts/ZegoeUI-U.ttf"
-    };
+    // Initialize SDK font system and use its path discovery
+    LlzFontInit();
 
+    // Try to load via SDK which searches all the correct paths
     g_theme.mainFont = GetFontDefault();
-    for (int i = 0; i < (int)(sizeof(fontPaths)/sizeof(fontPaths[0])); i++) {
-        // Load font with Unicode codepoints for French and Russian support
-        Font loaded = LoadFontEx(fontPaths[i], 48, codepoints, codepointCount);
+    const char *fontPath = LlzFontGetPath(LLZ_FONT_UI);
+    if (fontPath) {
+        Font loaded = LoadFontEx(fontPath, 48, codepoints, codepointCount);
         if (loaded.texture.id != 0) {
             g_theme.mainFont = loaded;
             SetTextureFilter(g_theme.mainFont.texture, TEXTURE_FILTER_BILINEAR);
-            printf("Loaded font: %s with %d Unicode codepoints\n", fontPaths[i], codepointCount);
-            break;
+            printf("NowPlaying: Loaded font %s with %d Unicode codepoints\n", fontPath, codepointCount);
         }
     }
 

@@ -13,7 +13,15 @@ static bool g_wantsClose = false;
 
 // UI state
 static int g_selectedItem = 0;
-#define MENU_ITEM_COUNT 2
+#define MENU_ITEM_COUNT 3
+
+// Restart confirmation state
+static bool g_restartConfirmActive = false;
+static float g_restartSwipeProgress = 0.0f;
+static float g_restartPulseAnim = 0.0f;
+static int g_restartSwipeStartY = 0;
+static bool g_restartSwipeTracking = false;
+#define RESTART_SWIPE_THRESHOLD 80
 
 // Pending changes
 static int g_pendingBrightness = 80;
@@ -52,6 +60,10 @@ static const Color COLOR_SLIDER_FILL = {30, 215, 96, 255};
 static const Color COLOR_TOGGLE_BG_OFF = {60, 60, 75, 255};
 static const Color COLOR_TOGGLE_BG_ON = {30, 215, 96, 255};
 static const Color COLOR_TOGGLE_KNOB = {255, 255, 255, 255};
+
+static const Color COLOR_DANGER = {220, 60, 60, 255};
+static const Color COLOR_DANGER_SOFT = {220, 60, 60, 60};
+static const Color COLOR_DANGER_GLOW = {220, 60, 60, 30};
 
 // ============================================================================
 // Layout Constants
@@ -277,6 +289,12 @@ static void DrawSettingCard(int index, const char *title, const char *descriptio
         Color statusColor = g_lyricsEnabled ? COLOR_ACCENT : COLOR_TEXT_TERTIARY;
         int statusWidth = LlzMeasureText(status, LLZ_FONT_SIZE_NORMAL);
         LlzDrawText(status, (int)(toggleX - statusWidth - 16), (int)controlY, LLZ_FONT_SIZE_NORMAL, statusColor);
+    } else if (index == 2) {
+        // Restart device indicator
+        const char *restartText = g_restartConfirmActive ? "Swipe Up" : "Tap to restart";
+        Color restartColor = selected ? COLOR_DANGER : COLOR_TEXT_SECONDARY;
+        int restartWidth = LlzMeasureText(restartText, LLZ_FONT_SIZE_NORMAL);
+        LlzDrawText(restartText, (int)(controlEndX - restartWidth), (int)controlY, LLZ_FONT_SIZE_NORMAL, restartColor);
     }
 }
 
@@ -302,6 +320,86 @@ static void DrawFooter(void) {
                (Color){80, 80, 95, 255});
 }
 
+static void DrawRestartConfirmation(void) {
+    if (!g_restartConfirmActive) return;
+
+    // Dim overlay
+    DrawRectangle(0, 0, g_screenWidth, g_screenHeight, (Color){0, 0, 0, 180});
+
+    // Center panel
+    float panelWidth = 400;
+    float panelHeight = 280;
+    float panelX = (g_screenWidth - panelWidth) / 2;
+    float panelY = (g_screenHeight - panelHeight) / 2;
+
+    Rectangle panelRect = {panelX, panelY, panelWidth, panelHeight};
+    DrawRectangleRounded(panelRect, 0.08f, 12, (Color){32, 32, 44, 250});
+    DrawRectangleRoundedLinesEx(panelRect, 0.08f, 12, 2.0f, COLOR_DANGER_SOFT);
+
+    // Warning icon (triangle with !)
+    float iconCenterX = g_screenWidth / 2;
+    float iconY = panelY + 40;
+    float pulseScale = 1.0f + 0.1f * sinf(g_restartPulseAnim * 3.0f);
+
+    // Draw warning triangle
+    Vector2 p1 = {iconCenterX, iconY};
+    Vector2 p2 = {iconCenterX - 25 * pulseScale, iconY + 45 * pulseScale};
+    Vector2 p3 = {iconCenterX + 25 * pulseScale, iconY + 45 * pulseScale};
+    DrawTriangle(p1, p2, p3, COLOR_DANGER);
+
+    // Exclamation mark
+    LlzDrawText("!", (int)iconCenterX - 5, (int)iconY + 14, LLZ_FONT_SIZE_LARGE, COLOR_TEXT_PRIMARY);
+
+    // Title
+    const char *title = "Restart Device?";
+    int titleWidth = LlzMeasureText(title, LLZ_FONT_SIZE_TITLE);
+    LlzDrawText(title, (g_screenWidth - titleWidth) / 2, (int)panelY + 100, LLZ_FONT_SIZE_TITLE, COLOR_TEXT_PRIMARY);
+
+    // Instructions
+    const char *instr = "Swipe up to confirm";
+    int instrWidth = LlzMeasureText(instr, LLZ_FONT_SIZE_NORMAL);
+    LlzDrawText(instr, (g_screenWidth - instrWidth) / 2, (int)panelY + 145, LLZ_FONT_SIZE_NORMAL, COLOR_TEXT_SECONDARY);
+
+    // Progress bar
+    float barWidth = panelWidth - 60;
+    float barX = panelX + 30;
+    float barY = panelY + 190;
+    float barHeight = 12;
+
+    // Background
+    DrawRectangleRounded((Rectangle){barX, barY, barWidth, barHeight}, 0.5f, 8, (Color){50, 50, 65, 255});
+
+    // Progress fill
+    if (g_restartSwipeProgress > 0) {
+        float fillWidth = barWidth * g_restartSwipeProgress;
+        Color fillColor = g_restartSwipeProgress >= 1.0f ? COLOR_DANGER : COLOR_ACCENT;
+        DrawRectangleRounded((Rectangle){barX, barY, fillWidth, barHeight}, 0.5f, 8, fillColor);
+    }
+
+    // Cancel hint
+    const char *cancelHint = "Tap outside or press Back to cancel";
+    int cancelWidth = LlzMeasureText(cancelHint, LLZ_FONT_SIZE_SMALL);
+    LlzDrawText(cancelHint, (g_screenWidth - cancelWidth) / 2, (int)panelY + 230, LLZ_FONT_SIZE_SMALL, COLOR_TEXT_TERTIARY);
+
+    // Swipe up arrow indicator
+    float arrowY = panelY + panelHeight + 30;
+    float arrowPulse = sinf(g_restartPulseAnim * 4.0f);
+    Color arrowColor = COLOR_TEXT_SECONDARY;
+    arrowColor.a = (unsigned char)(150 + 50 * arrowPulse);
+
+    // Draw up arrows
+    for (int i = 0; i < 3; i++) {
+        float offset = i * 15 + arrowPulse * 5;
+        int arrowCenterX = g_screenWidth / 2;
+        DrawTriangle(
+            (Vector2){arrowCenterX, arrowY + offset - 10},
+            (Vector2){arrowCenterX - 15, arrowY + offset + 5},
+            (Vector2){arrowCenterX + 15, arrowY + offset + 5},
+            arrowColor
+        );
+    }
+}
+
 // ============================================================================
 // Plugin Callbacks
 // ============================================================================
@@ -312,6 +410,12 @@ static void PluginInit(int width, int height) {
     g_selectedItem = 0;
     g_animTime = 0.0f;
     g_sliderPulse = 0.0f;
+
+    // Reset restart confirmation state
+    g_restartConfirmActive = false;
+    g_restartSwipeProgress = 0.0f;
+    g_restartPulseAnim = 0.0f;
+    g_restartSwipeTracking = false;
 
     // Reset selection animations
     for (int i = 0; i < MENU_ITEM_COUNT; i++) {
@@ -376,11 +480,17 @@ static void PluginUpdate(const LlzInputState *hostInput, float deltaTime) {
                 if (g_selectedItem != i) {
                     g_selectedItem = i;
                 } else {
-                    // Tap on already selected item - toggle for lyrics
+                    // Tap on already selected item
                     if (i == 1) {
+                        // Toggle lyrics
                         g_lyricsEnabled = !g_lyricsEnabled;
                         g_hasChanges = true;
                         LlzLyricsSetEnabled(g_lyricsEnabled);
+                    } else if (i == 2) {
+                        // Enter restart confirmation
+                        g_restartConfirmActive = true;
+                        g_restartSwipeProgress = 0.0f;
+                        g_restartPulseAnim = 0.0f;
                     }
                 }
                 break;
@@ -428,6 +538,86 @@ static void PluginUpdate(const LlzInputState *hostInput, float deltaTime) {
             g_hasChanges = true;
             LlzLyricsSetEnabled(g_lyricsEnabled);
         }
+    } else if (g_selectedItem == 2) {
+        // Restart device - enter confirmation on select
+        if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE) || input->selectPressed) {
+            g_restartConfirmActive = true;
+            g_restartSwipeProgress = 0.0f;
+            g_restartPulseAnim = 0.0f;
+        }
+    }
+
+    // Handle restart confirmation mode
+    if (g_restartConfirmActive) {
+        g_restartPulseAnim += deltaTime;
+
+        // Track swipe up gesture via drag
+        if (input->mousePressed || input->dragActive) {
+            if (!g_restartSwipeTracking) {
+                g_restartSwipeTracking = true;
+                g_restartSwipeStartY = (int)input->mousePos.y;
+            } else {
+                // Calculate swipe progress (swipe up = negative delta)
+                int currentY = (int)input->mousePos.y;
+                int swipeDelta = g_restartSwipeStartY - currentY;
+                if (swipeDelta > 0) {
+                    g_restartSwipeProgress = (float)swipeDelta / RESTART_SWIPE_THRESHOLD;
+                    if (g_restartSwipeProgress > 1.0f) g_restartSwipeProgress = 1.0f;
+                } else {
+                    g_restartSwipeProgress = 0.0f;
+                }
+            }
+        } else if (g_restartSwipeTracking) {
+            // Touch released - check if confirmed
+            if (g_restartSwipeProgress >= 1.0f) {
+                // Confirmed! Execute restart
+                printf("Restarting device...\n");
+#ifdef PLATFORM_DRM
+                (void)system("reboot");
+#else
+                printf("Desktop mode: Would restart here\n");
+                g_restartConfirmActive = false;
+#endif
+            } else {
+                // Reset
+                g_restartSwipeProgress = 0.0f;
+            }
+            g_restartSwipeTracking = false;
+        }
+
+        // Handle swipeUp gesture from input state
+        if (input->swipeUp) {
+            printf("Restarting device...\n");
+#ifdef PLATFORM_DRM
+            (void)system("reboot");
+#else
+            printf("Desktop mode: Would restart here\n");
+            g_restartConfirmActive = false;
+#endif
+        }
+
+        // Cancel on back or tap outside
+        if (input->backReleased || IsKeyReleased(KEY_ESCAPE)) {
+            g_restartConfirmActive = false;
+            g_restartSwipeProgress = 0.0f;
+            g_restartSwipeTracking = false;
+        }
+
+        // Cancel on tap outside panel
+        if ((input->tap || input->mouseJustPressed) && !g_restartSwipeTracking) {
+            Vector2 tapPos = input->tap ? input->tapPosition : input->mousePos;
+            float panelWidth = 400;
+            float panelHeight = 280;
+            float panelX = (g_screenWidth - panelWidth) / 2;
+            float panelY = (g_screenHeight - panelHeight) / 2;
+            Rectangle panelRect = {panelX, panelY, panelWidth, panelHeight};
+            if (!CheckCollisionPointRec(tapPos, panelRect)) {
+                g_restartConfirmActive = false;
+                g_restartSwipeProgress = 0.0f;
+            }
+        }
+
+        return; // Don't process other input while in confirmation mode
     }
 
     // Back button
@@ -451,7 +641,14 @@ static void PluginDraw(void) {
                     "Show synchronized lyrics during playback",
                     startY + CARD_HEIGHT + CARD_SPACING, g_selectedItem == 1, g_selectionAnim[1]);
 
+    DrawSettingCard(2, "Restart Device",
+                    "Reboot the CarThing (swipe up to confirm)",
+                    startY + (CARD_HEIGHT + CARD_SPACING) * 2, g_selectedItem == 2, g_selectionAnim[2]);
+
     DrawFooter();
+
+    // Draw restart confirmation overlay if active
+    DrawRestartConfirmation();
 }
 
 static void PluginShutdown(void) {
@@ -467,6 +664,7 @@ static void PluginShutdown(void) {
     }
 
     g_wantsClose = false;
+    g_restartConfirmActive = false;
     printf("Settings plugin shutdown\n");
 }
 
@@ -476,7 +674,7 @@ static bool PluginWantsClose(void) {
 
 static LlzPluginAPI g_api = {
     .name = "Settings",
-    .description = "System settings - brightness, lyrics",
+    .description = "Brightness, lyrics, restart device",
     .init = PluginInit,
     .update = PluginUpdate,
     .draw = PluginDraw,
