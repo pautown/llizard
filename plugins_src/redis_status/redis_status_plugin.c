@@ -101,17 +101,17 @@ static void DrawStatusIndicator(float x, float y, bool connected)
 
 static void DrawLabelValue(const char *label, const char *value, float x, float y, float maxWidth)
 {
-    DrawText(label, (int)x, (int)y, 16, RS_TEXT_MUTED);
+    LlzDrawText(label, (int)x, (int)y, 16, RS_TEXT_MUTED);
     // Truncate value if too long
     char truncated[64];
-    int valueWidth = MeasureText(value, 22);
+    int valueWidth = LlzMeasureText(value, 22);
     if (valueWidth > (int)maxWidth - 20) {
         strncpy(truncated, value, sizeof(truncated) - 4);
         truncated[sizeof(truncated) - 4] = '\0';
         strcat(truncated, "...");
-        DrawText(truncated, (int)x, (int)y + 20, 22, RS_TEXT_PRIMARY);
+        LlzDrawText(truncated, (int)x, (int)y + 20, 22, RS_TEXT_PRIMARY);
     } else {
-        DrawText(value, (int)x, (int)y + 20, 22, RS_TEXT_PRIMARY);
+        LlzDrawText(value, (int)x, (int)y + 20, 22, RS_TEXT_PRIMARY);
     }
 }
 
@@ -222,26 +222,26 @@ static void DrawHeader(void)
     DrawRectangle(0, 0, g_screenWidth, (int)headerHeight, RS_PANEL_COLOR);
 
     // Title
-    DrawText("Redis Status", (int)RS_SPACING_MD, 16, 28, RS_TEXT_PRIMARY);
+    LlzDrawText("Redis Status", (int)RS_SPACING_MD, 16, 28, RS_TEXT_PRIMARY);
 
     // Connection indicators on right side (3 indicators now)
     float indicatorX = g_screenWidth - RS_SPACING_MD - 180;
 
     // Janus service status
     bool janusOk = LlzMediaIsBLEServiceRunning();
-    DrawText("Janus", (int)indicatorX, 12, 14, RS_TEXT_MUTED);
+    LlzDrawText("Janus", (int)indicatorX, 12, 14, RS_TEXT_MUTED);
     DrawStatusIndicator(indicatorX + 55, 20, janusOk);
 
     // Redis connection
     indicatorX += 70;
     bool redisOk = g_state.mediaInitDone;
-    DrawText("Redis", (int)indicatorX, 12, 14, RS_TEXT_MUTED);
+    LlzDrawText("Redis", (int)indicatorX, 12, 14, RS_TEXT_MUTED);
     DrawStatusIndicator(indicatorX + 55, 20, redisOk);
 
     // BLE connection (second row)
     indicatorX = g_screenWidth - RS_SPACING_MD - 110;
     bool bleOk = g_state.connValid && g_state.conn.connected;
-    DrawText("BLE", (int)indicatorX, 32, 14, RS_TEXT_MUTED);
+    LlzDrawText("BLE", (int)indicatorX, 32, 14, RS_TEXT_MUTED);
     DrawStatusIndicator(indicatorX + 55, 40, bleOk);
 }
 
@@ -253,28 +253,28 @@ static void DrawConnectionCard(Rectangle bounds)
     float y = bounds.y + pad;
 
     // Section title
-    DrawText("Connection", (int)(bounds.x + pad), (int)y, 20, RS_TEXT_SECONDARY);
+    LlzDrawText("Connection", (int)(bounds.x + pad), (int)y, 20, RS_TEXT_SECONDARY);
     y += 32;
 
     if (!g_state.mediaInitDone) {
-        DrawText("Redis not connected", (int)(bounds.x + pad), (int)y, 18, RS_ERROR_COLOR);
+        LlzDrawText("Redis not connected", (int)(bounds.x + pad), (int)y, 18, RS_ERROR_COLOR);
         y += 28;
         if (g_state.lastError[0]) {
-            DrawText(g_state.lastError, (int)(bounds.x + pad), (int)y, 14, RS_TEXT_MUTED);
+            LlzDrawText(g_state.lastError, (int)(bounds.x + pad), (int)y, 14, RS_TEXT_MUTED);
         }
         return;
     }
 
     if (!g_state.connValid) {
-        DrawText("Waiting for BLE data...", (int)(bounds.x + pad), (int)y, 18, RS_WARNING_COLOR);
+        LlzDrawText("Waiting for BLE data...", (int)(bounds.x + pad), (int)y, 18, RS_WARNING_COLOR);
         return;
     }
 
     // Status row
     const char *status = g_state.conn.connected ? "Connected" : "Disconnected";
     Color statusColor = g_state.conn.connected ? RS_SUCCESS_COLOR : RS_ERROR_COLOR;
-    DrawText("Status", (int)(bounds.x + pad), (int)y, 14, RS_TEXT_MUTED);
-    DrawText(status, (int)(bounds.x + pad + 80), (int)y, 14, statusColor);
+    LlzDrawText("Status", (int)(bounds.x + pad), (int)y, 14, RS_TEXT_MUTED);
+    LlzDrawText(status, (int)(bounds.x + pad + 80), (int)y, 14, statusColor);
     y += 24;
 
     // Device name
@@ -292,30 +292,30 @@ static void DrawMediaCard(Rectangle bounds)
     float contentWidth = bounds.width - pad * 2;
 
     // Section title with play state
-    DrawText("Now Playing", (int)(bounds.x + pad), (int)y, 20, RS_TEXT_SECONDARY);
+    LlzDrawText("Now Playing", (int)(bounds.x + pad), (int)y, 20, RS_TEXT_SECONDARY);
 
     if (g_state.mediaValid) {
         const char *stateText = g_state.media.isPlaying ? "PLAYING" : "PAUSED";
         Color stateColor = g_state.media.isPlaying ? RS_SUCCESS_COLOR : RS_WARNING_COLOR;
-        int stateWidth = MeasureText(stateText, 14);
-        DrawText(stateText, (int)(bounds.x + bounds.width - pad - stateWidth), (int)y + 4, 14, stateColor);
+        int stateWidth = LlzMeasureText(stateText, 14);
+        LlzDrawText(stateText, (int)(bounds.x + bounds.width - pad - stateWidth), (int)y + 4, 14, stateColor);
     }
     y += 36;
 
     if (!g_state.mediaValid) {
-        DrawText("No media playing", (int)(bounds.x + pad), (int)y, 18, RS_TEXT_MUTED);
+        LlzDrawText("No media playing", (int)(bounds.x + pad), (int)y, 18, RS_TEXT_MUTED);
         return;
     }
 
     // Track info - larger text for main content
-    DrawText(g_state.media.track, (int)(bounds.x + pad), (int)y, 26, RS_TEXT_PRIMARY);
+    LlzDrawText(g_state.media.track, (int)(bounds.x + pad), (int)y, 26, RS_TEXT_PRIMARY);
     y += 34;
 
-    DrawText(g_state.media.artist, (int)(bounds.x + pad), (int)y, 20, RS_TEXT_SECONDARY);
+    LlzDrawText(g_state.media.artist, (int)(bounds.x + pad), (int)y, 20, RS_TEXT_SECONDARY);
     y += 28;
 
     if (g_state.media.album[0]) {
-        DrawText(g_state.media.album, (int)(bounds.x + pad), (int)y, 16, RS_TEXT_MUTED);
+        LlzDrawText(g_state.media.album, (int)(bounds.x + pad), (int)y, 16, RS_TEXT_MUTED);
         y += 24;
     }
 
@@ -329,9 +329,9 @@ static void DrawMediaCard(Rectangle bounds)
     snprintf(duration, sizeof(duration), "%d:%02d",
              g_state.media.durationSeconds / 60, g_state.media.durationSeconds % 60);
 
-    DrawText(elapsed, (int)(bounds.x + pad), (int)y, 18, RS_TEXT_PRIMARY);
-    int durWidth = MeasureText(duration, 18);
-    DrawText(duration, (int)(bounds.x + bounds.width - pad - durWidth), (int)y, 18, RS_TEXT_MUTED);
+    LlzDrawText(elapsed, (int)(bounds.x + pad), (int)y, 18, RS_TEXT_PRIMARY);
+    int durWidth = LlzMeasureText(duration, 18);
+    LlzDrawText(duration, (int)(bounds.x + bounds.width - pad - durWidth), (int)y, 18, RS_TEXT_MUTED);
     y += 26;
 
     // Progress bar
@@ -381,10 +381,10 @@ static void DrawReconnectButton(void)
         btnText = "Reconnect BLE";
     }
 
-    int textWidth = MeasureText(btnText, 16);
+    int textWidth = LlzMeasureText(btnText, 16);
     float textX = btn.x + (btn.width - textWidth) / 2;
     float textY = btn.y + (btn.height - 16) / 2;
-    DrawText(btnText, (int)textX, (int)textY, 16, textColor);
+    LlzDrawText(btnText, (int)textX, (int)textY, 16, textColor);
 }
 
 static void DrawRestartButton(void)
@@ -428,10 +428,10 @@ static void DrawRestartButton(void)
         btnText = "Restart Janus";
     }
 
-    int textWidth = MeasureText(btnText, 16);
+    int textWidth = LlzMeasureText(btnText, 16);
     float textX = btn.x + (btn.width - textWidth) / 2;
     float textY = btn.y + (btn.height - 16) / 2;
-    DrawText(btnText, (int)textX, (int)textY, 16, textColor);
+    LlzDrawText(btnText, (int)textX, (int)textY, 16, textColor);
 }
 
 static void DrawHelpFooter(void)
@@ -444,13 +444,13 @@ static void DrawHelpFooter(void)
 
     // Hint text (shifted right to make room for buttons)
     float hintX = RS_SPACING_MD + 300;
-    DrawText("BACK Exit", (int)hintX, (int)footerY + 10, 16, RS_TEXT_MUTED);
+    LlzDrawText("BACK Exit", (int)hintX, (int)footerY + 10, 16, RS_TEXT_MUTED);
 
     // Refresh indicator
     char refresh[32];
     snprintf(refresh, sizeof(refresh), "Refresh: %.1fs", g_state.refreshInterval - g_state.refreshTimer);
-    int refreshWidth = MeasureText(refresh, 14);
-    DrawText(refresh, g_screenWidth - RS_SPACING_MD - refreshWidth, (int)footerY + 12, 14, RS_TEXT_MUTED);
+    int refreshWidth = LlzMeasureText(refresh, 14);
+    LlzDrawText(refresh, g_screenWidth - RS_SPACING_MD - refreshWidth, (int)footerY + 12, 14, RS_TEXT_MUTED);
 }
 
 static void PluginDraw(void)
