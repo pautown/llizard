@@ -1,6 +1,7 @@
 #include "nowplaying/widgets/np_widget_album_art.h"
 #include "nowplaying/core/np_theme.h"
 #include "nowplaying/widgets/np_widget_label.h"
+#include "llz_sdk_image.h"
 #include <stddef.h>
 
 void NpAlbumArtInit(NpAlbumArt *art, Rectangle bounds) {
@@ -12,21 +13,20 @@ void NpAlbumArtInit(NpAlbumArt *art, Rectangle bounds) {
 }
 
 void NpAlbumArtDraw(const NpAlbumArt *art) {
+    // Number of segments for smooth rounded corners (16 gives good quality)
+    const int segments = 16;
+
     if (art->texture && art->texture->id != 0) {
-        // Draw texture scaled to bounds
-        Rectangle source = {0, 0, (float)art->texture->width, (float)art->texture->height};
-        DrawTexturePro(*art->texture, source, art->bounds, (Vector2){0, 0}, 0.0f, WHITE);
+        // Draw texture with rounded corners using SDK function
+        LlzDrawTextureRounded(*art->texture, art->bounds, art->roundness, segments, WHITE);
     } else {
-        // Draw gradient placeholder
+        // Draw gradient placeholder with rounded corners
         Color accent = art->accentColor;
         Color accentSoft = NpThemeGetColor(NP_COLOR_ACCENT_SOFT);
 
-        DrawRectangleGradientV(
-            (int)art->bounds.x, (int)art->bounds.y,
-            (int)art->bounds.width, (int)art->bounds.height,
-            (Color){accent.r, accent.g, accent.b, 230},
-            (Color){accentSoft.r, accentSoft.g, accentSoft.b, 200}
-        );
+        // Draw rounded rectangle as placeholder background
+        DrawRectangleRounded(art->bounds, art->roundness, segments,
+            (Color){accent.r, accent.g, accent.b, 230});
 
         // Draw "Album art" placeholder text
         NpLabelDrawCenteredInRect(NP_TYPO_DETAIL, "Album art", art->bounds, NULL);
@@ -35,7 +35,7 @@ void NpAlbumArtDraw(const NpAlbumArt *art) {
     // Draw border
     if (art->showBorder) {
         Color borderColor = NpThemeGetColor(NP_COLOR_BORDER);
-        DrawRectangleRoundedLines(art->bounds, art->roundness, 18, borderColor);
+        DrawRectangleRoundedLines(art->bounds, art->roundness, segments, borderColor);
     }
 }
 

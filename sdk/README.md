@@ -6,7 +6,7 @@ This SDK packages the pieces every DRM plugin or host needs so you don't have to
 2. **Input (llz_sdk_input.h)** - unified CarThing/desktop input module with full gesture recognition and button hold detection. See [Input System](#input-system) below.
 3. **Layout helpers (llz_sdk_layout.h)** - a tiny set of functions to carve up the logical canvas without rewriting rectangle math each time. Useful for plugins trying to match the llizardgui look.
 4. **Media helpers (llz_sdk_media.h)** - Redis-backed accessors for track metadata, playback progress, BLE connection status, playback commands, podcasts, and lyrics routed through the MediaDash Go client.
-5. **Image utilities (llz_sdk_image.h)** - blur effects and CSS-like cover/contain image scaling for album art backgrounds and UI elements.
+5. **Image utilities (llz_sdk_image.h)** - blur effects, CSS-like cover/contain image scaling, and rounded corner texture rendering for album art and UI elements.
 6. **Configuration (llz_sdk_config.h)** - global system config (brightness, auto-brightness, orientation) and per-plugin configuration with automatic file creation and INI persistence.
 7. **Background system (llz_sdk_background.h)** - 9 animated background styles (Pulse, Aurora, Wave, Constellation, Bokeh, etc.) with color palettes and playback-responsive energy levels.
 8. **Subscription system (llz_sdk_subscribe.h)** - event-driven callbacks for media changes (track, playstate, volume, position, connection, album art) without polling.
@@ -546,16 +546,31 @@ LlzMediaInit(&config);
 
 ## Image Utilities
 
-The image module (`llz_sdk_image.h`) provides blur effects and CSS-like image scaling functions useful for creating polished UIs with album art backgrounds.
+The image module (`llz_sdk_image.h`) provides blur effects, CSS-like image scaling, and rounded corner texture rendering useful for creating polished UIs with album art.
 
 ### API Functions
+
+#### Blur Functions
 
 | Function | Returns | Description |
 |----------|---------|-------------|
 | `LlzImageBlur(source, blurRadius, darkenAmount)` | `Image` | Apply box blur and darken an image. Returns new image (caller must call `UnloadImage`). |
 | `LlzTextureBlur(source, blurRadius, darkenAmount)` | `Texture2D` | Create a blurred texture from a source texture. Returns new texture (caller must call `UnloadTexture`). |
+
+#### Standard Scaling Functions
+
+| Function | Returns | Description |
+|----------|---------|-------------|
 | `LlzDrawTextureCover(texture, destRect, tint)` | `void` | Draw texture stretched to fill rect (like CSS `background-size: cover`). May crop edges. |
 | `LlzDrawTextureContain(texture, destRect, tint)` | `void` | Draw texture scaled to fit within rect (like CSS `background-size: contain`). May letterbox. |
+
+#### Rounded Corner Functions
+
+| Function | Returns | Description |
+|----------|---------|-------------|
+| `LlzDrawTextureRounded(texture, destRect, roundness, segments, tint)` | `void` | Draw texture stretched to fill rect with rounded corners. |
+| `LlzDrawTextureRoundedCover(texture, destRect, roundness, segments, tint)` | `void` | Draw texture with cover scaling and rounded corners. Fills rect, may crop. |
+| `LlzDrawTextureRoundedContain(texture, destRect, roundness, segments, tint)` | `void` | Draw texture with contain scaling and rounded corners. Fits within rect, may letterbox. |
 
 ### Parameters
 
@@ -563,6 +578,8 @@ The image module (`llz_sdk_image.h`) provides blur effects and CSS-like image sc
 |-----------|------|-------------|
 | `blurRadius` | `int` | Blur strength (1-20 recommended, higher = more blur). |
 | `darkenAmount` | `float` | Darken factor (0.0-1.0). 0.0 = no darkening, 1.0 = fully black. |
+| `roundness` | `float` | Corner roundness (0.0-1.0). 0.0 = square corners, 1.0 = fully rounded (pill shape). Relative to shorter side. |
+| `segments` | `int` | Number of segments per corner arc (8-16 recommended). Higher = smoother curves. |
 
 ### Usage Example
 
@@ -583,14 +600,32 @@ void PluginDraw(void) {
     // Draw blurred album art stretched to fill background
     LlzDrawTextureCover(blurredBg, screen, WHITE);
 
-    // Draw sharp album art centered on top
+    // Draw sharp album art with rounded corners
     Rectangle artArea = {200, 40, 400, 400};
-    LlzDrawTextureContain(albumArt, artArea, WHITE);
+    LlzDrawTextureRounded(albumArt, artArea, 0.12f, 16, WHITE);  // 12% roundness, 16 segments
 }
 
 // Cleanup
 UnloadTexture(blurredBg);
 UnloadTexture(albumArt);
+```
+
+### Rounded Album Art Example
+
+```c
+// Draw album art with rounded corners (common pattern for music UIs)
+void DrawAlbumArt(Texture2D art, Rectangle bounds) {
+    if (art.id != 0) {
+        // Draw texture with 12% corner roundness and 16 segments for smooth edges
+        LlzDrawTextureRounded(art, bounds, 0.12f, 16, WHITE);
+
+        // Optionally draw a border on top
+        DrawRectangleRoundedLines(bounds, 0.12f, 16, (Color){255, 255, 255, 80});
+    } else {
+        // Placeholder
+        DrawRectangleRounded(bounds, 0.12f, 16, DARKGRAY);
+    }
+}
 ```
 
 ### Cover vs Contain
@@ -599,6 +634,17 @@ UnloadTexture(albumArt);
 |------|----------|----------|
 | **Cover** | Scales to fill entire rect, cropping if needed | Full-bleed backgrounds |
 | **Contain** | Scales to fit within rect, letterboxing if needed | Album art display, thumbnails |
+| **Rounded** | Stretches to fill rect exactly | Album art with known aspect ratio |
+
+### Roundness Values
+
+| Value | Effect | Use Case |
+|-------|--------|----------|
+| `0.0` | Square corners | Standard rectangles |
+| `0.1-0.15` | Subtle rounding | Album art, cards |
+| `0.2-0.3` | Moderate rounding | Buttons, panels |
+| `0.4-0.5` | Strong rounding | Pills, badges |
+| `1.0` | Fully rounded (circle/pill) | Avatar images, circular buttons |
 
 ---
 
@@ -1407,7 +1453,7 @@ shared/notifications/
 - Gesture classification (tap, double-tap, hold, swipe, drag) with button hold detection - built into `LlzInputState`
 - Layout helpers for rectangle subdivision (`llz_sdk_layout.h`)
 - Media state access via Redis with podcast and lyrics support (`llz_sdk_media.h`)
-- Image utilities with blur effects and cover/contain scaling (`llz_sdk_image.h`)
+- Image utilities with blur effects, cover/contain scaling, and rounded corner textures (`llz_sdk_image.h`)
 - Global configuration system with brightness/auto-brightness/orientation (`llz_sdk_config.h`)
 - Per-plugin configuration with automatic file creation (`llz_sdk_config.h`)
 - Animated background system with 9 styles (`llz_sdk_background.h`)
@@ -1474,7 +1520,7 @@ LlzPluginAPI *LlzGetPlugin(void) { return &api; }
 | `llz_sdk_input.h` | Input state, gestures, button hold detection |
 | `llz_sdk_layout.h` | Layout helpers for UI composition |
 | `llz_sdk_media.h` | Redis media state, commands, podcasts, lyrics |
-| `llz_sdk_image.h` | Blur effects, cover/contain scaling |
+| `llz_sdk_image.h` | Blur effects, cover/contain scaling, rounded corners |
 | `llz_sdk_config.h` | Global and plugin configuration |
 | `llz_sdk_background.h` | Animated background system |
 | `llz_sdk_subscribe.h` | Event subscription callbacks |

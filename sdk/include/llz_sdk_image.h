@@ -50,6 +50,45 @@ void LlzDrawTextureCover(Texture2D texture, Rectangle destRect, Color tint);
  */
 void LlzDrawTextureContain(Texture2D texture, Rectangle destRect, Color tint);
 
+/**
+ * Draws a texture with rounded corners using "cover" scaling.
+ * The texture fills the destination rectangle completely (may crop edges)
+ * and is clipped to a rounded rectangle shape.
+ *
+ * @param texture The texture to draw
+ * @param destRect The destination rectangle to fill
+ * @param roundness Corner roundness (0.0-1.0, relative to shorter side)
+ * @param segments Number of segments per corner (higher = smoother, 8-16 recommended)
+ * @param tint Color tint to apply
+ */
+void LlzDrawTextureRoundedCover(Texture2D texture, Rectangle destRect, float roundness, int segments, Color tint);
+
+/**
+ * Draws a texture with rounded corners using "contain" scaling.
+ * The texture fits within the destination rectangle (may letterbox)
+ * and is clipped to a rounded rectangle shape.
+ *
+ * @param texture The texture to draw
+ * @param destRect The destination rectangle to fit within
+ * @param roundness Corner roundness (0.0-1.0, relative to shorter side)
+ * @param segments Number of segments per corner (higher = smoother, 8-16 recommended)
+ * @param tint Color tint to apply
+ */
+void LlzDrawTextureRoundedContain(Texture2D texture, Rectangle destRect, float roundness, int segments, Color tint);
+
+/**
+ * Draws a texture with rounded corners (no scaling - direct mapping).
+ * The texture is stretched to fill the destination rectangle exactly
+ * and is clipped to a rounded rectangle shape.
+ *
+ * @param texture The texture to draw
+ * @param destRect The destination rectangle to fill
+ * @param roundness Corner roundness (0.0-1.0, relative to shorter side)
+ * @param segments Number of segments per corner (higher = smoother, 8-16 recommended)
+ * @param tint Color tint to apply
+ */
+void LlzDrawTextureRounded(Texture2D texture, Rectangle destRect, float roundness, int segments, Color tint);
+
 #ifdef __cplusplus
 }
 #endif
