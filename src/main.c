@@ -385,26 +385,15 @@ static void DrawPluginMenuCarousel(const PluginRegistry *registry, int selected,
                       initialSize, 1, ColorAlpha(COLOR_TEXT_PRIMARY, alpha));
         }
 
-        // Plugin name below icon
-        float fontSize = 20 * scale;
-        if (fontSize > 12) {
+        // Plugin name below icon (larger font, no description)
+        float fontSize = 26 * scale;
+        if (fontSize > 14) {
             Vector2 nameSize = MeasureTextEx(g_menuFont, registry->items[i].displayName, fontSize, 1);
             float nameX = cardX + (cardWidth - nameSize.x) / 2;
-            float nameY = cardY + cardHeight * 0.7f;
+            float nameY = cardY + cardHeight * 0.75f;
             Color nameColor = isSelected ? COLOR_TEXT_PRIMARY : COLOR_TEXT_SECONDARY;
             DrawTextEx(g_menuFont, registry->items[i].displayName,
                       (Vector2){nameX, nameY}, fontSize, 1, ColorAlpha(nameColor, alpha));
-        }
-
-        // Description for selected item only
-        if (isSelected && registry->items[i].api && registry->items[i].api->description) {
-            float descFontSize = 14;
-            const char *desc = registry->items[i].api->description;
-            Vector2 descSize = MeasureTextEx(g_menuFont, desc, descFontSize, 1);
-            float descX = cardX + (cardWidth - descSize.x) / 2;
-            float descY = cardY + cardHeight * 0.85f;
-            DrawTextEx(g_menuFont, desc, (Vector2){descX, descY}, descFontSize, 1,
-                      ColorAlpha(COLOR_TEXT_DIM, alpha));
         }
     }
 
