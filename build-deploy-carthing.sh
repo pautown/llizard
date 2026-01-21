@@ -130,16 +130,36 @@ elif [ -d "$MILLIONAIRE_QUESTIONS_SRC" ]; then
 fi
 
 # Deploy fonts (if any exist locally that aren't on the device)
-if [ -d "../fonts" ] && [ "$(ls -A ../fonts/*.ttf 2>/dev/null)" ]; then
-    echo -e "${YELLOW}Copying fonts...${NC}"
-    sshpass -p "$CARTHING_PASS" ssh -o StrictHostKeyChecking=no "$CARTHING_USER@$CARTHING_IP" "mkdir -p /tmp/fonts"
-    for font in ../fonts/*.ttf; do
-        if [ -f "$font" ]; then
-            fontname=$(basename "$font")
-            echo "  - Deploying $fontname"
-            sshpass -p "$CARTHING_PASS" scp -o StrictHostKeyChecking=no "$font" "$CARTHING_USER@$CARTHING_IP:/tmp/fonts/"
-        fi
-    done
+# Supports both .ttf and .otf font formats
+FONTS_DIR="../fonts"
+if [ -d "$FONTS_DIR" ]; then
+    HAS_FONTS=false
+    if [ "$(ls -A $FONTS_DIR/*.ttf 2>/dev/null)" ] || [ "$(ls -A $FONTS_DIR/*.otf 2>/dev/null)" ]; then
+        HAS_FONTS=true
+    fi
+
+    if [ "$HAS_FONTS" = true ]; then
+        echo -e "${YELLOW}Copying fonts...${NC}"
+        sshpass -p "$CARTHING_PASS" ssh -o StrictHostKeyChecking=no "$CARTHING_USER@$CARTHING_IP" "mkdir -p /tmp/fonts"
+
+        # Copy TTF fonts
+        for font in $FONTS_DIR/*.ttf; do
+            if [ -f "$font" ]; then
+                fontname=$(basename "$font")
+                echo "  - Deploying $fontname"
+                sshpass -p "$CARTHING_PASS" scp -o StrictHostKeyChecking=no "$font" "$CARTHING_USER@$CARTHING_IP:/tmp/fonts/"
+            fi
+        done
+
+        # Copy OTF fonts (e.g., Omicron)
+        for font in $FONTS_DIR/*.otf; do
+            if [ -f "$font" ]; then
+                fontname=$(basename "$font")
+                echo "  - Deploying $fontname"
+                sshpass -p "$CARTHING_PASS" scp -o StrictHostKeyChecking=no "$font" "$CARTHING_USER@$CARTHING_IP:/tmp/fonts/"
+            fi
+        done
+    fi
 fi
 
 # Remount filesystem as read-only

@@ -53,8 +53,9 @@ static bool g_configInitialized = false;
 static bool g_mediaInitialized = false;
 static LlzSubscriptionId g_trackSubId = 0;
 
-// Font for text rendering
+// Fonts for text rendering
 static Font g_font;
+static Font g_fontBold;  // Bold font for tile numbers
 
 // Serialize board to comma-separated string: "2,0,4,0,..."
 static void SerializeBoard(char *buffer, size_t bufferSize) {
@@ -437,10 +438,10 @@ static Rectangle ComputeNewGameRect(void)
     float panelWidth = 120.0f;
     float spacing = 16.0f;
     float x = g_screenWidth - (panelWidth * 2.0f + spacing + 20.0f);  // 20px right margin
-    Rectangle scoreRect = {x, 16.0f, panelWidth, 50.0f};  // Moved up and made smaller
-    Rectangle bestRect = {scoreRect.x + panelWidth + spacing * 0.5f, 16.0f, panelWidth, 50.0f};
+    Rectangle scoreRect = {x, 10.0f, panelWidth, 58.0f};
+    Rectangle bestRect = {scoreRect.x + panelWidth + spacing * 0.5f, 10.0f, panelWidth, 58.0f};
     Rectangle newGameRect = {scoreRect.x, scoreRect.y + scoreRect.height + spacing * 0.4f,
-                             bestRect.x + bestRect.width - scoreRect.x, 40.0f};  // Smaller height
+                             bestRect.x + bestRect.width - scoreRect.x, 44.0f};
     return newGameRect;
 }
 
@@ -474,13 +475,13 @@ static int TileFontSize(float tileSize, int value)
 static void DrawScorePanel(Rectangle rect, const char *label, int value)
 {
     DrawRectangleRounded(rect, 0.2f, 12, COLOR_PANEL_LIGHT);
-    DrawTextEx(g_font, label, (Vector2){rect.x + 10, rect.y + 6}, 14, 1, COLOR_TEXT_MUTED);  // Smaller text
+    DrawTextEx(g_font, label, (Vector2){rect.x + 10, rect.y + 4}, 18, 1, COLOR_TEXT_MUTED);
     char text[32];
     snprintf(text, sizeof(text), "%d", value);
-    int fontSize = 22;  // Smaller font
+    int fontSize = 28;
     int textWidth = (int)MeasureTextEx(g_font, text, fontSize, 1).x;
     int textX = (int)(rect.x + rect.width * 0.5f - textWidth * 0.5f);
-    int textY = (int)(rect.y + rect.height - fontSize - 4);
+    int textY = (int)(rect.y + rect.height - fontSize - 2);
     DrawTextEx(g_font, text, (Vector2){textX, textY}, fontSize, 1, COLOR_TEXT_PRIMARY);
 }
 
@@ -489,8 +490,8 @@ static void DrawScorePanels(void)
     float panelWidth = 120.0f;
     float spacing = 16.0f;
     float x = g_screenWidth - (panelWidth * 2.0f + spacing + 20.0f);
-    Rectangle scoreRect = {x, 16.0f, panelWidth, 50.0f};
-    Rectangle bestRect = {scoreRect.x + panelWidth + spacing * 0.5f, 16.0f, panelWidth, 50.0f};
+    Rectangle scoreRect = {x, 10.0f, panelWidth, 58.0f};
+    Rectangle bestRect = {scoreRect.x + panelWidth + spacing * 0.5f, 10.0f, panelWidth, 58.0f};
     Rectangle newGameRect = ComputeNewGameRect();
 
     DrawScorePanel(scoreRect, "SCORE", g_game.score);
@@ -499,7 +500,7 @@ static void DrawScorePanels(void)
     Color btnColor = g_game.gameOver ? (Color){222, 86, 92, 255} : (Color){96, 178, 255, 255};
     DrawRectangleRounded(newGameRect, 0.3f, 12, btnColor);
     const char *label = g_game.gameOver ? "TRY AGAIN" : "NEW GAME";
-    int fontSize = 18;  // Smaller font for button
+    int fontSize = 22;
     int textWidth = (int)MeasureTextEx(g_font, label, fontSize, 1).x;
     int textX = (int)(newGameRect.x + newGameRect.width * 0.5f - textWidth * 0.5f);
     int textY = (int)(newGameRect.y + newGameRect.height * 0.5f - fontSize * 0.5f);
@@ -508,15 +509,15 @@ static void DrawScorePanels(void)
 
 static void DrawHeader(void)
 {
-    // Draw title on the left side, smaller
+    // Draw title on the left side
     const char *title = "2048";
-    int titleSize = 36;
-    DrawTextEx(g_font, title, (Vector2){32, 20}, titleSize, 1, COLOR_TEXT_PRIMARY);
+    int titleSize = 52;
+    DrawTextEx(g_font, title, (Vector2){32, 12}, titleSize, 1, COLOR_TEXT_PRIMARY);
 
-    // Draw smaller subtitle underneath
+    // Draw subtitle underneath
     const char *subtitle = "Swipe or use buttons";
-    int subtitleSize = 16;
-    DrawTextEx(g_font, subtitle, (Vector2){32, 60}, subtitleSize, 1, COLOR_TEXT_MUTED);
+    int subtitleSize = 22;
+    DrawTextEx(g_font, subtitle, (Vector2){32, 68}, subtitleSize, 1, COLOR_TEXT_MUTED);
 }
 
 static void DrawStatusOverlay(Rectangle boardRect)
@@ -591,10 +592,11 @@ static void DrawBoard(void)
                 snprintf(text, sizeof(text), "%d", value);
                 int fontSize = TileFontSize(tileSize, value);
                 Color textColor = (value <= 4) ? COLOR_TILE_DARK : WHITE;
-                int textWidth = (int)MeasureTextEx(g_font, text, fontSize, 1).x;
+                // Use bold font for cleaner tile text rendering
+                int textWidth = (int)MeasureTextEx(g_fontBold, text, fontSize, 0).x;
                 int textX = (int)(tileRect.x + tileRect.width * 0.5f - textWidth * 0.5f);
                 int textY = (int)(tileRect.y + tileRect.height * 0.5f - fontSize * 0.5f);
-                DrawTextEx(g_font, text, (Vector2){textX, textY}, fontSize, 1, ColorAlpha(textColor, spawnAlpha));
+                DrawTextEx(g_fontBold, text, (Vector2){textX, textY}, fontSize, 0, ColorAlpha(textColor, spawnAlpha));
             }
         }
     }
@@ -648,10 +650,16 @@ static void PluginInit(int width, int height)
     g_screenHeight = height;
     g_wantsClose = false;
 
-    // Load font using SDK with fallback to default
-    g_font = LlzFontGet(LLZ_FONT_UI, 32);
+    // Load fonts using SDK with fallback to default
+    // Use larger base size (64px) to reduce scaling artifacts on tile text
+    g_font = LlzFontGet(LLZ_FONT_UI, 64);
     if (g_font.texture.id == 0) {
         g_font = GetFontDefault();
+    }
+    // Load bold font for tile numbers - cleaner rendering without outline artifacts
+    g_fontBold = LlzFontGet(LLZ_FONT_UI_BOLD, 64);
+    if (g_fontBold.texture.id == 0) {
+        g_fontBold = g_font;  // Fall back to regular font
     }
 
     // Initialize plugin config with defaults

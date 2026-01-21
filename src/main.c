@@ -22,13 +22,17 @@ typedef enum {
     MENU_STYLE_LIST = 0,      // Classic vertical list (current)
     MENU_STYLE_CAROUSEL,      // Apple Music inspired horizontal carousel
     MENU_STYLE_CARDS,         // Spotify inspired large card view
+    MENU_STYLE_SPOTIFY_CT,    // True Spotify CarThing single-focus minimal
+    MENU_STYLE_GRID,          // Apple Music grid layout
     MENU_STYLE_COUNT
 } MenuScrollStyle;
 
 static const char *g_styleNames[] = {
     "List",
     "Carousel",
-    "Cards"
+    "Cards",
+    "CarThing",
+    "Grid"
 };
 
 // Color palette
@@ -647,6 +651,435 @@ static void DrawPluginMenuList(const PluginRegistry *registry, int selected, flo
 }
 
 // ============================================================================
+// SPOTIFY CARTHING STYLE - Single-focus minimal like original CarThing UI
+// ============================================================================
+
+// Spotify green color for authentic CarThing look
+static const Color COLOR_SPOTIFY_GREEN = {30, 215, 96, 255};
+
+// Omicron font for CarThing style branding ("llizardOS")
+static Font g_omicronFont;
+static bool g_omicronFontLoaded = false;
+
+// Tracklister font for CarThing style main text
+static Font g_tracklisterFont;
+static bool g_tracklisterFontLoaded = false;
+
+static void LoadOmicronFont(void) {
+    if (g_omicronFontLoaded) return;
+
+    // Build codepoints for international support
+    int codepointCount = 0;
+    int *codepoints = BuildUnicodeCodepoints(&codepointCount);
+
+    // Try loading from fonts folder (check multiple locations)
+    const char *fontPaths[] = {
+        "./fonts/Omicron Regular.otf",
+        "./fonts/Omicron Light.otf",
+        "/tmp/fonts/Omicron Regular.otf",
+        "/tmp/fonts/Omicron Light.otf",
+        "/var/local/fonts/Omicron Regular.otf",
+        "/var/local/fonts/Omicron Light.otf",
+    };
+
+    for (int i = 0; i < 6; i++) {
+        if (FileExists(fontPaths[i])) {
+            Font loaded = LoadFontEx(fontPaths[i], 72, codepoints, codepointCount);
+            if (loaded.texture.id != 0) {
+                g_omicronFont = loaded;
+                g_omicronFontLoaded = true;
+                SetTextureFilter(g_omicronFont.texture, TEXTURE_FILTER_BILINEAR);
+                printf("CarThing: Loaded Omicron font from %s\n", fontPaths[i]);
+                break;
+            }
+        }
+    }
+
+    // Fallback to menu font if not found
+    if (!g_omicronFontLoaded) {
+        g_omicronFont = g_menuFont;
+        printf("CarThing: Omicron font not found, using menu font\n");
+    }
+
+    if (codepoints) free(codepoints);
+}
+
+static void LoadTracklisterFont(void) {
+    if (g_tracklisterFontLoaded) return;
+
+    // Build codepoints for international support
+    int codepointCount = 0;
+    int *codepoints = BuildUnicodeCodepoints(&codepointCount);
+
+    // Try loading from fonts folder (prefer Medium or Regular weight)
+    const char *fontPaths[] = {
+        "./fonts/Tracklister-Medium.ttf",
+        "./fonts/Tracklister-Regular.ttf",
+        "./fonts/Tracklister-Semibold.ttf",
+        "/tmp/fonts/Tracklister-Medium.ttf",
+        "/tmp/fonts/Tracklister-Regular.ttf",
+        "/tmp/fonts/Tracklister-Semibold.ttf",
+        "/var/local/fonts/Tracklister-Medium.ttf",
+        "/var/local/fonts/Tracklister-Regular.ttf",
+    };
+
+    for (int i = 0; i < 8; i++) {
+        if (FileExists(fontPaths[i])) {
+            Font loaded = LoadFontEx(fontPaths[i], 72, codepoints, codepointCount);
+            if (loaded.texture.id != 0) {
+                g_tracklisterFont = loaded;
+                g_tracklisterFontLoaded = true;
+                SetTextureFilter(g_tracklisterFont.texture, TEXTURE_FILTER_BILINEAR);
+                printf("CarThing: Loaded Tracklister font from %s\n", fontPaths[i]);
+                break;
+            }
+        }
+    }
+
+    // Fallback to menu font if not found
+    if (!g_tracklisterFontLoaded) {
+        g_tracklisterFont = g_menuFont;
+        printf("CarThing: Tracklister font not found, using menu font\n");
+    }
+
+    if (codepoints) free(codepoints);
+}
+
+static void UnloadOmicronFont(void) {
+    Font defaultFont = GetFontDefault();
+    if (g_omicronFontLoaded && g_omicronFont.texture.id != 0 &&
+        g_omicronFont.texture.id != defaultFont.texture.id &&
+        g_omicronFont.texture.id != g_menuFont.texture.id) {
+        UnloadFont(g_omicronFont);
+    }
+    g_omicronFontLoaded = false;
+}
+
+static void UnloadTracklisterFont(void) {
+    Font defaultFont = GetFontDefault();
+    if (g_tracklisterFontLoaded && g_tracklisterFont.texture.id != 0 &&
+        g_tracklisterFont.texture.id != defaultFont.texture.id &&
+        g_tracklisterFont.texture.id != g_menuFont.texture.id) {
+        UnloadFont(g_tracklisterFont);
+    }
+    g_tracklisterFontLoaded = false;
+}
+
+// Crossfade state for CarThing style
+static float g_ctFadeAlpha = 1.0f;
+static int g_ctLastSelected = -1;
+
+static void DrawPluginMenuSpotifyCT(const PluginRegistry *registry, int selected, float deltaTime,
+                                    Color dynamicAccent)
+{
+    (void)dynamicAccent;
+
+    // Lazy load fonts on first use
+    if (!g_omicronFontLoaded) {
+        LoadOmicronFont();
+    }
+    if (!g_tracklisterFontLoaded) {
+        LoadTracklisterFont();
+    }
+
+    // Tracklister for main text, Omicron for branding
+    Font textFont = g_tracklisterFontLoaded ? g_tracklisterFont : g_menuFont;
+    Font brandFont = g_omicronFontLoaded ? g_omicronFont : g_menuFont;
+
+    if (!registry || registry->count == 0) {
+        DrawTextEx(textFont, "No plugins", (Vector2){SCREEN_WIDTH / 2 - 80, SCREEN_HEIGHT / 2 - 20}, 32, 1, COLOR_TEXT_SECONDARY);
+        return;
+    }
+
+    // Detect selection change and trigger crossfade
+    if (g_ctLastSelected != selected) {
+        g_ctFadeAlpha = 0.0f;  // Start fade from zero
+        g_ctLastSelected = selected;
+    }
+
+    // Gentle crossfade animation
+    float fadeSpeed = 5.0f;
+    g_ctFadeAlpha += fadeSpeed * deltaTime;
+    if (g_ctFadeAlpha > 1.0f) g_ctFadeAlpha = 1.0f;
+
+    // Smooth easing for gentle feel
+    float contentAlpha = g_ctFadeAlpha * g_ctFadeAlpha * (3.0f - 2.0f * g_ctFadeAlpha);  // smoothstep
+
+    // Aero green glass overlay effect
+    // Layer 1: Semi-transparent green tint
+    Color aeroGreen1 = {20, 180, 80, 40};
+    DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, aeroGreen1);
+
+    // Layer 2: Subtle gradient from top (lighter) to bottom (darker green)
+    for (int y = 0; y < SCREEN_HEIGHT; y += 4) {
+        float gradientAlpha = 0.02f + (float)y / SCREEN_HEIGHT * 0.06f;
+        Color gradLine = ColorAlpha(COLOR_SPOTIFY_GREEN, gradientAlpha);
+        DrawRectangle(0, y, SCREEN_WIDTH, 4, gradLine);
+    }
+
+    // Layer 3: Glassy highlight at top (aero reflection)
+    for (int i = 0; i < 80; i++) {
+        float highlightAlpha = (80 - i) / 80.0f * 0.08f;
+        DrawRectangle(0, i, SCREEN_WIDTH, 1, ColorAlpha(WHITE, highlightAlpha));
+    }
+
+    // Layer 4: Subtle vignette for depth
+    for (int i = 0; i < 60; i++) {
+        float vignetteAlpha = i / 60.0f * 0.15f;
+        DrawRectangle(0, SCREEN_HEIGHT - 60 + i, SCREEN_WIDTH, 1, ColorAlpha(BLACK, vignetteAlpha));
+    }
+
+    // Calculate layout - icon is vertically centered
+    float iconRadius = 70;
+    float iconCenterY = SCREEN_HEIGHT / 2;
+    float iconX = SCREEN_WIDTH / 2;
+
+    // Plugin name below icon
+    const char *pluginName = registry->items[selected].displayName;
+    float mainFontSize = 64;
+    Vector2 mainSize = MeasureTextEx(textFont, pluginName, mainFontSize, 2);
+
+    // If name is too long, shrink it
+    while (mainSize.x > SCREEN_WIDTH - 80 && mainFontSize > 32) {
+        mainFontSize -= 4;
+        mainSize = MeasureTextEx(textFont, pluginName, mainFontSize, 2);
+    }
+
+    float mainX = (SCREEN_WIDTH - mainSize.x) / 2;
+    float mainY = iconCenterY + iconRadius + 30;
+
+    // Flat circle behind letter - crossfades with content
+    DrawCircle((int)iconX, (int)iconCenterY, iconRadius, ColorAlpha((Color){15, 60, 35, 200}, contentAlpha));
+
+    // Spotify green ring
+    DrawCircleLines((int)iconX, (int)iconCenterY, iconRadius, ColorAlpha(COLOR_SPOTIFY_GREEN, contentAlpha));
+
+    // Initial letter inside - crossfades (uses textFont for consistency)
+    if (pluginName[0]) {
+        char initial[2] = {pluginName[0], '\0'};
+        float initialSize = 60;
+        Vector2 initialDim = MeasureTextEx(textFont, initial, initialSize, 1);
+        DrawTextEx(textFont, initial,
+                  (Vector2){iconX - initialDim.x / 2, iconCenterY - initialDim.y / 2},
+                  initialSize, 1, ColorAlpha(COLOR_SPOTIFY_GREEN, contentAlpha));
+    }
+
+    // Main plugin name below icon - centered, crossfades (no horizontal movement)
+    DrawTextEx(textFont, pluginName, (Vector2){mainX, mainY}, mainFontSize, 2, ColorAlpha(WHITE, contentAlpha));
+
+    // Spotify green underline - centered, crossfades (no horizontal movement)
+    float underlineWidth = fminf(mainSize.x + 40, SCREEN_WIDTH - 100);
+    float underlineX = (SCREEN_WIDTH - underlineWidth) / 2;
+    DrawRectangle((int)underlineX, (int)(mainY + mainSize.y + 12), (int)underlineWidth, 4,
+                 ColorAlpha(COLOR_SPOTIFY_GREEN, contentAlpha));
+
+    // Plugin counter below - centered, crossfades (no horizontal movement)
+    char counterStr[32];
+    snprintf(counterStr, sizeof(counterStr), "%d / %d", selected + 1, registry->count);
+    Vector2 counterSize = MeasureTextEx(textFont, counterStr, 24, 1);
+    DrawTextEx(textFont, counterStr,
+              (Vector2){(SCREEN_WIDTH - counterSize.x) / 2, mainY + mainSize.y + 40},
+              24, 1, ColorAlpha(WHITE, 0.5f * contentAlpha));
+
+    // Minimal navigation hints at sides (fixed position, always visible)
+    float sideY = SCREEN_HEIGHT / 2;
+
+    if (selected > 0) {
+        // Left arrow
+        DrawTextEx(textFont, "◀", (Vector2){40, sideY - 12}, 28, 1, ColorAlpha(COLOR_SPOTIFY_GREEN, 0.4f));
+
+        // Previous plugin name (dim)
+        const char *prevName = registry->items[selected - 1].displayName;
+        Vector2 prevSize = MeasureTextEx(textFont, prevName, 16, 1);
+        if (prevSize.x > 120) {
+            char truncName[20];
+            strncpy(truncName, prevName, 15);
+            truncName[15] = '.';
+            truncName[16] = '.';
+            truncName[17] = '.';
+            truncName[18] = '\0';
+            DrawTextEx(textFont, truncName, (Vector2){40, sideY + 24}, 16, 1, ColorAlpha(WHITE, 0.25f));
+        } else {
+            DrawTextEx(textFont, prevName, (Vector2){40, sideY + 24}, 16, 1, ColorAlpha(WHITE, 0.25f));
+        }
+    }
+
+    if (selected < registry->count - 1) {
+        // Right arrow
+        Vector2 arrowSize = MeasureTextEx(textFont, "▶", 28, 1);
+        DrawTextEx(textFont, "▶", (Vector2){SCREEN_WIDTH - 40 - arrowSize.x, sideY - 12}, 28, 1, ColorAlpha(COLOR_SPOTIFY_GREEN, 0.4f));
+
+        // Next plugin name (dim)
+        const char *nextName = registry->items[selected + 1].displayName;
+        Vector2 nextSize = MeasureTextEx(textFont, nextName, 16, 1);
+        if (nextSize.x > 120) {
+            char truncName[20];
+            strncpy(truncName, nextName, 15);
+            truncName[15] = '.';
+            truncName[16] = '.';
+            truncName[17] = '.';
+            truncName[18] = '\0';
+            Vector2 truncSize = MeasureTextEx(textFont, truncName, 16, 1);
+            DrawTextEx(textFont, truncName, (Vector2){SCREEN_WIDTH - 40 - truncSize.x, sideY + 24}, 16, 1, ColorAlpha(WHITE, 0.25f));
+        } else {
+            DrawTextEx(textFont, nextName, (Vector2){SCREEN_WIDTH - 40 - nextSize.x, sideY + 24}, 16, 1, ColorAlpha(WHITE, 0.25f));
+        }
+    }
+
+    // "llizardOS" branding in top left (uses Omicron font)
+    DrawTextEx(brandFont, "llizardOS", (Vector2){24, 20}, 18, 1, ColorAlpha(WHITE, 0.4f));
+}
+
+// ============================================================================
+// GRID STYLE - Apple Music library grid layout
+// ============================================================================
+
+#define GRID_COLS 2
+#define GRID_TILE_WIDTH 360
+#define GRID_TILE_HEIGHT 180
+#define GRID_SPACING 20
+#define GRID_PADDING_X 40
+#define GRID_PADDING_TOP 100
+
+static void DrawPluginMenuGrid(const PluginRegistry *registry, int selected, float deltaTime,
+                               Color dynamicAccent, Color dynamicAccentDim)
+{
+    if (!registry || registry->count == 0) {
+        DrawTextEx(g_menuFont, "No plugins found", (Vector2){MENU_PADDING_X, MENU_PADDING_TOP + 40}, 24, 1, COLOR_TEXT_SECONDARY);
+        DrawTextEx(g_menuFont, "Place .so files in ./plugins", (Vector2){MENU_PADDING_X, MENU_PADDING_TOP + 70}, 18, 1, COLOR_TEXT_DIM);
+        return;
+    }
+
+    // Header
+    DrawTextEx(g_menuFont, "llizardOS", (Vector2){GRID_PADDING_X, 24}, 32, 2, COLOR_TEXT_PRIMARY);
+    DrawRectangle(GRID_PADDING_X, 62, 120, 3, dynamicAccent);
+
+    // Calculate which row the selected item is in for vertical scrolling
+    int selectedRow = selected / GRID_COLS;
+    float targetScrollY = 0;
+    float maxVisibleRows = (SCREEN_HEIGHT - GRID_PADDING_TOP - 20) / (GRID_TILE_HEIGHT + GRID_SPACING);
+
+    // Scroll to keep selected row visible
+    if (selectedRow >= maxVisibleRows) {
+        targetScrollY = (selectedRow - maxVisibleRows + 1) * (GRID_TILE_HEIGHT + GRID_SPACING);
+    }
+
+    // Smooth scroll update (using existing scroll variable)
+    float diff = targetScrollY - g_scrollOffset;
+    g_scrollOffset += diff * 10.0f * deltaTime;
+    if (fabsf(diff) < 1.0f) g_scrollOffset = targetScrollY;
+
+    // Draw grid of tiles
+    BeginScissorMode(0, GRID_PADDING_TOP - 10, SCREEN_WIDTH, SCREEN_HEIGHT - GRID_PADDING_TOP + 10);
+
+    for (int i = 0; i < registry->count; i++) {
+        int col = i % GRID_COLS;
+        int row = i / GRID_COLS;
+
+        float tileX = GRID_PADDING_X + col * (GRID_TILE_WIDTH + GRID_SPACING);
+        float tileY = GRID_PADDING_TOP + row * (GRID_TILE_HEIGHT + GRID_SPACING) - g_scrollOffset;
+
+        // Skip tiles outside visible area
+        if (tileY < GRID_PADDING_TOP - GRID_TILE_HEIGHT - 20 || tileY > SCREEN_HEIGHT + 20) continue;
+
+        bool isSelected = (i == selected);
+        Rectangle tileRect = {tileX, tileY, GRID_TILE_WIDTH, GRID_TILE_HEIGHT};
+
+        // Tile shadow for depth
+        if (isSelected) {
+            Rectangle shadowRect = {tileX + 6, tileY + 6, GRID_TILE_WIDTH, GRID_TILE_HEIGHT};
+            DrawRectangleRounded(shadowRect, 0.1f, 8, ColorAlpha(BLACK, 0.4f));
+        }
+
+        // Tile background - gradient from accent for selected
+        Color tileTop = isSelected ? ColorAlpha(dynamicAccent, 0.25f) : COLOR_CARD_BG;
+        Color tileBottom = COLOR_CARD_BG;
+
+        // Draw gradient manually
+        DrawRectangleGradientV((int)tileX, (int)tileY, (int)GRID_TILE_WIDTH, (int)GRID_TILE_HEIGHT, tileTop, tileBottom);
+        DrawRectangleRounded(tileRect, 0.1f, 8, ColorAlpha(COLOR_CARD_BG, 0.0f));  // Just for shape clip
+
+        // Border
+        Color borderColor = isSelected ? dynamicAccent : ColorAlpha(COLOR_CARD_BORDER, 0.4f);
+        DrawRectangleRoundedLines(tileRect, 0.1f, 8, borderColor);
+
+        // Selection glow
+        if (isSelected) {
+            Rectangle glowRect = {tileX - 3, tileY - 3, GRID_TILE_WIDTH + 6, GRID_TILE_HEIGHT + 6};
+            DrawRectangleRoundedLines(glowRect, 0.1f, 8, ColorAlpha(dynamicAccent, 0.4f));
+        }
+
+        // Large icon circle on left side of tile
+        float iconRadius = 50;
+        float iconX = tileX + 70;
+        float iconY = tileY + GRID_TILE_HEIGHT / 2;
+
+        Color iconBg = isSelected ? ColorAlpha(dynamicAccent, 0.2f) : ColorAlpha(dynamicAccentDim, 0.15f);
+        DrawCircle((int)iconX, (int)iconY, iconRadius, iconBg);
+        DrawCircleLines((int)iconX, (int)iconY, iconRadius, isSelected ? dynamicAccent : COLOR_CARD_BORDER);
+
+        // Initial letter
+        if (registry->items[i].displayName[0]) {
+            char initial[2] = {registry->items[i].displayName[0], '\0'};
+            float initialSize = 40;
+            Vector2 initialDim = MeasureTextEx(g_menuFont, initial, initialSize, 1);
+            Color initialColor = isSelected ? dynamicAccent : COLOR_TEXT_SECONDARY;
+            DrawTextEx(g_menuFont, initial,
+                      (Vector2){iconX - initialDim.x / 2, iconY - initialDim.y / 2},
+                      initialSize, 1, initialColor);
+        }
+
+        // Plugin name on right side
+        float textX = iconX + iconRadius + 30;
+        float maxTextWidth = GRID_TILE_WIDTH - (textX - tileX) - 20;
+
+        Color nameColor = isSelected ? COLOR_TEXT_PRIMARY : COLOR_TEXT_SECONDARY;
+        float nameSize = 26;
+        Vector2 nameDim = MeasureTextEx(g_menuFont, registry->items[i].displayName, nameSize, 1);
+
+        // Truncate if too long
+        if (nameDim.x > maxTextWidth) {
+            char truncName[32];
+            int maxChars = (int)(maxTextWidth / (nameDim.x / strlen(registry->items[i].displayName)));
+            if (maxChars > 28) maxChars = 28;
+            if (maxChars > 3) {
+                strncpy(truncName, registry->items[i].displayName, maxChars - 3);
+                truncName[maxChars - 3] = '.';
+                truncName[maxChars - 2] = '.';
+                truncName[maxChars - 1] = '.';
+                truncName[maxChars] = '\0';
+                DrawTextEx(g_menuFont, truncName, (Vector2){textX, tileY + 50}, nameSize, 1, nameColor);
+            }
+        } else {
+            DrawTextEx(g_menuFont, registry->items[i].displayName, (Vector2){textX, tileY + 50}, nameSize, 1, nameColor);
+        }
+
+        // Description below name
+        if (registry->items[i].api && registry->items[i].api->description) {
+            Color descColor = isSelected ? COLOR_TEXT_SECONDARY : COLOR_TEXT_DIM;
+            DrawTextEx(g_menuFont, registry->items[i].api->description,
+                      (Vector2){textX, tileY + 85}, 14, 1, descColor);
+        }
+
+        // Index badge in corner
+        char indexStr[16];
+        snprintf(indexStr, sizeof(indexStr), "%d", i + 1);
+        Vector2 indexSize = MeasureTextEx(g_menuFont, indexStr, 14, 1);
+        float indexX = tileX + GRID_TILE_WIDTH - indexSize.x - 12;
+        float indexY = tileY + GRID_TILE_HEIGHT - 24;
+        DrawTextEx(g_menuFont, indexStr, (Vector2){indexX, indexY}, 14, 1, ColorAlpha(COLOR_TEXT_DIM, 0.5f));
+    }
+
+    EndScissorMode();
+
+    // Page indicator at bottom
+    char pageStr[32];
+    snprintf(pageStr, sizeof(pageStr), "%d of %d", selected + 1, registry->count);
+    Vector2 pageSize = MeasureTextEx(g_menuFont, pageStr, 16, 1);
+    DrawTextEx(g_menuFont, pageStr, (Vector2){(SCREEN_WIDTH - pageSize.x) / 2, SCREEN_HEIGHT - 30}, 16, 1, COLOR_TEXT_DIM);
+}
+
+// ============================================================================
 // MAIN MENU DISPATCHER
 // ============================================================================
 
@@ -668,8 +1101,9 @@ static void DrawPluginMenu(const PluginRegistry *registry, int selected, float d
     // Update style indicator animation
     UpdateStyleIndicator(deltaTime);
 
-    // Draw header (shared across all styles except cards which has its own layout)
-    if (g_menuStyle != MENU_STYLE_CARDS) {
+    // Draw header (shared across list and carousel styles only)
+    // Cards, SpotifyCT, and Grid styles handle their own headers
+    if (g_menuStyle == MENU_STYLE_LIST || g_menuStyle == MENU_STYLE_CAROUSEL) {
         DrawMenuHeader(registry, selected, dynamicAccent, complementary);
     }
 
@@ -687,6 +1121,16 @@ static void DrawPluginMenu(const PluginRegistry *registry, int selected, float d
             // Cards style has its own header in the card design
             DrawMenuHeader(registry, selected, dynamicAccent, complementary);
             DrawPluginMenuCards(registry, selected, dynamicAccent, complementary);
+            break;
+
+        case MENU_STYLE_SPOTIFY_CT:
+            // Spotify CarThing style has completely custom layout - no shared header
+            DrawPluginMenuSpotifyCT(registry, selected, deltaTime, dynamicAccent);
+            break;
+
+        case MENU_STYLE_GRID:
+            // Grid style has its own header
+            DrawPluginMenuGrid(registry, selected, deltaTime, dynamicAccent, dynamicAccentDim);
             break;
 
         default:
@@ -961,6 +1405,8 @@ int main(void)
     }
     FreePluginSnapshot(&g_pluginSnapshot);
     UnloadPlugins(&registry);
+    UnloadTracklisterFont();
+    UnloadOmicronFont();
     UnloadMenuFont();
     LlzBackgroundShutdown();
     LlzInputShutdown();
