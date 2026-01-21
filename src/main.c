@@ -765,6 +765,56 @@ static void UnloadTracklisterFont(void) {
     g_tracklisterFontLoaded = false;
 }
 
+// iBrand font for Grid style
+static Font g_ibrandFont;
+static bool g_ibrandFontLoaded = false;
+
+static void LoadIBrandFont(void) {
+    if (g_ibrandFontLoaded) return;
+
+    // Build codepoints for international support
+    int codepointCount = 0;
+    int *codepoints = BuildUnicodeCodepoints(&codepointCount);
+
+    // Try loading from fonts folder
+    const char *fontPaths[] = {
+        "./fonts/Ibrand.otf",
+        "/tmp/fonts/Ibrand.otf",
+        "/var/local/fonts/Ibrand.otf",
+    };
+
+    for (int i = 0; i < 3; i++) {
+        if (FileExists(fontPaths[i])) {
+            Font loaded = LoadFontEx(fontPaths[i], 72, codepoints, codepointCount);
+            if (loaded.texture.id != 0) {
+                g_ibrandFont = loaded;
+                g_ibrandFontLoaded = true;
+                SetTextureFilter(g_ibrandFont.texture, TEXTURE_FILTER_BILINEAR);
+                printf("Grid: Loaded iBrand font from %s\n", fontPaths[i]);
+                break;
+            }
+        }
+    }
+
+    // Fallback to menu font if not found
+    if (!g_ibrandFontLoaded) {
+        g_ibrandFont = g_menuFont;
+        printf("Grid: iBrand font not found, using menu font\n");
+    }
+
+    if (codepoints) free(codepoints);
+}
+
+static void UnloadIBrandFont(void) {
+    Font defaultFont = GetFontDefault();
+    if (g_ibrandFontLoaded && g_ibrandFont.texture.id != 0 &&
+        g_ibrandFont.texture.id != defaultFont.texture.id &&
+        g_ibrandFont.texture.id != g_menuFont.texture.id) {
+        UnloadFont(g_ibrandFont);
+    }
+    g_ibrandFontLoaded = false;
+}
+
 // Crossfade state for CarThing style
 static float g_ctFadeAlpha = 1.0f;
 static int g_ctLastSelected = -1;
@@ -944,14 +994,21 @@ static void DrawPluginMenuSpotifyCT(const PluginRegistry *registry, int selected
 static void DrawPluginMenuGrid(const PluginRegistry *registry, int selected, float deltaTime,
                                Color dynamicAccent, Color dynamicAccentDim)
 {
+    // Lazy load iBrand font on first use
+    if (!g_ibrandFontLoaded) {
+        LoadIBrandFont();
+    }
+
+    Font gridFont = g_ibrandFontLoaded ? g_ibrandFont : g_menuFont;
+
     if (!registry || registry->count == 0) {
-        DrawTextEx(g_menuFont, "No plugins found", (Vector2){MENU_PADDING_X, MENU_PADDING_TOP + 40}, 24, 1, COLOR_TEXT_SECONDARY);
-        DrawTextEx(g_menuFont, "Place .so files in ./plugins", (Vector2){MENU_PADDING_X, MENU_PADDING_TOP + 70}, 18, 1, COLOR_TEXT_DIM);
+        DrawTextEx(gridFont, "No plugins found", (Vector2){MENU_PADDING_X, MENU_PADDING_TOP + 40}, 24, 1, COLOR_TEXT_SECONDARY);
+        DrawTextEx(gridFont, "Place .so files in ./plugins", (Vector2){MENU_PADDING_X, MENU_PADDING_TOP + 70}, 18, 1, COLOR_TEXT_DIM);
         return;
     }
 
     // Header
-    DrawTextEx(g_menuFont, "llizardOS", (Vector2){GRID_PADDING_X, 24}, 32, 2, COLOR_TEXT_PRIMARY);
+    DrawTextEx(gridFont, "llizardOS", (Vector2){GRID_PADDING_X, 24}, 32, 2, COLOR_TEXT_PRIMARY);
     DrawRectangle(GRID_PADDING_X, 62, 120, 3, dynamicAccent);
 
     // Calculate which row the selected item is in for vertical scrolling
@@ -1022,20 +1079,23 @@ static void DrawPluginMenuGrid(const PluginRegistry *registry, int selected, flo
         if (registry->items[i].displayName[0]) {
             char initial[2] = {registry->items[i].displayName[0], '\0'};
             float initialSize = 40;
-            Vector2 initialDim = MeasureTextEx(g_menuFont, initial, initialSize, 1);
+            Vector2 initialDim = MeasureTextEx(gridFont, initial, initialSize, 1);
             Color initialColor = isSelected ? dynamicAccent : COLOR_TEXT_SECONDARY;
-            DrawTextEx(g_menuFont, initial,
+            DrawTextEx(gridFont, initial,
                       (Vector2){iconX - initialDim.x / 2, iconY - initialDim.y / 2},
                       initialSize, 1, initialColor);
         }
 
-        // Plugin name on right side
+        // Plugin name on right side - vertically centered (no description)
         float textX = iconX + iconRadius + 30;
         float maxTextWidth = GRID_TILE_WIDTH - (textX - tileX) - 20;
 
         Color nameColor = isSelected ? COLOR_TEXT_PRIMARY : COLOR_TEXT_SECONDARY;
-        float nameSize = 26;
-        Vector2 nameDim = MeasureTextEx(g_menuFont, registry->items[i].displayName, nameSize, 1);
+        float nameSize = 28;
+        Vector2 nameDim = MeasureTextEx(gridFont, registry->items[i].displayName, nameSize, 1);
+
+        // Vertically center the name in the tile
+        float nameY = tileY + (GRID_TILE_HEIGHT - nameDim.y) / 2;
 
         // Truncate if too long
         if (nameDim.x > maxTextWidth) {
@@ -1048,26 +1108,19 @@ static void DrawPluginMenuGrid(const PluginRegistry *registry, int selected, flo
                 truncName[maxChars - 2] = '.';
                 truncName[maxChars - 1] = '.';
                 truncName[maxChars] = '\0';
-                DrawTextEx(g_menuFont, truncName, (Vector2){textX, tileY + 50}, nameSize, 1, nameColor);
+                DrawTextEx(gridFont, truncName, (Vector2){textX, nameY}, nameSize, 1, nameColor);
             }
         } else {
-            DrawTextEx(g_menuFont, registry->items[i].displayName, (Vector2){textX, tileY + 50}, nameSize, 1, nameColor);
-        }
-
-        // Description below name
-        if (registry->items[i].api && registry->items[i].api->description) {
-            Color descColor = isSelected ? COLOR_TEXT_SECONDARY : COLOR_TEXT_DIM;
-            DrawTextEx(g_menuFont, registry->items[i].api->description,
-                      (Vector2){textX, tileY + 85}, 14, 1, descColor);
+            DrawTextEx(gridFont, registry->items[i].displayName, (Vector2){textX, nameY}, nameSize, 1, nameColor);
         }
 
         // Index badge in corner
         char indexStr[16];
         snprintf(indexStr, sizeof(indexStr), "%d", i + 1);
-        Vector2 indexSize = MeasureTextEx(g_menuFont, indexStr, 14, 1);
+        Vector2 indexSize = MeasureTextEx(gridFont, indexStr, 14, 1);
         float indexX = tileX + GRID_TILE_WIDTH - indexSize.x - 12;
         float indexY = tileY + GRID_TILE_HEIGHT - 24;
-        DrawTextEx(g_menuFont, indexStr, (Vector2){indexX, indexY}, 14, 1, ColorAlpha(COLOR_TEXT_DIM, 0.5f));
+        DrawTextEx(gridFont, indexStr, (Vector2){indexX, indexY}, 14, 1, ColorAlpha(COLOR_TEXT_DIM, 0.5f));
     }
 
     EndScissorMode();
@@ -1075,8 +1128,8 @@ static void DrawPluginMenuGrid(const PluginRegistry *registry, int selected, flo
     // Page indicator at bottom
     char pageStr[32];
     snprintf(pageStr, sizeof(pageStr), "%d of %d", selected + 1, registry->count);
-    Vector2 pageSize = MeasureTextEx(g_menuFont, pageStr, 16, 1);
-    DrawTextEx(g_menuFont, pageStr, (Vector2){(SCREEN_WIDTH - pageSize.x) / 2, SCREEN_HEIGHT - 30}, 16, 1, COLOR_TEXT_DIM);
+    Vector2 pageSize = MeasureTextEx(gridFont, pageStr, 16, 1);
+    DrawTextEx(gridFont, pageStr, (Vector2){(SCREEN_WIDTH - pageSize.x) / 2, SCREEN_HEIGHT - 30}, 16, 1, COLOR_TEXT_DIM);
 }
 
 // ============================================================================
@@ -1405,6 +1458,7 @@ int main(void)
     }
     FreePluginSnapshot(&g_pluginSnapshot);
     UnloadPlugins(&registry);
+    UnloadIBrandFont();
     UnloadTracklisterFont();
     UnloadOmicronFont();
     UnloadMenuFont();
