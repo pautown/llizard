@@ -33,6 +33,18 @@ typedef enum {
 #define LLZ_STARTUP_PLUGIN_MAX_LEN 64
 
 /**
+ * Menu navigation style values
+ */
+typedef enum {
+    LLZ_MENU_STYLE_LIST = 0,      // Classic vertical list
+    LLZ_MENU_STYLE_CAROUSEL,      // Horizontal carousel
+    LLZ_MENU_STYLE_CARDS,         // Large single card
+    LLZ_MENU_STYLE_CARTHING,      // Spotify CarThing minimal style
+    LLZ_MENU_STYLE_GRID,          // Apple Music grid
+    LLZ_MENU_STYLE_COUNT
+} LlzMenuStyle;
+
+/**
  * Global configuration structure accessible to all plugins.
  * Changes are automatically persisted to the config file.
  */
@@ -40,6 +52,7 @@ typedef struct {
     int brightness;                              // 0-100 percent, or LLZ_BRIGHTNESS_AUTO for auto mode
     LlzRotation rotation;                        // Screen rotation
     char startup_plugin[LLZ_STARTUP_PLUGIN_MAX_LEN];  // Plugin to launch on boot (empty = show menu)
+    LlzMenuStyle menu_style;                     // Menu navigation style
 } LlzConfig;
 
 /**
@@ -143,6 +156,19 @@ bool LlzConfigSetStartupPlugin(const char *pluginName);
  * @return true if a startup plugin is set (not menu)
  */
 bool LlzConfigHasStartupPlugin(void);
+
+/**
+ * Get the current menu navigation style.
+ * @return Menu style value
+ */
+LlzMenuStyle LlzConfigGetMenuStyle(void);
+
+/**
+ * Set the menu navigation style and save to config file.
+ * @param style Menu style value (clamped to valid range)
+ * @return true if saved successfully
+ */
+bool LlzConfigSetMenuStyle(LlzMenuStyle style);
 
 /**
  * Force reload configuration from file.

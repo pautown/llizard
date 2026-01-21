@@ -8,12 +8,14 @@
 // Default configuration values
 #define DEFAULT_BRIGHTNESS 80
 #define DEFAULT_ROTATION LLZ_ROTATION_0
+#define DEFAULT_MENU_STYLE LLZ_MENU_STYLE_LIST
 
 // Global config state
 static LlzConfig g_config = {
     .brightness = DEFAULT_BRIGHTNESS,
     .rotation = DEFAULT_ROTATION,
-    .startup_plugin = ""
+    .startup_plugin = "",
+    .menu_style = DEFAULT_MENU_STYLE
 };
 static bool g_initialized = false;
 static char g_configPath[512] = {0};
@@ -131,6 +133,12 @@ static bool LoadConfig(void) {
             g_config.startup_plugin[LLZ_STARTUP_PLUGIN_MAX_LEN - 1] = '\0';
             printf("[CONFIG] Loaded startup_plugin=%s\n",
                    g_config.startup_plugin[0] ? g_config.startup_plugin : "(menu)");
+        } else if (strcmp(key, "menu_style") == 0) {
+            int val = atoi(value);
+            if (val >= 0 && val < LLZ_MENU_STYLE_COUNT) {
+                g_config.menu_style = (LlzMenuStyle)val;
+                printf("[CONFIG] Loaded menu_style=%d\n", g_config.menu_style);
+            }
         }
     }
 
@@ -160,6 +168,7 @@ static bool SaveConfig(void) {
     }
     fprintf(file, "rotation=%d\n", g_config.rotation);
     fprintf(file, "startup_plugin=%s\n", g_config.startup_plugin);
+    fprintf(file, "menu_style=%d\n", g_config.menu_style);
 
     fclose(file);
     printf("[CONFIG] Configuration saved to %s\n", path);
@@ -175,14 +184,16 @@ bool LlzConfigInit(void) {
     g_config.brightness = DEFAULT_BRIGHTNESS;
     g_config.rotation = DEFAULT_ROTATION;
     g_config.startup_plugin[0] = '\0';
+    g_config.menu_style = DEFAULT_MENU_STYLE;
 
     // Try to load from file
     LoadConfig();
 
     g_initialized = true;
-    printf("[CONFIG] Config system initialized (brightness=%d, rotation=%d, startup=%s)\n",
+    printf("[CONFIG] Config system initialized (brightness=%d, rotation=%d, startup=%s, menu_style=%d)\n",
            g_config.brightness, g_config.rotation,
-           g_config.startup_plugin[0] ? g_config.startup_plugin : "menu");
+           g_config.startup_plugin[0] ? g_config.startup_plugin : "menu",
+           g_config.menu_style);
 
     // Apply brightness on startup
     LlzConfigApplyBrightness();
@@ -376,6 +387,27 @@ bool LlzConfigSetStartupPlugin(const char *pluginName) {
 
 bool LlzConfigHasStartupPlugin(void) {
     return g_config.startup_plugin[0] != '\0';
+}
+
+LlzMenuStyle LlzConfigGetMenuStyle(void) {
+    return g_config.menu_style;
+}
+
+bool LlzConfigSetMenuStyle(LlzMenuStyle style) {
+    // Validate style value
+    if (style < 0 || style >= LLZ_MENU_STYLE_COUNT) {
+        printf("[CONFIG] Invalid menu style value: %d\n", style);
+        return false;
+    }
+
+    if (g_config.menu_style == style) {
+        return true;  // No change needed
+    }
+
+    g_config.menu_style = style;
+    printf("[CONFIG] Menu style set to %d\n", style);
+
+    return SaveConfig();
 }
 
 bool LlzConfigReload(void) {

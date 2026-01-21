@@ -212,6 +212,9 @@ static void CycleMenuStyle(void)
     g_styleIndicatorAlpha = 1.0f;
     g_styleIndicatorTimer = 2.0f;  // Show indicator for 2 seconds
     printf("Menu style: %s\n", g_styleNames[g_menuStyle]);
+
+    // Save to config for persistence across reboots
+    LlzConfigSetMenuStyle((LlzMenuStyle)g_menuStyle);
 }
 
 // Update style indicator fade
@@ -1199,6 +1202,10 @@ int main(void)
 {
     // Initialize config system first (before display for brightness)
     LlzConfigInit();
+
+    // Load saved menu style from config
+    g_menuStyle = (MenuScrollStyle)LlzConfigGetMenuStyle();
+    printf("Loaded menu style: %s\n", g_styleNames[g_menuStyle]);
 
     if (!LlzDisplayInit()) {
         fprintf(stderr, "Failed to initialize display. Check DRM permissions and cabling.\n");
