@@ -11,9 +11,19 @@ static int g_screenWidth = 800;
 static int g_screenHeight = 480;
 static bool g_wantsClose = false;
 
-// UI state
+// UI state - Two modes: NAVIGATE (scroll moves selection) and EDIT (scroll adjusts value)
+typedef enum {
+    MODE_NAVIGATE,
+    MODE_EDIT
+} SettingsMode;
+
+static SettingsMode g_mode = MODE_NAVIGATE;
 static int g_selectedItem = 0;
 #define MENU_ITEM_COUNT 3
+
+// Smooth scroll state (like main host)
+static float g_scrollOffset = 0.0f;
+static float g_targetScrollOffset = 0.0f;
 
 // Restart confirmation state
 static bool g_restartConfirmActive = false;
@@ -21,7 +31,9 @@ static float g_restartSwipeProgress = 0.0f;
 static float g_restartPulseAnim = 0.0f;
 static int g_restartSwipeStartY = 0;
 static bool g_restartSwipeTracking = false;
-#define RESTART_SWIPE_THRESHOLD 80
+static float g_restartGlowPhase = 0.0f;
+static float g_restartParticles[12][3]; // x offset, y offset, phase
+#define RESTART_SWIPE_THRESHOLD 100
 
 // Pending changes
 static int g_pendingBrightness = 80;
@@ -32,56 +44,66 @@ static bool g_isAutoBrightness = false;
 // Animation state
 static float g_animTime = 0.0f;
 static float g_selectionAnim[MENU_ITEM_COUNT] = {0};
+static float g_editModeAnim = 0.0f;
 static float g_toggleAnim = 0.0f;
 static float g_sliderPulse = 0.0f;
+static float g_modeTransitionAnim = 0.0f;
 
 // ============================================================================
 // Color Palette - Modern Dark Theme
 // ============================================================================
-static const Color COLOR_BG_DARK = {12, 12, 18, 255};
-static const Color COLOR_BG_GRADIENT_START = {18, 18, 28, 255};
-static const Color COLOR_BG_GRADIENT_END = {28, 24, 38, 255};
+static const Color COLOR_BG_DARK = {10, 10, 16, 255};
+static const Color COLOR_BG_GRADIENT_START = {16, 16, 24, 255};
+static const Color COLOR_BG_GRADIENT_END = {24, 20, 32, 255};
 
-static const Color COLOR_CARD = {32, 32, 44, 200};
-static const Color COLOR_CARD_SELECTED = {42, 42, 58, 220};
-static const Color COLOR_CARD_BORDER = {60, 60, 80, 100};
+static const Color COLOR_CARD = {28, 28, 40, 220};
+static const Color COLOR_CARD_SELECTED = {38, 38, 54, 240};
+static const Color COLOR_CARD_EDITING = {45, 42, 62, 250};
+static const Color COLOR_CARD_BORDER = {55, 55, 75, 120};
+static const Color COLOR_CARD_BORDER_SELECTED = {80, 80, 110, 180};
 
 static const Color COLOR_ACCENT = {30, 215, 96, 255};      // Spotify green
-static const Color COLOR_ACCENT_SOFT = {30, 215, 96, 60};
-static const Color COLOR_ACCENT_GLOW = {30, 215, 96, 30};
+static const Color COLOR_ACCENT_SOFT = {30, 215, 96, 80};
+static const Color COLOR_ACCENT_GLOW = {30, 215, 96, 40};
+static const Color COLOR_ACCENT_BRIGHT = {60, 235, 120, 255};
 
 static const Color COLOR_TEXT_PRIMARY = {255, 255, 255, 255};
-static const Color COLOR_TEXT_SECONDARY = {170, 170, 180, 255};
-static const Color COLOR_TEXT_TERTIARY = {120, 120, 135, 255};
+static const Color COLOR_TEXT_SECONDARY = {180, 180, 190, 255};
+static const Color COLOR_TEXT_TERTIARY = {110, 110, 125, 255};
+static const Color COLOR_TEXT_HINT = {90, 90, 105, 255};
 
-static const Color COLOR_SLIDER_BG = {50, 50, 65, 255};
+static const Color COLOR_SLIDER_BG = {45, 45, 60, 255};
 static const Color COLOR_SLIDER_FILL = {30, 215, 96, 255};
 
-static const Color COLOR_TOGGLE_BG_OFF = {60, 60, 75, 255};
+static const Color COLOR_TOGGLE_BG_OFF = {55, 55, 70, 255};
 static const Color COLOR_TOGGLE_BG_ON = {30, 215, 96, 255};
 static const Color COLOR_TOGGLE_KNOB = {255, 255, 255, 255};
 
-static const Color COLOR_DANGER = {220, 60, 60, 255};
-static const Color COLOR_DANGER_SOFT = {220, 60, 60, 60};
-static const Color COLOR_DANGER_GLOW = {220, 60, 60, 30};
+static const Color COLOR_DANGER = {235, 70, 70, 255};
+static const Color COLOR_DANGER_SOFT = {235, 70, 70, 80};
+static const Color COLOR_DANGER_GLOW = {255, 80, 80, 50};
 
 // ============================================================================
-// Layout Constants
+// Layout Constants - Improved proportions
 // ============================================================================
-#define HEADER_HEIGHT 90
-#define CARD_MARGIN_X 32
-#define CARD_HEIGHT 110
-#define CARD_SPACING 16
-#define CARD_ROUNDNESS 0.12f
-#define CARD_SEGMENTS 12
+#define HEADER_HEIGHT 80
+#define FOOTER_HEIGHT 55
+#define CARD_MARGIN_X 28
+#define CARD_HEIGHT 100
+#define CARD_SPACING 14
+#define CARD_ROUNDNESS 0.10f
+#define CARD_SEGMENTS 16
 
-#define SLIDER_HEIGHT 8
-#define SLIDER_THUMB_RADIUS 12
+#define CONTENT_TOP (HEADER_HEIGHT + 8)
+#define CONTENT_HEIGHT (g_screenHeight - HEADER_HEIGHT - FOOTER_HEIGHT - 16)
+
+#define SLIDER_HEIGHT 10
+#define SLIDER_THUMB_RADIUS 14
 #define SLIDER_TRACK_ROUNDNESS 0.5f
 
-#define TOGGLE_WIDTH 56
-#define TOGGLE_HEIGHT 32
-#define TOGGLE_KNOB_SIZE 26
+#define TOGGLE_WIDTH 52
+#define TOGGLE_HEIGHT 30
+#define TOGGLE_KNOB_SIZE 24
 #define TOGGLE_ROUNDNESS 0.5f
 
 // ============================================================================
@@ -95,218 +117,299 @@ static float EaseOutCubic(float t) {
     return 1.0f - powf(1.0f - t, 3.0f);
 }
 
-static float EaseInOutCubic(float t) {
-    return t < 0.5f ? 4.0f * t * t * t : 1.0f - powf(-2.0f * t + 2.0f, 3.0f) / 2.0f;
+static float EaseOutBack(float t) {
+    float c1 = 1.70158f;
+    float c3 = c1 + 1.0f;
+    return 1.0f + c3 * powf(t - 1.0f, 3.0f) + c1 * powf(t - 1.0f, 2.0f);
 }
 
-// Note: Using raylib's ColorLerp() function for color interpolation
+static float EaseInOutQuad(float t) {
+    return t < 0.5f ? 2.0f * t * t : 1.0f - powf(-2.0f * t + 2.0f, 2.0f) / 2.0f;
+}
+
+// ============================================================================
+// Scroll Management (like main host)
+// ============================================================================
+static float CalculateTargetScroll(int selected) {
+    float itemTotalHeight = CARD_HEIGHT + CARD_SPACING;
+    float totalListHeight = MENU_ITEM_COUNT * itemTotalHeight;
+    float maxScroll = totalListHeight - CONTENT_HEIGHT;
+    if (maxScroll < 0) maxScroll = 0;
+
+    float selectedTop = selected * itemTotalHeight;
+    float selectedBottom = selectedTop + CARD_HEIGHT;
+
+    float visibleTop = g_targetScrollOffset;
+    float visibleBottom = g_targetScrollOffset + CONTENT_HEIGHT;
+
+    float topMargin = CARD_HEIGHT * 0.3f;
+    float bottomMargin = CARD_HEIGHT * 0.5f;
+
+    float newTarget = g_targetScrollOffset;
+
+    if (selectedTop < visibleTop + topMargin) {
+        newTarget = selectedTop - topMargin;
+    } else if (selectedBottom > visibleBottom - bottomMargin) {
+        newTarget = selectedBottom - CONTENT_HEIGHT + bottomMargin;
+    }
+
+    if (newTarget < 0) newTarget = 0;
+    if (newTarget > maxScroll) newTarget = maxScroll;
+
+    return newTarget;
+}
+
+static void UpdateScroll(float deltaTime) {
+    float diff = g_targetScrollOffset - g_scrollOffset;
+    float speed = 14.0f;
+    g_scrollOffset += diff * speed * deltaTime;
+    if (fabsf(diff) < 0.5f) {
+        g_scrollOffset = g_targetScrollOffset;
+    }
+}
 
 // ============================================================================
 // Drawing Functions
 // ============================================================================
 static void DrawGradientBackground(void) {
-    // Dark base
     ClearBackground(COLOR_BG_DARK);
-
-    // Subtle gradient overlay
     DrawRectangleGradientV(0, 0, g_screenWidth, g_screenHeight,
                            COLOR_BG_GRADIENT_START, COLOR_BG_GRADIENT_END);
 
-    // Subtle animated accent glow in corner
-    float glowPulse = 0.5f + 0.5f * sinf(g_animTime * 0.8f);
+    // Subtle animated accent glow
+    float glowPulse = 0.4f + 0.3f * sinf(g_animTime * 0.6f);
     Color glowColor = COLOR_ACCENT_GLOW;
-    glowColor.a = (unsigned char)(30 * glowPulse);
+    glowColor.a = (unsigned char)(25 * glowPulse);
+    DrawCircleGradient(g_screenWidth - 80, 80, 250, glowColor, BLANK);
 
-    DrawCircleGradient(g_screenWidth - 100, 100, 300, glowColor, BLANK);
+    // Secondary glow
+    float glow2 = 0.3f + 0.2f * sinf(g_animTime * 0.4f + 1.0f);
+    glowColor.a = (unsigned char)(15 * glow2);
+    DrawCircleGradient(100, g_screenHeight - 100, 200, glowColor, BLANK);
 }
 
 static void DrawHeader(void) {
-    float headerY = 28;
+    float headerY = 22;
 
-    // Title with SDK font
+    // Title
     LlzDrawText("Settings", CARD_MARGIN_X, (int)headerY, LLZ_FONT_SIZE_TITLE, COLOR_TEXT_PRIMARY);
 
-    // Subtitle
-    const char *subtitle = g_hasChanges ? "Changes saved automatically" : "Adjust your preferences";
-    LlzDrawText(subtitle, CARD_MARGIN_X, (int)headerY + 44, LLZ_FONT_SIZE_NORMAL, COLOR_TEXT_TERTIARY);
+    // Mode indicator / subtitle
+    const char *subtitle;
+    Color subtitleColor;
+    if (g_mode == MODE_EDIT) {
+        subtitle = "Adjusting value - press select to confirm";
+        subtitleColor = COLOR_ACCENT;
+    } else if (g_hasChanges) {
+        subtitle = "Changes saved automatically";
+        subtitleColor = COLOR_ACCENT;
+    } else {
+        subtitle = "Scroll to navigate, press select to adjust";
+        subtitleColor = COLOR_TEXT_TERTIARY;
+    }
+    LlzDrawText(subtitle, CARD_MARGIN_X, (int)headerY + 38, LLZ_FONT_SIZE_SMALL, subtitleColor);
 }
 
-static void DrawModernSlider(float x, float y, float width, int value, int maxValue, bool selected, bool isAuto) {
+static void DrawModernSlider(float x, float y, float width, int value, int maxValue, bool selected, bool editing, bool isAuto) {
     float progress = (float)value / (float)maxValue;
     float fillWidth = width * progress;
 
-    // Track background
+    // Track background with subtle inner shadow
     Rectangle trackBg = {x, y, width, SLIDER_HEIGHT};
-    DrawRectangleRounded(trackBg, SLIDER_TRACK_ROUNDNESS, 8, COLOR_SLIDER_BG);
+    DrawRectangleRounded(trackBg, SLIDER_TRACK_ROUNDNESS, 10, COLOR_SLIDER_BG);
 
-    // Fill gradient
+    // Fill
     if (fillWidth > 4) {
         Rectangle trackFill = {x, y, fillWidth, SLIDER_HEIGHT};
-        DrawRectangleRounded(trackFill, SLIDER_TRACK_ROUNDNESS, 8, COLOR_SLIDER_FILL);
+        Color fillColor = editing ? COLOR_ACCENT_BRIGHT : COLOR_SLIDER_FILL;
+        DrawRectangleRounded(trackFill, SLIDER_TRACK_ROUNDNESS, 10, fillColor);
 
-        // Subtle shine on fill
-        Rectangle shine = {x, y, fillWidth, SLIDER_HEIGHT / 2};
-        Color shineColor = {255, 255, 255, 30};
-        DrawRectangleRounded(shine, SLIDER_TRACK_ROUNDNESS, 8, shineColor);
-    }
-
-    // Thumb with glow effect when selected
-    float thumbX = x + fillWidth;
-    float thumbY = y + SLIDER_HEIGHT / 2;
-
-    if (selected && !isAuto) {
-        // Outer glow
-        float pulseScale = 1.0f + 0.15f * sinf(g_sliderPulse * 4.0f);
-        DrawCircle((int)thumbX, (int)thumbY, SLIDER_THUMB_RADIUS * pulseScale + 4, COLOR_ACCENT_SOFT);
-
-        // Inner glow
-        DrawCircle((int)thumbX, (int)thumbY, SLIDER_THUMB_RADIUS + 2, COLOR_ACCENT);
+        // Shine effect
+        Rectangle shine = {x + 2, y + 1, fillWidth - 4, SLIDER_HEIGHT / 2 - 1};
+        if (shine.width > 0) {
+            DrawRectangleRounded(shine, SLIDER_TRACK_ROUNDNESS, 8, (Color){255, 255, 255, 35});
+        }
     }
 
     // Thumb
-    DrawCircle((int)thumbX, (int)thumbY, SLIDER_THUMB_RADIUS, COLOR_TOGGLE_KNOB);
+    float thumbX = x + fillWidth;
+    float thumbY = y + SLIDER_HEIGHT / 2;
 
-    // Inner dot
-    DrawCircle((int)thumbX, (int)thumbY, 4, COLOR_ACCENT);
+    if (editing && !isAuto) {
+        // Pulsing glow when editing
+        float pulseScale = 1.0f + 0.2f * sinf(g_sliderPulse * 5.0f);
+        DrawCircle((int)thumbX, (int)thumbY, SLIDER_THUMB_RADIUS * pulseScale + 6, COLOR_ACCENT_SOFT);
+        DrawCircle((int)thumbX, (int)thumbY, SLIDER_THUMB_RADIUS + 3, COLOR_ACCENT);
+    } else if (selected) {
+        DrawCircle((int)thumbX, (int)thumbY, SLIDER_THUMB_RADIUS + 2, COLOR_ACCENT_SOFT);
+    }
+
+    // Main thumb
+    DrawCircle((int)thumbX, (int)thumbY, SLIDER_THUMB_RADIUS, COLOR_TOGGLE_KNOB);
+    DrawCircle((int)thumbX, (int)thumbY, 5, COLOR_ACCENT);
 }
 
-static void DrawModernToggle(float x, float y, bool enabled, bool selected, float animProgress) {
-    // Animated toggle position
+static void DrawModernToggle(float x, float y, bool enabled, bool selected, bool editing, float animProgress) {
     float knobProgress = EaseOutCubic(animProgress);
     float knobX = Lerp(x + TOGGLE_KNOB_SIZE/2 + 3, x + TOGGLE_WIDTH - TOGGLE_KNOB_SIZE/2 - 3, knobProgress);
 
-    // Background color transition
     Color bgColor = ColorLerp(COLOR_TOGGLE_BG_OFF, COLOR_TOGGLE_BG_ON, knobProgress);
 
-    // Selection glow
-    if (selected) {
-        float pulse = 0.5f + 0.5f * sinf(g_animTime * 4.0f);
-        Color glowColor = COLOR_ACCENT_SOFT;
-        glowColor.a = (unsigned char)(60 * pulse);
-        DrawRectangleRounded((Rectangle){x - 4, y - 4, TOGGLE_WIDTH + 8, TOGGLE_HEIGHT + 8},
+    // Glow when editing or selected
+    if (editing) {
+        float pulse = 0.6f + 0.4f * sinf(g_animTime * 5.0f);
+        Color glowColor = COLOR_ACCENT;
+        glowColor.a = (unsigned char)(80 * pulse);
+        DrawRectangleRounded((Rectangle){x - 5, y - 5, TOGGLE_WIDTH + 10, TOGGLE_HEIGHT + 10},
                              TOGGLE_ROUNDNESS, 12, glowColor);
+    } else if (selected) {
+        DrawRectangleRounded((Rectangle){x - 3, y - 3, TOGGLE_WIDTH + 6, TOGGLE_HEIGHT + 6},
+                             TOGGLE_ROUNDNESS, 12, COLOR_ACCENT_SOFT);
     }
 
-    // Toggle background
+    // Background
     Rectangle toggleBg = {x, y, TOGGLE_WIDTH, TOGGLE_HEIGHT};
     DrawRectangleRounded(toggleBg, TOGGLE_ROUNDNESS, 12, bgColor);
 
     // Knob shadow
-    DrawCircle((int)knobX, (int)(y + TOGGLE_HEIGHT/2 + 2), TOGGLE_KNOB_SIZE/2 - 1, (Color){0, 0, 0, 40});
+    DrawCircle((int)knobX, (int)(y + TOGGLE_HEIGHT/2 + 2), TOGGLE_KNOB_SIZE/2 - 1, (Color){0, 0, 0, 50});
 
     // Knob
     DrawCircle((int)knobX, (int)(y + TOGGLE_HEIGHT/2), TOGGLE_KNOB_SIZE/2, COLOR_TOGGLE_KNOB);
 }
 
 static void DrawSettingCard(int index, const char *title, const char *description,
-                            float y, bool selected, float selectionAnim) {
+                            float y, bool selected, bool editing, float selectionAnim) {
     float cardX = CARD_MARGIN_X;
     float cardWidth = g_screenWidth - CARD_MARGIN_X * 2;
 
-    // Card background with selection animation
-    Color cardColor = ColorLerp(COLOR_CARD, COLOR_CARD_SELECTED, EaseOutCubic(selectionAnim));
+    // Card color based on state
+    Color cardColor;
+    if (editing) {
+        cardColor = ColorLerp(COLOR_CARD_SELECTED, COLOR_CARD_EDITING, g_editModeAnim);
+    } else {
+        cardColor = ColorLerp(COLOR_CARD, COLOR_CARD_SELECTED, EaseOutCubic(selectionAnim));
+    }
 
-    // Subtle lift effect when selected
-    float liftOffset = selected ? -2.0f : 0.0f;
+    // Subtle lift when selected
+    float liftOffset = selected ? -3.0f * selectionAnim : 0.0f;
     float cardY = y + liftOffset;
 
     Rectangle cardRect = {cardX, cardY, cardWidth, CARD_HEIGHT};
 
-    // Card shadow when selected
+    // Shadow
     if (selected) {
-        Color shadowColor = {0, 0, 0, 40};
-        DrawRectangleRounded((Rectangle){cardX + 2, cardY + 4, cardWidth, CARD_HEIGHT},
+        Color shadowColor = {0, 0, 0, (unsigned char)(50 * selectionAnim)};
+        DrawRectangleRounded((Rectangle){cardX + 3, cardY + 5, cardWidth, CARD_HEIGHT},
                              CARD_ROUNDNESS, CARD_SEGMENTS, shadowColor);
     }
 
     // Card background
     DrawRectangleRounded(cardRect, CARD_ROUNDNESS, CARD_SEGMENTS, cardColor);
 
-    // Selection indicator bar
+    // Selection indicator bar (left edge)
     if (selectionAnim > 0.01f) {
-        Color indicatorColor = COLOR_ACCENT;
+        Color indicatorColor = editing ? COLOR_ACCENT_BRIGHT : COLOR_ACCENT;
         indicatorColor.a = (unsigned char)(255 * selectionAnim);
-        DrawRectangleRounded((Rectangle){cardX, cardY, 4, CARD_HEIGHT},
-                             0.5f, 4, indicatorColor);
+        float barHeight = CARD_HEIGHT * (0.4f + 0.6f * selectionAnim);
+        float barY = cardY + (CARD_HEIGHT - barHeight) / 2;
+        DrawRectangleRounded((Rectangle){cardX, barY, 4, barHeight}, 0.5f, 4, indicatorColor);
     }
 
-    // Subtle border
-    DrawRectangleRoundedLinesEx(cardRect, CARD_ROUNDNESS, CARD_SEGMENTS, 1.0f, COLOR_CARD_BORDER);
+    // Border
+    Color borderColor = selected ? COLOR_CARD_BORDER_SELECTED : COLOR_CARD_BORDER;
+    if (editing) {
+        borderColor = COLOR_ACCENT;
+        borderColor.a = 150;
+    }
+    DrawRectangleRoundedLinesEx(cardRect, CARD_ROUNDNESS, CARD_SEGMENTS, 1.0f, borderColor);
 
-    // Title
-    float textX = cardX + 24;
-    float textY = cardY + 20;
-    LlzDrawText(title, (int)textX, (int)textY, LLZ_FONT_SIZE_LARGE - 4, COLOR_TEXT_PRIMARY);
+    // Text content
+    float textX = cardX + 22;
+    float textY = cardY + 18;
+    LlzDrawText(title, (int)textX, (int)textY, LLZ_FONT_SIZE_LARGE - 2, COLOR_TEXT_PRIMARY);
+    LlzDrawText(description, (int)textX, (int)textY + 30, LLZ_FONT_SIZE_SMALL, COLOR_TEXT_SECONDARY);
 
-    // Description
-    LlzDrawText(description, (int)textX, (int)textY + 32, LLZ_FONT_SIZE_SMALL, COLOR_TEXT_SECONDARY);
-
-    // Control widget area
-    float controlY = cardY + CARD_HEIGHT/2 - 4;
-    float controlEndX = cardX + cardWidth - 24;
+    // Control widget
+    float controlY = cardY + CARD_HEIGHT/2;
+    float controlEndX = cardX + cardWidth - 22;
 
     if (index == 0) {
-        // Brightness control
+        // Brightness
         if (g_isAutoBrightness) {
-            // Auto mode indicator
             Color modeColor = selected ? COLOR_ACCENT : COLOR_TEXT_SECONDARY;
             const char *autoText = "AUTO";
             int autoWidth = LlzMeasureText(autoText, LLZ_FONT_SIZE_NORMAL);
 
-            // Auto badge
-            Rectangle badgeRect = {controlEndX - autoWidth - 20, controlY - 4, (float)autoWidth + 16, 28};
+            Rectangle badgeRect = {controlEndX - autoWidth - 18, controlY - 12, (float)autoWidth + 14, 26};
             DrawRectangleRounded(badgeRect, 0.4f, 8, COLOR_ACCENT_SOFT);
-            LlzDrawText(autoText, (int)(controlEndX - autoWidth - 12), (int)controlY, LLZ_FONT_SIZE_NORMAL, modeColor);
+            LlzDrawText(autoText, (int)(controlEndX - autoWidth - 11), (int)controlY - 7, LLZ_FONT_SIZE_NORMAL, modeColor);
 
-            // Show lux reading if available
             int lux = LlzConfigReadAmbientLight();
             if (lux >= 0) {
                 char luxText[32];
                 snprintf(luxText, sizeof(luxText), "%d lux", lux);
                 int luxWidth = LlzMeasureText(luxText, LLZ_FONT_SIZE_SMALL);
-                LlzDrawText(luxText, (int)(badgeRect.x - luxWidth - 16), (int)controlY + 4,
+                LlzDrawText(luxText, (int)(badgeRect.x - luxWidth - 14), (int)controlY - 4,
                            LLZ_FONT_SIZE_SMALL, COLOR_TEXT_TERTIARY);
             }
         } else {
-            // Manual brightness slider
-            float sliderWidth = 200;
-            float sliderX = controlEndX - sliderWidth - 60;
-            DrawModernSlider(sliderX, controlY, sliderWidth, g_pendingBrightness, 100, selected, false);
+            float sliderWidth = 180;
+            float sliderX = controlEndX - sliderWidth - 55;
+            DrawModernSlider(sliderX, controlY - SLIDER_HEIGHT/2, sliderWidth, g_pendingBrightness, 100, selected, editing, false);
 
-            // Value display
             char valueText[16];
             snprintf(valueText, sizeof(valueText), "%d%%", g_pendingBrightness);
-            LlzDrawText(valueText, (int)(controlEndX - 50), (int)controlY - 6, LLZ_FONT_SIZE_NORMAL, COLOR_TEXT_PRIMARY);
+            Color valueColor = editing ? COLOR_ACCENT_BRIGHT : COLOR_TEXT_PRIMARY;
+            LlzDrawText(valueText, (int)(controlEndX - 45), (int)controlY - 10, LLZ_FONT_SIZE_NORMAL, valueColor);
+        }
+
+        // Hint for edit mode
+        if (selected && !editing && !g_isAutoBrightness) {
+            LlzDrawText("select to adjust", (int)textX, (int)textY + 52, 12, COLOR_TEXT_HINT);
         }
     } else if (index == 1) {
         // Lyrics toggle
         float toggleX = controlEndX - TOGGLE_WIDTH;
-        float toggleY = controlY - TOGGLE_HEIGHT/2 + 4;
-        DrawModernToggle(toggleX, toggleY, g_lyricsEnabled, selected, g_toggleAnim);
+        float toggleY = controlY - TOGGLE_HEIGHT/2;
+        DrawModernToggle(toggleX, toggleY, g_lyricsEnabled, selected, editing, g_toggleAnim);
 
-        // Status label
         const char *status = g_lyricsEnabled ? "On" : "Off";
         Color statusColor = g_lyricsEnabled ? COLOR_ACCENT : COLOR_TEXT_TERTIARY;
         int statusWidth = LlzMeasureText(status, LLZ_FONT_SIZE_NORMAL);
-        LlzDrawText(status, (int)(toggleX - statusWidth - 16), (int)controlY, LLZ_FONT_SIZE_NORMAL, statusColor);
+        LlzDrawText(status, (int)(toggleX - statusWidth - 14), (int)controlY - 7, LLZ_FONT_SIZE_NORMAL, statusColor);
+
+        if (selected && !editing) {
+            LlzDrawText("select to toggle", (int)textX, (int)textY + 52, 12, COLOR_TEXT_HINT);
+        }
     } else if (index == 2) {
-        // Restart device indicator
-        const char *restartText = g_restartConfirmActive ? "Swipe Up" : "Tap to restart";
+        // Restart
+        const char *restartText = "Tap or select";
         Color restartColor = selected ? COLOR_DANGER : COLOR_TEXT_SECONDARY;
         int restartWidth = LlzMeasureText(restartText, LLZ_FONT_SIZE_NORMAL);
-        LlzDrawText(restartText, (int)(controlEndX - restartWidth), (int)controlY, LLZ_FONT_SIZE_NORMAL, restartColor);
+        LlzDrawText(restartText, (int)(controlEndX - restartWidth), (int)controlY - 7, LLZ_FONT_SIZE_NORMAL, restartColor);
+
+        if (selected) {
+            LlzDrawText("opens confirmation", (int)textX, (int)textY + 52, 12, COLOR_TEXT_HINT);
+        }
     }
 }
 
 static void DrawFooter(void) {
-    float footerY = g_screenHeight - 50;
+    float footerY = g_screenHeight - FOOTER_HEIGHT + 10;
 
-    // Separator line
-    DrawRectangle(CARD_MARGIN_X, (int)footerY - 16, g_screenWidth - CARD_MARGIN_X * 2, 1,
-                  (Color){60, 60, 80, 100});
+    // Separator
+    DrawRectangle(CARD_MARGIN_X, (int)footerY - 12, g_screenWidth - CARD_MARGIN_X * 2, 1,
+                  (Color){55, 55, 75, 100});
 
-    // Back instruction
-    LlzDrawText("Press Back to exit", CARD_MARGIN_X, (int)footerY, LLZ_FONT_SIZE_SMALL, COLOR_TEXT_TERTIARY);
+    // Navigation hints
+    const char *hint;
+    if (g_mode == MODE_EDIT) {
+        hint = "Scroll: adjust | Select: confirm | Back: cancel";
+    } else {
+        hint = "Scroll: navigate | Select: edit | Back: exit";
+    }
+    LlzDrawText(hint, CARD_MARGIN_X, (int)footerY, LLZ_FONT_SIZE_SMALL, COLOR_TEXT_TERTIARY);
 
     // Config path
     const char *configPath =
@@ -315,86 +418,130 @@ static void DrawFooter(void) {
 #else
         "./llizard_config.ini";
 #endif
-    int pathWidth = LlzMeasureText(configPath, 14);
-    LlzDrawText(configPath, g_screenWidth - pathWidth - CARD_MARGIN_X, (int)footerY, 14,
-               (Color){80, 80, 95, 255});
+    int pathWidth = LlzMeasureText(configPath, 12);
+    LlzDrawText(configPath, g_screenWidth - pathWidth - CARD_MARGIN_X, (int)footerY + 3, 12,
+               (Color){70, 70, 85, 255});
 }
 
 static void DrawRestartConfirmation(void) {
     if (!g_restartConfirmActive) return;
 
-    // Dim overlay
-    DrawRectangle(0, 0, g_screenWidth, g_screenHeight, (Color){0, 0, 0, 180});
+    // Animated dim overlay
+    float dimAlpha = 180 + 20 * sinf(g_restartPulseAnim * 2.0f);
+    DrawRectangle(0, 0, g_screenWidth, g_screenHeight, (Color){0, 0, 0, (unsigned char)dimAlpha});
 
-    // Center panel
-    float panelWidth = 400;
-    float panelHeight = 280;
+    // Floating particles around the panel
+    for (int i = 0; i < 12; i++) {
+        float px = g_screenWidth/2 + g_restartParticles[i][0] + 30 * sinf(g_restartPulseAnim * 0.8f + g_restartParticles[i][2]);
+        float py = g_screenHeight/2 + g_restartParticles[i][1] + 20 * cosf(g_restartPulseAnim * 0.6f + g_restartParticles[i][2]);
+        float particleAlpha = 0.3f + 0.3f * sinf(g_restartPulseAnim * 2.0f + g_restartParticles[i][2]);
+        Color particleColor = COLOR_DANGER;
+        particleColor.a = (unsigned char)(particleAlpha * 100);
+        DrawCircle((int)px, (int)py, 3 + 2 * sinf(g_restartPulseAnim * 3.0f + i), particleColor);
+    }
+
+    // Panel with breathing glow
+    float panelWidth = 380;
+    float panelHeight = 260;
     float panelX = (g_screenWidth - panelWidth) / 2;
     float panelY = (g_screenHeight - panelHeight) / 2;
 
+    // Outer glow
+    float glowPulse = 0.5f + 0.3f * sinf(g_restartGlowPhase * 2.5f);
+    for (int i = 3; i >= 1; i--) {
+        Color glowColor = COLOR_DANGER_GLOW;
+        glowColor.a = (unsigned char)(30 * glowPulse / i);
+        DrawRectangleRounded((Rectangle){panelX - i*4, panelY - i*4, panelWidth + i*8, panelHeight + i*8},
+                             0.08f, 12, glowColor);
+    }
+
+    // Panel background
     Rectangle panelRect = {panelX, panelY, panelWidth, panelHeight};
-    DrawRectangleRounded(panelRect, 0.08f, 12, (Color){32, 32, 44, 250});
+    DrawRectangleRounded(panelRect, 0.08f, 12, (Color){28, 28, 40, 250});
     DrawRectangleRoundedLinesEx(panelRect, 0.08f, 12, 2.0f, COLOR_DANGER_SOFT);
 
-    // Warning icon (triangle with !)
+    // Warning icon - animated
     float iconCenterX = g_screenWidth / 2;
-    float iconY = panelY + 40;
-    float pulseScale = 1.0f + 0.1f * sinf(g_restartPulseAnim * 3.0f);
+    float iconY = panelY + 35;
+    float breathScale = 1.0f + 0.08f * sinf(g_restartPulseAnim * 3.0f);
 
-    // Draw warning triangle
+    // Triangle with gradient effect
+    float triSize = 28 * breathScale;
     Vector2 p1 = {iconCenterX, iconY};
-    Vector2 p2 = {iconCenterX - 25 * pulseScale, iconY + 45 * pulseScale};
-    Vector2 p3 = {iconCenterX + 25 * pulseScale, iconY + 45 * pulseScale};
+    Vector2 p2 = {iconCenterX - triSize, iconY + triSize * 1.7f};
+    Vector2 p3 = {iconCenterX + triSize, iconY + triSize * 1.7f};
     DrawTriangle(p1, p2, p3, COLOR_DANGER);
 
-    // Exclamation mark
-    LlzDrawText("!", (int)iconCenterX - 5, (int)iconY + 14, LLZ_FONT_SIZE_LARGE, COLOR_TEXT_PRIMARY);
+    // Inner highlight
+    float innerSize = triSize * 0.6f;
+    float innerY = iconY + triSize * 0.4f;
+    DrawTriangle(
+        (Vector2){iconCenterX, innerY},
+        (Vector2){iconCenterX - innerSize, innerY + innerSize * 1.5f},
+        (Vector2){iconCenterX + innerSize, innerY + innerSize * 1.5f},
+        (Color){255, 100, 100, 80}
+    );
+
+    // Exclamation
+    LlzDrawTextCentered("!", (int)iconCenterX, (int)iconY + 18, LLZ_FONT_SIZE_LARGE + 4, COLOR_TEXT_PRIMARY);
 
     // Title
     const char *title = "Restart Device?";
-    int titleWidth = LlzMeasureText(title, LLZ_FONT_SIZE_TITLE);
-    LlzDrawText(title, (g_screenWidth - titleWidth) / 2, (int)panelY + 100, LLZ_FONT_SIZE_TITLE, COLOR_TEXT_PRIMARY);
+    LlzDrawTextCentered(title, g_screenWidth / 2, (int)panelY + 95, LLZ_FONT_SIZE_TITLE, COLOR_TEXT_PRIMARY);
 
     // Instructions
     const char *instr = "Swipe up to confirm";
-    int instrWidth = LlzMeasureText(instr, LLZ_FONT_SIZE_NORMAL);
-    LlzDrawText(instr, (g_screenWidth - instrWidth) / 2, (int)panelY + 145, LLZ_FONT_SIZE_NORMAL, COLOR_TEXT_SECONDARY);
+    LlzDrawTextCentered(instr, g_screenWidth / 2, (int)panelY + 135, LLZ_FONT_SIZE_NORMAL, COLOR_TEXT_SECONDARY);
 
-    // Progress bar
-    float barWidth = panelWidth - 60;
-    float barX = panelX + 30;
-    float barY = panelY + 190;
-    float barHeight = 12;
+    // Progress bar with smooth fill
+    float barWidth = panelWidth - 50;
+    float barX = panelX + 25;
+    float barY = panelY + 175;
+    float barHeight = 14;
 
-    // Background
-    DrawRectangleRounded((Rectangle){barX, barY, barWidth, barHeight}, 0.5f, 8, (Color){50, 50, 65, 255});
+    // Bar background
+    DrawRectangleRounded((Rectangle){barX, barY, barWidth, barHeight}, 0.5f, 10, (Color){45, 45, 60, 255});
 
-    // Progress fill
+    // Progress fill with glow
     if (g_restartSwipeProgress > 0) {
-        float fillWidth = barWidth * g_restartSwipeProgress;
+        float fillWidth = barWidth * EaseOutCubic(g_restartSwipeProgress);
         Color fillColor = g_restartSwipeProgress >= 1.0f ? COLOR_DANGER : COLOR_ACCENT;
-        DrawRectangleRounded((Rectangle){barX, barY, fillWidth, barHeight}, 0.5f, 8, fillColor);
+
+        // Glow under fill
+        if (fillWidth > 8) {
+            Color glowFill = fillColor;
+            glowFill.a = 60;
+            DrawRectangleRounded((Rectangle){barX - 2, barY - 2, fillWidth + 4, barHeight + 4}, 0.5f, 10, glowFill);
+        }
+
+        DrawRectangleRounded((Rectangle){barX, barY, fillWidth, barHeight}, 0.5f, 10, fillColor);
+
+        // Shine on fill
+        if (fillWidth > 6) {
+            DrawRectangleRounded((Rectangle){barX + 2, barY + 2, fillWidth - 4, barHeight/2 - 2}, 0.5f, 8, (Color){255, 255, 255, 40});
+        }
     }
 
     // Cancel hint
     const char *cancelHint = "Tap outside or press Back to cancel";
-    int cancelWidth = LlzMeasureText(cancelHint, LLZ_FONT_SIZE_SMALL);
-    LlzDrawText(cancelHint, (g_screenWidth - cancelWidth) / 2, (int)panelY + 230, LLZ_FONT_SIZE_SMALL, COLOR_TEXT_TERTIARY);
+    LlzDrawTextCentered(cancelHint, g_screenWidth / 2, (int)panelY + 215, LLZ_FONT_SIZE_SMALL, COLOR_TEXT_TERTIARY);
 
-    // Swipe up arrow indicator
-    float arrowY = panelY + panelHeight + 30;
-    float arrowPulse = sinf(g_restartPulseAnim * 4.0f);
-    Color arrowColor = COLOR_TEXT_SECONDARY;
-    arrowColor.a = (unsigned char)(150 + 50 * arrowPulse);
-
-    // Draw up arrows
+    // Animated swipe arrows
+    float arrowY = panelY + panelHeight + 25;
     for (int i = 0; i < 3; i++) {
-        float offset = i * 15 + arrowPulse * 5;
+        float phase = g_restartPulseAnim * 4.0f - i * 0.5f;
+        float offset = fmodf(phase, 3.14159f * 2.0f);
+        float alpha = 0.3f + 0.4f * (1.0f - offset / (3.14159f * 2.0f));
+        float yOffset = -20 * (offset / (3.14159f * 2.0f));
+
+        Color arrowColor = COLOR_TEXT_SECONDARY;
+        arrowColor.a = (unsigned char)(alpha * 200);
+
         int arrowCenterX = g_screenWidth / 2;
         DrawTriangle(
-            (Vector2){arrowCenterX, arrowY + offset - 10},
-            (Vector2){arrowCenterX - 15, arrowY + offset + 5},
-            (Vector2){arrowCenterX + 15, arrowY + offset + 5},
+            (Vector2){arrowCenterX, arrowY + yOffset - 8},
+            (Vector2){arrowCenterX - 12, arrowY + yOffset + 6},
+            (Vector2){arrowCenterX + 12, arrowY + yOffset + 6},
             arrowColor
         );
     }
@@ -408,24 +555,37 @@ static void PluginInit(int width, int height) {
     g_screenHeight = height;
     g_wantsClose = false;
     g_selectedItem = 0;
+    g_mode = MODE_NAVIGATE;
     g_animTime = 0.0f;
     g_sliderPulse = 0.0f;
+    g_scrollOffset = 0.0f;
+    g_targetScrollOffset = 0.0f;
+    g_editModeAnim = 0.0f;
+    g_modeTransitionAnim = 0.0f;
 
-    // Reset restart confirmation state
+    // Reset restart state
     g_restartConfirmActive = false;
     g_restartSwipeProgress = 0.0f;
     g_restartPulseAnim = 0.0f;
     g_restartSwipeTracking = false;
+    g_restartGlowPhase = 0.0f;
 
-    // Reset selection animations
+    // Initialize particles
+    for (int i = 0; i < 12; i++) {
+        g_restartParticles[i][0] = (float)((i % 4) - 1.5f) * 120;
+        g_restartParticles[i][1] = (float)((i / 4) - 1) * 100;
+        g_restartParticles[i][2] = (float)i * 0.5f;
+    }
+
+    // Reset animations
     for (int i = 0; i < MENU_ITEM_COUNT; i++) {
         g_selectionAnim[i] = (i == 0) ? 1.0f : 0.0f;
     }
 
-    // Initialize media system for lyrics API access
+    // Initialize media for lyrics
     LlzMediaInit(NULL);
 
-    // Load current config values
+    // Load config
     const LlzConfig *config = LlzConfigGet();
     g_isAutoBrightness = (config->brightness == LLZ_BRIGHTNESS_AUTO);
     g_pendingBrightness = g_isAutoBrightness ? 80 : config->brightness;
@@ -433,15 +593,13 @@ static void PluginInit(int width, int height) {
     g_toggleAnim = g_lyricsEnabled ? 1.0f : 0.0f;
     g_hasChanges = false;
 
-    printf("Settings plugin initialized\n");
-    printf("Current config: brightness=%s%d, lyrics=%s\n",
-           g_isAutoBrightness ? "AUTO (last=" : "",
-           g_pendingBrightness,
+    printf("Settings plugin initialized (brightness=%s%d, lyrics=%s)\n",
+           g_isAutoBrightness ? "AUTO/" : "", g_pendingBrightness,
            g_lyricsEnabled ? "ON" : "OFF");
 }
 
 static Rectangle GetMenuItemBounds(int index) {
-    float cardY = HEADER_HEIGHT + index * (CARD_HEIGHT + CARD_SPACING);
+    float cardY = CONTENT_TOP + index * (CARD_HEIGHT + CARD_SPACING) - g_scrollOffset;
     return (Rectangle){CARD_MARGIN_X, cardY, g_screenWidth - CARD_MARGIN_X * 2, CARD_HEIGHT};
 }
 
@@ -453,64 +611,197 @@ static void PluginUpdate(const LlzInputState *hostInput, float deltaTime) {
     g_animTime += deltaTime;
     g_sliderPulse += deltaTime;
 
-    // Update selection animations (smooth transitions)
+    // Selection animations
     for (int i = 0; i < MENU_ITEM_COUNT; i++) {
         float target = (i == g_selectedItem) ? 1.0f : 0.0f;
-        g_selectionAnim[i] = Lerp(g_selectionAnim[i], target, deltaTime * 12.0f);
+        g_selectionAnim[i] = Lerp(g_selectionAnim[i], target, deltaTime * 14.0f);
     }
 
-    // Update toggle animation
+    // Edit mode animation
+    float editTarget = (g_mode == MODE_EDIT) ? 1.0f : 0.0f;
+    g_editModeAnim = Lerp(g_editModeAnim, editTarget, deltaTime * 12.0f);
+
+    // Toggle animation
     float toggleTarget = g_lyricsEnabled ? 1.0f : 0.0f;
     g_toggleAnim = Lerp(g_toggleAnim, toggleTarget, deltaTime * 10.0f);
 
-    // Navigation
-    if (input->downPressed || IsKeyPressed(KEY_DOWN)) {
-        g_selectedItem = (g_selectedItem + 1) % MENU_ITEM_COUNT;
-    }
-    if (input->upPressed || IsKeyPressed(KEY_UP)) {
-        g_selectedItem = (g_selectedItem - 1 + MENU_ITEM_COUNT) % MENU_ITEM_COUNT;
-    }
+    // Scroll animation
+    UpdateScroll(deltaTime);
 
-    // Tap to select
-    if (input->tap || input->mouseJustPressed) {
-        Vector2 tapPos = input->tap ? input->tapPosition : input->mousePos;
-        for (int i = 0; i < MENU_ITEM_COUNT; i++) {
-            Rectangle bounds = GetMenuItemBounds(i);
-            if (CheckCollisionPointRec(tapPos, bounds)) {
-                if (g_selectedItem != i) {
-                    g_selectedItem = i;
+    // Handle restart confirmation mode
+    if (g_restartConfirmActive) {
+        g_restartPulseAnim += deltaTime;
+        g_restartGlowPhase += deltaTime;
+
+        // Swipe tracking
+        if (input->mousePressed || input->dragActive) {
+            if (!g_restartSwipeTracking) {
+                g_restartSwipeTracking = true;
+                g_restartSwipeStartY = (int)input->mousePos.y;
+            } else {
+                int swipeDelta = g_restartSwipeStartY - (int)input->mousePos.y;
+                if (swipeDelta > 0) {
+                    g_restartSwipeProgress = (float)swipeDelta / RESTART_SWIPE_THRESHOLD;
+                    if (g_restartSwipeProgress > 1.0f) g_restartSwipeProgress = 1.0f;
                 } else {
-                    // Tap on already selected item
-                    if (i == 1) {
-                        // Toggle lyrics
-                        g_lyricsEnabled = !g_lyricsEnabled;
-                        g_hasChanges = true;
-                        LlzLyricsSetEnabled(g_lyricsEnabled);
-                    } else if (i == 2) {
-                        // Enter restart confirmation
-                        g_restartConfirmActive = true;
-                        g_restartSwipeProgress = 0.0f;
-                        g_restartPulseAnim = 0.0f;
-                    }
+                    g_restartSwipeProgress *= 0.9f; // Smooth decay
                 }
-                break;
+            }
+        } else if (g_restartSwipeTracking) {
+            if (g_restartSwipeProgress >= 1.0f) {
+                printf("Restarting device...\n");
+#ifdef PLATFORM_DRM
+                (void)system("reboot");
+#else
+                printf("Desktop: Would restart here\n");
+                g_restartConfirmActive = false;
+#endif
+            } else {
+                g_restartSwipeProgress = 0.0f;
+            }
+            g_restartSwipeTracking = false;
+        }
+
+        // Direct swipe gesture
+        if (input->swipeUp) {
+            printf("Restarting device...\n");
+#ifdef PLATFORM_DRM
+            (void)system("reboot");
+#else
+            printf("Desktop: Would restart here\n");
+            g_restartConfirmActive = false;
+#endif
+        }
+
+        // Cancel
+        if (input->backReleased || IsKeyReleased(KEY_ESCAPE)) {
+            g_restartConfirmActive = false;
+            g_restartSwipeProgress = 0.0f;
+            g_restartSwipeTracking = false;
+        }
+
+        // Tap outside
+        if ((input->tap || input->mouseJustPressed) && !g_restartSwipeTracking) {
+            Vector2 tapPos = input->tap ? input->tapPosition : input->mousePos;
+            float panelWidth = 380;
+            float panelHeight = 260;
+            float panelX = (g_screenWidth - panelWidth) / 2;
+            float panelY = (g_screenHeight - panelHeight) / 2;
+            Rectangle panelRect = {panelX, panelY, panelWidth, panelHeight};
+            if (!CheckCollisionPointRec(tapPos, panelRect)) {
+                g_restartConfirmActive = false;
+                g_restartSwipeProgress = 0.0f;
             }
         }
+
+        return;
     }
 
-    // Value adjustment
-    bool leftPressed = IsKeyPressed(KEY_LEFT) || input->swipeRight;
-    bool rightPressed = IsKeyPressed(KEY_RIGHT) || input->swipeLeft;
-    float scrollDelta = input->scrollDelta;
+    // === NAVIGATION MODE ===
+    if (g_mode == MODE_NAVIGATE) {
+        // Scroll wheel navigates selection
+        if (input->scrollDelta != 0) {
+            int delta = (input->scrollDelta > 0) ? 1 : -1;
+            g_selectedItem += delta;
+            if (g_selectedItem < 0) g_selectedItem = 0;
+            if (g_selectedItem >= MENU_ITEM_COUNT) g_selectedItem = MENU_ITEM_COUNT - 1;
+            g_targetScrollOffset = CalculateTargetScroll(g_selectedItem);
+        }
 
-    if (g_selectedItem == 0) {
-        // Brightness adjustment
-        int delta = 0;
-        if (leftPressed) delta = -5;
-        if (rightPressed) delta = 5;
-        if (scrollDelta != 0) delta = (int)(scrollDelta * 5);
+        // Up/down buttons
+        if (input->downPressed || IsKeyPressed(KEY_DOWN)) {
+            g_selectedItem = (g_selectedItem + 1) % MENU_ITEM_COUNT;
+            g_targetScrollOffset = CalculateTargetScroll(g_selectedItem);
+        }
+        if (input->upPressed || IsKeyPressed(KEY_UP)) {
+            g_selectedItem = (g_selectedItem - 1 + MENU_ITEM_COUNT) % MENU_ITEM_COUNT;
+            g_targetScrollOffset = CalculateTargetScroll(g_selectedItem);
+        }
 
-        if (delta != 0) {
+        // Select button enters edit mode (or activates for restart)
+        if (input->selectPressed || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE)) {
+            if (g_selectedItem == 2) {
+                // Restart - open confirmation
+                g_restartConfirmActive = true;
+                g_restartSwipeProgress = 0.0f;
+                g_restartPulseAnim = 0.0f;
+            } else if (g_selectedItem == 1) {
+                // Lyrics toggle - just toggle immediately
+                g_lyricsEnabled = !g_lyricsEnabled;
+                g_hasChanges = true;
+                LlzLyricsSetEnabled(g_lyricsEnabled);
+            } else {
+                // Brightness - enter edit mode
+                g_mode = MODE_EDIT;
+            }
+        }
+
+        // Tap to select or activate
+        if (input->tap || input->mouseJustPressed) {
+            Vector2 tapPos = input->tap ? input->tapPosition : input->mousePos;
+            for (int i = 0; i < MENU_ITEM_COUNT; i++) {
+                Rectangle bounds = GetMenuItemBounds(i);
+                if (CheckCollisionPointRec(tapPos, bounds)) {
+                    if (g_selectedItem != i) {
+                        g_selectedItem = i;
+                        g_targetScrollOffset = CalculateTargetScroll(g_selectedItem);
+                    } else {
+                        // Already selected - activate
+                        if (i == 1) {
+                            g_lyricsEnabled = !g_lyricsEnabled;
+                            g_hasChanges = true;
+                            LlzLyricsSetEnabled(g_lyricsEnabled);
+                        } else if (i == 2) {
+                            g_restartConfirmActive = true;
+                            g_restartSwipeProgress = 0.0f;
+                            g_restartPulseAnim = 0.0f;
+                        } else {
+                            g_mode = MODE_EDIT;
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+
+        // Back exits plugin
+        if (input->backReleased || IsKeyReleased(KEY_ESCAPE)) {
+            g_wantsClose = true;
+        }
+    }
+    // === EDIT MODE ===
+    else if (g_mode == MODE_EDIT) {
+        // Scroll wheel adjusts value
+        if (input->scrollDelta != 0) {
+            if (g_selectedItem == 0) {
+                // Brightness
+                int delta = (int)(input->scrollDelta * 5);
+                if (g_isAutoBrightness) {
+                    g_isAutoBrightness = false;
+                    g_pendingBrightness = (delta < 0) ? 100 : 5;
+                } else {
+                    g_pendingBrightness += delta;
+                    if (g_pendingBrightness < 5) {
+                        g_isAutoBrightness = true;
+                        g_pendingBrightness = 5;
+                    }
+                    if (g_pendingBrightness > 100) g_pendingBrightness = 100;
+                }
+                g_hasChanges = true;
+                if (g_isAutoBrightness) {
+                    LlzConfigSetAutoBrightness();
+                } else {
+                    LlzConfigSetBrightness(g_pendingBrightness);
+                }
+            }
+        }
+
+        // Left/right arrows adjust value
+        bool leftPressed = IsKeyPressed(KEY_LEFT) || input->swipeRight;
+        bool rightPressed = IsKeyPressed(KEY_RIGHT) || input->swipeLeft;
+
+        if (g_selectedItem == 0 && (leftPressed || rightPressed)) {
+            int delta = leftPressed ? -5 : 5;
             if (g_isAutoBrightness) {
                 g_isAutoBrightness = false;
                 g_pendingBrightness = (delta < 0) ? 100 : 5;
@@ -522,7 +813,6 @@ static void PluginUpdate(const LlzInputState *hostInput, float deltaTime) {
                 }
                 if (g_pendingBrightness > 100) g_pendingBrightness = 100;
             }
-
             g_hasChanges = true;
             if (g_isAutoBrightness) {
                 LlzConfigSetAutoBrightness();
@@ -530,99 +820,21 @@ static void PluginUpdate(const LlzInputState *hostInput, float deltaTime) {
                 LlzConfigSetBrightness(g_pendingBrightness);
             }
         }
-    } else if (g_selectedItem == 1) {
-        // Lyrics toggle
-        if (leftPressed || rightPressed || scrollDelta != 0 ||
-            IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE) || input->selectPressed) {
-            g_lyricsEnabled = !g_lyricsEnabled;
-            g_hasChanges = true;
-            LlzLyricsSetEnabled(g_lyricsEnabled);
-        }
-    } else if (g_selectedItem == 2) {
-        // Restart device - enter confirmation on select
-        if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE) || input->selectPressed) {
-            g_restartConfirmActive = true;
-            g_restartSwipeProgress = 0.0f;
-            g_restartPulseAnim = 0.0f;
-        }
-    }
 
-    // Handle restart confirmation mode
-    if (g_restartConfirmActive) {
-        g_restartPulseAnim += deltaTime;
-
-        // Track swipe up gesture via drag
-        if (input->mousePressed || input->dragActive) {
-            if (!g_restartSwipeTracking) {
-                g_restartSwipeTracking = true;
-                g_restartSwipeStartY = (int)input->mousePos.y;
-            } else {
-                // Calculate swipe progress (swipe up = negative delta)
-                int currentY = (int)input->mousePos.y;
-                int swipeDelta = g_restartSwipeStartY - currentY;
-                if (swipeDelta > 0) {
-                    g_restartSwipeProgress = (float)swipeDelta / RESTART_SWIPE_THRESHOLD;
-                    if (g_restartSwipeProgress > 1.0f) g_restartSwipeProgress = 1.0f;
-                } else {
-                    g_restartSwipeProgress = 0.0f;
-                }
-            }
-        } else if (g_restartSwipeTracking) {
-            // Touch released - check if confirmed
-            if (g_restartSwipeProgress >= 1.0f) {
-                // Confirmed! Execute restart
-                printf("Restarting device...\n");
-#ifdef PLATFORM_DRM
-                (void)system("reboot");
-#else
-                printf("Desktop mode: Would restart here\n");
-                g_restartConfirmActive = false;
-#endif
-            } else {
-                // Reset
-                g_restartSwipeProgress = 0.0f;
-            }
-            g_restartSwipeTracking = false;
+        // Select or back exits edit mode
+        if (input->selectPressed || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE) ||
+            input->backReleased || IsKeyReleased(KEY_ESCAPE)) {
+            g_mode = MODE_NAVIGATE;
         }
 
-        // Handle swipeUp gesture from input state
-        if (input->swipeUp) {
-            printf("Restarting device...\n");
-#ifdef PLATFORM_DRM
-            (void)system("reboot");
-#else
-            printf("Desktop mode: Would restart here\n");
-            g_restartConfirmActive = false;
-#endif
-        }
-
-        // Cancel on back or tap outside
-        if (input->backReleased || IsKeyReleased(KEY_ESCAPE)) {
-            g_restartConfirmActive = false;
-            g_restartSwipeProgress = 0.0f;
-            g_restartSwipeTracking = false;
-        }
-
-        // Cancel on tap outside panel
-        if ((input->tap || input->mouseJustPressed) && !g_restartSwipeTracking) {
+        // Tap outside current card exits edit mode
+        if (input->tap || input->mouseJustPressed) {
             Vector2 tapPos = input->tap ? input->tapPosition : input->mousePos;
-            float panelWidth = 400;
-            float panelHeight = 280;
-            float panelX = (g_screenWidth - panelWidth) / 2;
-            float panelY = (g_screenHeight - panelHeight) / 2;
-            Rectangle panelRect = {panelX, panelY, panelWidth, panelHeight};
-            if (!CheckCollisionPointRec(tapPos, panelRect)) {
-                g_restartConfirmActive = false;
-                g_restartSwipeProgress = 0.0f;
+            Rectangle bounds = GetMenuItemBounds(g_selectedItem);
+            if (!CheckCollisionPointRec(tapPos, bounds)) {
+                g_mode = MODE_NAVIGATE;
             }
         }
-
-        return; // Don't process other input while in confirmation mode
-    }
-
-    // Back button
-    if (input->backReleased || IsKeyReleased(KEY_ESCAPE)) {
-        g_wantsClose = true;
     }
 }
 
@@ -630,39 +842,42 @@ static void PluginDraw(void) {
     DrawGradientBackground();
     DrawHeader();
 
-    // Setting cards
-    float startY = HEADER_HEIGHT;
+    // Clip content area
+    BeginScissorMode(0, CONTENT_TOP, g_screenWidth, (int)CONTENT_HEIGHT);
 
-    DrawSettingCard(0, "Brightness",
-                    g_isAutoBrightness ? "Adjusts automatically based on ambient light" : "Manual brightness control",
-                    startY, g_selectedItem == 0, g_selectionAnim[0]);
+    // Draw setting cards
+    for (int i = 0; i < MENU_ITEM_COUNT; i++) {
+        float cardY = CONTENT_TOP + i * (CARD_HEIGHT + CARD_SPACING) - g_scrollOffset;
 
-    DrawSettingCard(1, "Lyrics",
-                    "Show synchronized lyrics during playback",
-                    startY + CARD_HEIGHT + CARD_SPACING, g_selectedItem == 1, g_selectionAnim[1]);
+        // Skip if outside visible area
+        if (cardY < CONTENT_TOP - CARD_HEIGHT || cardY > g_screenHeight) continue;
 
-    DrawSettingCard(2, "Restart Device",
-                    "Reboot the CarThing (swipe up to confirm)",
-                    startY + (CARD_HEIGHT + CARD_SPACING) * 2, g_selectedItem == 2, g_selectionAnim[2]);
+        bool selected = (i == g_selectedItem);
+        bool editing = selected && (g_mode == MODE_EDIT);
+
+        const char *titles[] = {"Brightness", "Lyrics", "Restart Device"};
+        const char *descriptions[] = {
+            g_isAutoBrightness ? "Auto-adjusts based on ambient light" : "Manual brightness control",
+            "Show synchronized lyrics during playback",
+            "Reboot the CarThing"
+        };
+
+        DrawSettingCard(i, titles[i], descriptions[i], cardY, selected, editing, g_selectionAnim[i]);
+    }
+
+    EndScissorMode();
 
     DrawFooter();
-
-    // Draw restart confirmation overlay if active
     DrawRestartConfirmation();
 }
 
 static void PluginShutdown(void) {
     if (g_hasChanges) {
         LlzConfigSave();
-        if (g_isAutoBrightness) {
-            printf("Settings saved: brightness=AUTO, lyrics=%s\n",
-                   g_lyricsEnabled ? "ON" : "OFF");
-        } else {
-            printf("Settings saved: brightness=%d, lyrics=%s\n",
-                   g_pendingBrightness, g_lyricsEnabled ? "ON" : "OFF");
-        }
+        printf("Settings saved: brightness=%s%d, lyrics=%s\n",
+               g_isAutoBrightness ? "AUTO/" : "", g_pendingBrightness,
+               g_lyricsEnabled ? "ON" : "OFF");
     }
-
     g_wantsClose = false;
     g_restartConfirmActive = false;
     printf("Settings plugin shutdown\n");
