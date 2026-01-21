@@ -107,7 +107,7 @@ typedef struct {
 
 static AavState g_state;
 
-// Custom font
+// Custom font for international character support
 static Font g_customFont;
 static bool g_fontLoaded = false;
 
@@ -149,26 +149,15 @@ static void LoadCustomFont(void) {
     int codepointCount = 0;
     int *codepoints = BuildUnicodeCodepoints(&codepointCount);
 
-    const char *fontPaths[] = {
-#ifdef PLATFORM_DRM
-        "/var/local/fonts/ZegoeUI-U.ttf",
-        "/var/local/fonts/ZegoeLight-U.ttf",
-#endif
-        "fonts/ZegoeUI-U.ttf",
-        "fonts/ZegoeLight-U.ttf",
-        "../fonts/ZegoeUI-U.ttf"
-    };
-
-    g_customFont = GetFontDefault();
-    for (int i = 0; i < (int)(sizeof(fontPaths)/sizeof(fontPaths[0])); i++) {
-        Font loaded = LoadFontEx(fontPaths[i], 48, codepoints, codepointCount);
-        if (loaded.texture.id != 0) {
-            g_customFont = loaded;
-            g_fontLoaded = true;
-            SetTextureFilter(g_customFont.texture, TEXTURE_FILTER_BILINEAR);
-            printf("[AAV] Loaded font: %s with %d Unicode codepoints\n", fontPaths[i], codepointCount);
-            break;
-        }
+    // Use SDK font loading with custom codepoints for international character support
+    g_customFont = LlzFontLoadCustom(LLZ_FONT_UI, 48, codepoints, codepointCount);
+    if (g_customFont.texture.id != 0) {
+        g_fontLoaded = true;
+        SetTextureFilter(g_customFont.texture, TEXTURE_FILTER_BILINEAR);
+        printf("[AAV] Loaded font via SDK with %d Unicode codepoints\n", codepointCount);
+    } else {
+        g_customFont = GetFontDefault();
+        printf("[AAV] Using default font (SDK font load failed)\n");
     }
 
     if (codepoints) free(codepoints);

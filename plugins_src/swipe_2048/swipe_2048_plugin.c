@@ -53,6 +53,9 @@ static bool g_configInitialized = false;
 static bool g_mediaInitialized = false;
 static LlzSubscriptionId g_trackSubId = 0;
 
+// Font for text rendering
+static Font g_font;
+
 // Serialize board to comma-separated string: "2,0,4,0,..."
 static void SerializeBoard(char *buffer, size_t bufferSize) {
     buffer[0] = '\0';
@@ -471,14 +474,14 @@ static int TileFontSize(float tileSize, int value)
 static void DrawScorePanel(Rectangle rect, const char *label, int value)
 {
     DrawRectangleRounded(rect, 0.2f, 12, COLOR_PANEL_LIGHT);
-    DrawText(label, (int)(rect.x + 10), (int)(rect.y + 6), 14, COLOR_TEXT_MUTED);  // Smaller text
+    DrawTextEx(g_font, label, (Vector2){rect.x + 10, rect.y + 6}, 14, 1, COLOR_TEXT_MUTED);  // Smaller text
     char text[32];
     snprintf(text, sizeof(text), "%d", value);
     int fontSize = 22;  // Smaller font
-    int textWidth = MeasureText(text, fontSize);
+    int textWidth = (int)MeasureTextEx(g_font, text, fontSize, 1).x;
     int textX = (int)(rect.x + rect.width * 0.5f - textWidth * 0.5f);
     int textY = (int)(rect.y + rect.height - fontSize - 4);
-    DrawText(text, textX, textY, fontSize, COLOR_TEXT_PRIMARY);
+    DrawTextEx(g_font, text, (Vector2){textX, textY}, fontSize, 1, COLOR_TEXT_PRIMARY);
 }
 
 static void DrawScorePanels(void)
@@ -497,10 +500,10 @@ static void DrawScorePanels(void)
     DrawRectangleRounded(newGameRect, 0.3f, 12, btnColor);
     const char *label = g_game.gameOver ? "TRY AGAIN" : "NEW GAME";
     int fontSize = 18;  // Smaller font for button
-    int textWidth = MeasureText(label, fontSize);
+    int textWidth = (int)MeasureTextEx(g_font, label, fontSize, 1).x;
     int textX = (int)(newGameRect.x + newGameRect.width * 0.5f - textWidth * 0.5f);
     int textY = (int)(newGameRect.y + newGameRect.height * 0.5f - fontSize * 0.5f);
-    DrawText(label, textX, textY, fontSize, WHITE);
+    DrawTextEx(g_font, label, (Vector2){textX, textY}, fontSize, 1, WHITE);
 }
 
 static void DrawHeader(void)
@@ -508,12 +511,12 @@ static void DrawHeader(void)
     // Draw title on the left side, smaller
     const char *title = "2048";
     int titleSize = 36;
-    DrawText(title, 32, 20, titleSize, COLOR_TEXT_PRIMARY);
+    DrawTextEx(g_font, title, (Vector2){32, 20}, titleSize, 1, COLOR_TEXT_PRIMARY);
 
     // Draw smaller subtitle underneath
     const char *subtitle = "Swipe or use buttons";
     int subtitleSize = 16;
-    DrawText(subtitle, 32, 60, subtitleSize, COLOR_TEXT_MUTED);
+    DrawTextEx(g_font, subtitle, (Vector2){32, 60}, subtitleSize, 1, COLOR_TEXT_MUTED);
 }
 
 static void DrawStatusOverlay(Rectangle boardRect)
@@ -529,15 +532,15 @@ static void DrawStatusOverlay(Rectangle boardRect)
                                           : "No more moves. Tap NEW GAME to restart";
     int titleSize = 42;
     int subtitleSize = 20;
-    int titleWidth = MeasureText(title, titleSize);
-    int subtitleWidth = MeasureText(subtitle, subtitleSize);
+    int titleWidth = (int)MeasureTextEx(g_font, title, titleSize, 1).x;
+    int subtitleWidth = (int)MeasureTextEx(g_font, subtitle, subtitleSize, 1).x;
     int titleX = (int)(boardRect.x + boardRect.width * 0.5f - titleWidth * 0.5f);
     int titleY = (int)(boardRect.y + boardRect.height * 0.4f - titleSize);
-    DrawText(title, titleX, titleY, titleSize, WHITE);
-    DrawText(subtitle,
-             (int)(boardRect.x + boardRect.width * 0.5f - subtitleWidth * 0.5f),
-             titleY + titleSize + 10,
-             subtitleSize,
+    DrawTextEx(g_font, title, (Vector2){titleX, titleY}, titleSize, 1, WHITE);
+    DrawTextEx(g_font, subtitle,
+             (Vector2){(int)(boardRect.x + boardRect.width * 0.5f - subtitleWidth * 0.5f),
+             titleY + titleSize + 10},
+             subtitleSize, 1,
              COLOR_TEXT_PRIMARY);
 }
 
@@ -588,10 +591,10 @@ static void DrawBoard(void)
                 snprintf(text, sizeof(text), "%d", value);
                 int fontSize = TileFontSize(tileSize, value);
                 Color textColor = (value <= 4) ? COLOR_TILE_DARK : WHITE;
-                int textWidth = MeasureText(text, fontSize);
+                int textWidth = (int)MeasureTextEx(g_font, text, fontSize, 1).x;
                 int textX = (int)(tileRect.x + tileRect.width * 0.5f - textWidth * 0.5f);
                 int textY = (int)(tileRect.y + tileRect.height * 0.5f - fontSize * 0.5f);
-                DrawText(text, textX, textY, fontSize, ColorAlpha(textColor, spawnAlpha));
+                DrawTextEx(g_font, text, (Vector2){textX, textY}, fontSize, 1, ColorAlpha(textColor, spawnAlpha));
             }
         }
     }
@@ -644,6 +647,12 @@ static void PluginInit(int width, int height)
     g_screenWidth = width;
     g_screenHeight = height;
     g_wantsClose = false;
+
+    // Load font using SDK with fallback to default
+    g_font = LlzFontGet(LLZ_FONT_UI, 32);
+    if (g_font.texture.id == 0) {
+        g_font = GetFontDefault();
+    }
 
     // Initialize plugin config with defaults
     LlzPluginConfigEntry defaults[] = {

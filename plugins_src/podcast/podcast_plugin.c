@@ -160,7 +160,7 @@ static float g_targetScrollOffset = 0.0f;
 static void RequestPodcastEpisodes(const char *podcastId, int offset, int limit);
 
 // ============================================================================
-// Font Loading
+// Font Loading (using SDK)
 // ============================================================================
 
 static int *BuildUnicodeCodepoints(int *outCount) {
@@ -194,35 +194,30 @@ static int *BuildUnicodeCodepoints(int *outCount) {
 }
 
 static void LoadPodcastFont(void) {
+    // Build custom codepoints for extended Latin support (podcast titles may have accented characters)
     int codepointCount = 0;
     int *codepoints = BuildUnicodeCodepoints(&codepointCount);
 
-    const char *fontPaths[] = {
-#ifdef PLATFORM_DRM
-        "/var/local/fonts/ZegoeUI-U.ttf",
-#endif
-        "fonts/ZegoeUI-U.ttf",
-        "../fonts/ZegoeUI-U.ttf"
-    };
+    // Use SDK to load font with custom codepoints - handles path discovery automatically
+    g_podcastFont = LlzFontLoadCustom(LLZ_FONT_UI, 48, codepoints, codepointCount);
 
-    g_podcastFont = GetFontDefault();
-    for (int i = 0; i < (int)(sizeof(fontPaths)/sizeof(fontPaths[0])); i++) {
-        Font loaded = LoadFontEx(fontPaths[i], 48, codepoints, codepointCount);
-        if (loaded.texture.id != 0) {
-            g_podcastFont = loaded;
-            g_fontLoaded = true;
-            SetTextureFilter(g_podcastFont.texture, TEXTURE_FILTER_BILINEAR);
-            printf("Podcast: Loaded font %s\n", fontPaths[i]);
-            break;
-        }
+    if (g_podcastFont.texture.id != 0) {
+        g_fontLoaded = true;
+        SetTextureFilter(g_podcastFont.texture, TEXTURE_FILTER_BILINEAR);
+        printf("Podcast: Loaded font via SDK with extended Latin codepoints\n");
+    } else {
+        // Fallback to default SDK font if custom loading fails
+        g_podcastFont = LlzFontGet(LLZ_FONT_UI, 48);
+        g_fontLoaded = false;  // Mark as not custom-loaded so we don't unload SDK-cached font
+        printf("Podcast: Using SDK default font (custom codepoint loading failed)\n");
     }
 
     if (codepoints) free(codepoints);
 }
 
 static void UnloadPodcastFont(void) {
-    Font defaultFont = GetFontDefault();
-    if (g_fontLoaded && g_podcastFont.texture.id != 0 && g_podcastFont.texture.id != defaultFont.texture.id) {
+    // Only unload if we loaded a custom font (LlzFontLoadCustom returns caller-owned font)
+    if (g_fontLoaded && g_podcastFont.texture.id != 0) {
         UnloadFont(g_podcastFont);
     }
     g_fontLoaded = false;

@@ -189,7 +189,7 @@ static void LoadStats(void);
 static void UpdateStatsForCurrentQuiz(void);
 
 // ============================================================================
-// Font Loading
+// Font Loading (uses SDK font functions)
 // ============================================================================
 
 static int *BuildUnicodeCodepoints(int *outCount) {
@@ -223,33 +223,26 @@ static int *BuildUnicodeCodepoints(int *outCount) {
 }
 
 static void LoadPluginFont(void) {
+    // Use SDK font loading with custom codepoints for extended Unicode support
     int codepointCount = 0;
     int *codepoints = BuildUnicodeCodepoints(&codepointCount);
 
-    const char *fontPaths[] = {
-#ifdef PLATFORM_DRM
-        "/var/local/fonts/ZegoeUI-U.ttf",
-#endif
-        "fonts/ZegoeUI-U.ttf",
-        "../fonts/ZegoeUI-U.ttf"
-    };
-
-    g_font = GetFontDefault();
-    for (int i = 0; i < (int)(sizeof(fontPaths)/sizeof(fontPaths[0])); i++) {
-        Font loaded = LoadFontEx(fontPaths[i], 48, codepoints, codepointCount);
-        if (loaded.texture.id != 0) {
-            g_font = loaded;
-            g_fontLoaded = true;
-            SetTextureFilter(g_font.texture, TEXTURE_FILTER_BILINEAR);
-            printf("Flashcards: Loaded font %s\n", fontPaths[i]);
-            break;
-        }
+    g_font = LlzFontLoadCustom(LLZ_FONT_UI, 48, codepoints, codepointCount);
+    if (g_font.texture.id != 0) {
+        g_fontLoaded = true;
+        SetTextureFilter(g_font.texture, TEXTURE_FILTER_BILINEAR);
+        printf("Flashcards: Loaded font via SDK\n");
+    } else {
+        g_font = GetFontDefault();
+        g_fontLoaded = false;
+        printf("Flashcards: Using default font\n");
     }
 
     if (codepoints) free(codepoints);
 }
 
 static void UnloadPluginFont(void) {
+    // Font loaded via LlzFontLoadCustom must be unloaded by caller
     Font defaultFont = GetFontDefault();
     if (g_fontLoaded && g_font.texture.id != 0 && g_font.texture.id != defaultFont.texture.id) {
         UnloadFont(g_font);

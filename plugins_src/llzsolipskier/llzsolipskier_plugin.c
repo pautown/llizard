@@ -3,6 +3,7 @@
 // Designed for CarThing's 800x480 display
 
 #include "llizard_plugin.h"
+#include "llz_sdk.h"
 #include "llz_sdk_input.h"
 #include "llz_sdk_config.h"
 #include "raylib.h"
@@ -293,6 +294,7 @@ static int g_screenHeight = SCREEN_HEIGHT;
 static bool g_wantsClose = false;
 static LlzPluginConfig g_config;
 static bool g_configInit = false;
+static Font g_font;
 
 // =============================================================================
 // FORWARD DECLARATIONS
@@ -1683,7 +1685,7 @@ static void DrawScoreUI(void) {
 
     // Score (top left)
     snprintf(buf, sizeof(buf), "%d", score->score);
-    DrawText(buf, 18, 12, 34, COLOR_TEXT_PRIMARY);
+    DrawTextEx(g_font, buf, (Vector2){18, 12}, 34, 1, COLOR_TEXT_PRIMARY);
 
     // Multiplier
     if (score->multiplier > 1) {
@@ -1691,7 +1693,7 @@ static void DrawScoreUI(void) {
         float flash = sinf(g_game.gameTime * 9) * 0.2f + 0.8f;
         Color mc = COLOR_MULTIPLIER;
         mc.a = (unsigned char)(255 * flash);
-        DrawText(buf, 18, 50, 26, mc);
+        DrawTextEx(g_font, buf, (Vector2){18, 50}, 26, 1, mc);
 
         // Timer bar
         float barW = 75 * (score->multiplierTimer / 5.0f);
@@ -1700,8 +1702,8 @@ static void DrawScoreUI(void) {
 
     // Distance (top right)
     snprintf(buf, sizeof(buf), "%dm", score->distance);
-    int tw = MeasureText(buf, 22);
-    DrawText(buf, g_screenWidth - tw - 18, 12, 22, COLOR_TEXT_MUTED);
+    int tw = (int)MeasureTextEx(g_font, buf, 22, 1).x;
+    DrawTextEx(g_font, buf, (Vector2){g_screenWidth - tw - 18, 12}, 22, 1, COLOR_TEXT_MUTED);
 
     // Speed bar (right side)
     float speedNorm = (g_game.camera.speed - BASE_CAMERA_SPEED) / (MAX_CAMERA_SPEED - BASE_CAMERA_SPEED);
@@ -1729,11 +1731,11 @@ static void DrawScoreUI(void) {
 
         float scale = 1.0f + (1.0f - alpha) * 0.25f;
         int fontSize = (int)(18 * scale);
-        DrawText(popup->text, (int)popup->pos.x, (int)popup->pos.y, fontSize, c);
+        DrawTextEx(g_font, popup->text, (Vector2){(float)popup->pos.x, (float)popup->pos.y}, fontSize, 1, c);
 
         snprintf(buf, sizeof(buf), "+%d", popup->value);
-        DrawText(buf, (int)popup->pos.x, (int)popup->pos.y + fontSize + 2,
-                 fontSize - 3, ColorAlpha(c, alpha * 0.85f));
+        DrawTextEx(g_font, buf, (Vector2){(float)popup->pos.x, (float)popup->pos.y + fontSize + 2},
+                 fontSize - 3, 1, ColorAlpha(c, alpha * 0.85f));
     }
 
     // Scroll control hint
@@ -1742,22 +1744,22 @@ static void DrawScoreUI(void) {
         Color hint = COLOR_ACCENT;
         hint.a = (unsigned char)(255 * alpha);
         const char *drawHint = "SCROLL TO DRAW SNOW!";
-        int hw = MeasureText(drawHint, 26);
-        DrawText(drawHint, g_screenWidth / 2 - hw / 2, 95, 26, hint);
+        int hw = (int)MeasureTextEx(g_font, drawHint, 26, 1).x;
+        DrawTextEx(g_font, drawHint, (Vector2){g_screenWidth / 2 - hw / 2, 95}, 26, 1, hint);
 
         // Secondary hint
         Color hint2 = COLOR_TEXT_MUTED;
         hint2.a = (unsigned char)(200 * alpha);
         const char *scrollHint = "Up = Higher, Down = Lower";
-        int sw = MeasureText(scrollHint, 16);
-        DrawText(scrollHint, g_screenWidth / 2 - sw / 2, 125, 16, hint2);
+        int sw = (int)MeasureTextEx(g_font, scrollHint, 16, 1).x;
+        DrawTextEx(g_font, scrollHint, (Vector2){g_screenWidth / 2 - sw / 2, 125}, 16, 1, hint2);
     }
 
     // Persistent mini-hint at bottom
     if (g_game.state == GAME_STATE_PLAYING) {
         const char *ctrlHint = "Scroll: Snow Height | Hold: Pause";
-        int chw = MeasureText(ctrlHint, 12);
-        DrawText(ctrlHint, g_screenWidth / 2 - chw / 2, g_screenHeight - 22, 12, COLOR_TEXT_DIM);
+        int chw = (int)MeasureTextEx(g_font, ctrlHint, 12, 1).x;
+        DrawTextEx(g_font, ctrlHint, (Vector2){g_screenWidth / 2 - chw / 2, g_screenHeight - 22}, 12, 1, COLOR_TEXT_DIM);
     }
 }
 
@@ -1919,12 +1921,12 @@ static void DrawBackground(void) {
 static void DrawMenu(void) {
     // Title
     const char *title = "LLZ SOLIPSKIER";
-    int tw = MeasureText(title, 42);
-    DrawText(title, g_screenWidth / 2 - tw / 2, 40, 42, COLOR_ACCENT);
+    int tw = (int)MeasureTextEx(g_font, title, 42, 1).x;
+    DrawTextEx(g_font, title, (Vector2){g_screenWidth / 2 - tw / 2, 40}, 42, 1, COLOR_ACCENT);
 
     const char *sub = "Scroll to draw snow for the skier!";
-    int sw = MeasureText(sub, 18);
-    DrawText(sub, g_screenWidth / 2 - sw / 2, 90, 18, COLOR_TEXT_MUTED);
+    int sw = (int)MeasureTextEx(g_font, sub, 18, 1).x;
+    DrawTextEx(g_font, sub, (Vector2){g_screenWidth / 2 - sw / 2, 90}, 18, 1, COLOR_TEXT_MUTED);
 
     // Menu options
     const char *opts[] = {"PLAY", "HIGH SCORE", "EXIT"};
@@ -1951,9 +1953,9 @@ static void DrawMenu(void) {
         }
 
         Color tc = sel ? COLOR_BG_TOP : COLOR_TEXT_PRIMARY;
-        int optW = MeasureText(opts[i], 24);
-        DrawText(opts[i], (int)(box.x + box.width / 2 - optW / 2),
-                 (int)(box.y + 12), 24, tc);
+        int optW = (int)MeasureTextEx(g_font, opts[i], 24, 1).x;
+        DrawTextEx(g_font, opts[i], (Vector2){(int)(box.x + box.width / 2 - optW / 2),
+                 (int)(box.y + 12)}, 24, 1, tc);
     }
 
     // High score display
@@ -2123,6 +2125,12 @@ static void PluginInit(int width, int height) {
     g_screenWidth = width;
     g_screenHeight = height;
     g_wantsClose = false;
+
+    // Initialize font
+    g_font = LlzFontGet(LLZ_FONT_UI, 32);
+    if (g_font.texture.id == 0) {
+        g_font = GetFontDefault();
+    }
 
     LlzPluginConfigEntry defaults[] = {
         {"high_score", "0"}

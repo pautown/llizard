@@ -3,8 +3,7 @@
 // Designed for CarThing's 800x480 display
 
 #include "llizard_plugin.h"
-#include "llz_sdk_input.h"
-#include "llz_sdk_config.h"
+#include "llz_sdk.h"
 #include "raylib.h"
 #include "rlgl.h"
 
@@ -331,6 +330,7 @@ static int g_screenHeight = 480;
 static bool g_wantsClose = false;
 static LlzPluginConfig g_config;
 static bool g_configInitialized = false;
+static Font g_font;
 
 // 7-bag randomizer
 static PieceType g_bag[7];
@@ -1132,7 +1132,7 @@ static void DrawUI(float boardX, float boardY, float blockSize) {
     float rpW = g_screenWidth - rpX - 15;
 
     // Next pieces
-    DrawText("NEXT", (int)rpX, (int)boardY, 16, COLOR_TEXT_MUTED);
+    DrawTextEx(g_font, "NEXT", (Vector2){rpX, boardY}, 16, 1, COLOR_TEXT_MUTED);
     for (int i = 0; i < 5; i++) {
         Rectangle box = {rpX, boardY + 24 + i * 58, 75, 52};
         DrawRectangleRounded(box, 0.15f, 6, COLOR_PANEL);
@@ -1142,7 +1142,7 @@ static void DrawUI(float boardX, float boardY, float blockSize) {
 
     // Hold piece
     float holdY = boardY + 320;
-    DrawText("HOLD", (int)rpX, (int)holdY, 16, COLOR_TEXT_MUTED);
+    DrawTextEx(g_font, "HOLD", (Vector2){rpX, holdY}, 16, 1, COLOR_TEXT_MUTED);
     Rectangle holdBox = {rpX, holdY + 24, 75, 52};
     DrawRectangleRounded(holdBox, 0.15f, 6, g_game.holdUsed ? COLOR_GRID : COLOR_PANEL);
     if (g_game.holdPiece != PIECE_NONE) {
@@ -1155,69 +1155,69 @@ static void DrawUI(float boardX, float boardY, float blockSize) {
     float lpW = boardX - 30;
 
     // Mode indicator
-    DrawText(MODE_NAMES[g_game.mode], (int)lpX, (int)boardY, 20, COLOR_ACCENT);
+    DrawTextEx(g_font, MODE_NAMES[g_game.mode], (Vector2){lpX, boardY}, 20, 1, COLOR_ACCENT);
 
     // Score
     float sy = boardY + 35;
-    DrawText("SCORE", (int)lpX, (int)sy, 14, COLOR_TEXT_MUTED);
+    DrawTextEx(g_font, "SCORE", (Vector2){lpX, sy}, 14, 1, COLOR_TEXT_MUTED);
     char buf[32];
     snprintf(buf, sizeof(buf), "%d", g_game.score);
-    DrawText(buf, (int)lpX, (int)sy + 18, 28, COLOR_TEXT_PRIMARY);
+    DrawTextEx(g_font, buf, (Vector2){lpX, sy + 18}, 28, 1, COLOR_TEXT_PRIMARY);
 
     // High score
     sy += 60;
-    DrawText("BEST", (int)lpX, (int)sy, 14, COLOR_TEXT_MUTED);
+    DrawTextEx(g_font, "BEST", (Vector2){lpX, sy}, 14, 1, COLOR_TEXT_MUTED);
     snprintf(buf, sizeof(buf), "%d", g_game.highScores[g_game.mode]);
-    DrawText(buf, (int)lpX, (int)sy + 18, 22, COLOR_ACCENT);
+    DrawTextEx(g_font, buf, (Vector2){lpX, sy + 18}, 22, 1, COLOR_ACCENT);
 
     // Lines
     sy += 55;
-    DrawText("LINES", (int)lpX, (int)sy, 14, COLOR_TEXT_MUTED);
+    DrawTextEx(g_font, "LINES", (Vector2){lpX, sy}, 14, 1, COLOR_TEXT_MUTED);
     if (g_game.mode == MODE_SPRINT_40 || g_game.mode == MODE_SPRINT_100 ||
         (g_game.mode == MODE_MARATHON && g_game.sprintTarget > 0)) {
         snprintf(buf, sizeof(buf), "%d/%d", g_game.lines, g_game.sprintTarget);
     } else {
         snprintf(buf, sizeof(buf), "%d", g_game.lines);
     }
-    DrawText(buf, (int)lpX, (int)sy + 18, 22, COLOR_TEXT_PRIMARY);
+    DrawTextEx(g_font, buf, (Vector2){lpX, sy + 18}, 22, 1, COLOR_TEXT_PRIMARY);
 
     // Level
     sy += 50;
-    DrawText("LEVEL", (int)lpX, (int)sy, 14, COLOR_TEXT_MUTED);
+    DrawTextEx(g_font, "LEVEL", (Vector2){lpX, sy}, 14, 1, COLOR_TEXT_MUTED);
     snprintf(buf, sizeof(buf), "%d", g_game.level + 1);
-    DrawText(buf, (int)lpX, (int)sy + 18, 22, COLOR_TEXT_PRIMARY);
+    DrawTextEx(g_font, buf, (Vector2){lpX, sy + 18}, 22, 1, COLOR_TEXT_PRIMARY);
 
     // Time (for Ultra mode or general)
     sy += 50;
     if (g_game.mode == MODE_ULTRA_3 || g_game.mode == MODE_ULTRA_5) {
         float remaining = g_game.ultraTimeLimit - g_game.gameTime;
         if (remaining < 0) remaining = 0;
-        DrawText("TIME", (int)lpX, (int)sy, 14, COLOR_TEXT_MUTED);
+        DrawTextEx(g_font, "TIME", (Vector2){lpX, sy}, 14, 1, COLOR_TEXT_MUTED);
         int mins = (int)remaining / 60;
         int secs = (int)remaining % 60;
         snprintf(buf, sizeof(buf), "%d:%02d", mins, secs);
         Color timeColor = (remaining < 30) ? COLOR_DANGER : COLOR_TEXT_PRIMARY;
-        DrawText(buf, (int)lpX, (int)sy + 18, 22, timeColor);
+        DrawTextEx(g_font, buf, (Vector2){lpX, sy + 18}, 22, 1, timeColor);
     } else {
-        DrawText("TIME", (int)lpX, (int)sy, 14, COLOR_TEXT_MUTED);
+        DrawTextEx(g_font, "TIME", (Vector2){lpX, sy}, 14, 1, COLOR_TEXT_MUTED);
         int mins = (int)g_game.gameTime / 60;
         int secs = (int)g_game.gameTime % 60;
         snprintf(buf, sizeof(buf), "%d:%02d", mins, secs);
-        DrawText(buf, (int)lpX, (int)sy + 18, 22, COLOR_TEXT_PRIMARY);
+        DrawTextEx(g_font, buf, (Vector2){lpX, sy + 18}, 22, 1, COLOR_TEXT_PRIMARY);
     }
 
     // Combo
     if (g_game.combo > 1) {
         sy += 50;
-        DrawText("COMBO", (int)lpX, (int)sy, 14, COLOR_TEXT_MUTED);
+        DrawTextEx(g_font, "COMBO", (Vector2){lpX, sy}, 14, 1, COLOR_TEXT_MUTED);
         snprintf(buf, sizeof(buf), "x%d", g_game.combo);
-        DrawText(buf, (int)lpX, (int)sy + 18, 22, COLOR_WARNING);
+        DrawTextEx(g_font, buf, (Vector2){lpX, sy + 18}, 22, 1, COLOR_WARNING);
     }
 
     // Back-to-back indicator
     if (g_game.backToBack) {
         sy += (g_game.combo > 1) ? 50 : 50;
-        DrawText("B2B", (int)lpX, (int)sy, 14, COLOR_ACCENT_BRIGHT);
+        DrawTextEx(g_font, "B2B", (Vector2){lpX, sy}, 14, 1, COLOR_ACCENT_BRIGHT);
     }
 
     // Clear text animation
@@ -1230,32 +1230,30 @@ static void DrawUI(float boardX, float boardY, float blockSize) {
         textColor.a = (unsigned char)(255 * alpha);
 
         int fontSize = (int)(24 * scale);
-        int textW = MeasureText(g_anim.clearText, fontSize);
-        DrawText(g_anim.clearText, (int)(boardX + bw/2 - textW/2),
-                 (int)(boardY + bh/2 + yOffset), fontSize, textColor);
+        int textW = (int)MeasureTextEx(g_font, g_anim.clearText, fontSize, 1).x;
+        DrawTextEx(g_font, g_anim.clearText, (Vector2){boardX + bw/2 - textW/2, boardY + bh/2 + yOffset}, fontSize, 1, textColor);
 
         // Score popup
         snprintf(buf, sizeof(buf), "+%d", g_anim.clearTextScore);
-        int scoreW = MeasureText(buf, 20);
-        DrawText(buf, (int)(boardX + bw/2 - scoreW/2),
-                 (int)(boardY + bh/2 + 30 + yOffset), 20, ColorAlpha(COLOR_TEXT_PRIMARY, alpha));
+        int scoreW = (int)MeasureTextEx(g_font, buf, 20, 1).x;
+        DrawTextEx(g_font, buf, (Vector2){boardX + bw/2 - scoreW/2, boardY + bh/2 + 30 + yOffset}, 20, 1, ColorAlpha(COLOR_TEXT_PRIMARY, alpha));
     }
 
     // Controls hint
     float hintY = g_screenHeight - 35;
-    DrawText("Drag/Scroll: Move | Flick: Slam | Tap: Rotate | Swipe Down: Drop | Back: Hold",
-             (int)lpX, (int)hintY, 11, COLOR_TEXT_DIM);
+    DrawTextEx(g_font, "Drag/Scroll: Move | Flick: Slam | Tap: Rotate | Swipe Down: Drop | Back: Hold",
+             (Vector2){lpX, hintY}, 11, 1, COLOR_TEXT_DIM);
 }
 
 static void DrawMenu(void) {
     // Title
     const char *title = "LLZ BLOCKS";
-    int titleW = MeasureText(title, 40);
-    DrawText(title, g_screenWidth/2 - titleW/2, 25, 40, COLOR_ACCENT_BRIGHT);
+    int titleW = (int)MeasureTextEx(g_font, title, 40, 1).x;
+    DrawTextEx(g_font, title, (Vector2){g_screenWidth/2 - titleW/2, 25}, 40, 1, COLOR_ACCENT_BRIGHT);
 
     const char *subtitle = "A Block-Stacking Puzzle Game";
-    int subW = MeasureText(subtitle, 16);
-    DrawText(subtitle, g_screenWidth/2 - subW/2, 70, 16, COLOR_TEXT_MUTED);
+    int subW = (int)MeasureTextEx(g_font, subtitle, 16, 1).x;
+    DrawTextEx(g_font, subtitle, (Vector2){g_screenWidth/2 - subW/2, 70}, 16, 1, COLOR_TEXT_MUTED);
 
     // Mode selection - compact layout for 6 modes
     float menuY = 100;
@@ -1769,6 +1767,12 @@ static void PluginInit(int width, int height) {
     g_screenWidth = width;
     g_screenHeight = height;
     g_wantsClose = false;
+
+    // Load font using SDK with fallback
+    g_font = LlzFontGet(LLZ_FONT_UI, 32);
+    if (!IsFontValid(g_font)) {
+        g_font = GetFontDefault();
+    }
 
     LlzPluginConfigEntry defaults[] = {
         {"high_score_0", "0"}, {"high_score_1", "0"},
