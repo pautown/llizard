@@ -997,6 +997,26 @@ static void DrawPluginMenuSpotifyCT(const PluginRegistry *registry, int selected
 static void DrawPluginMenuGrid(const PluginRegistry *registry, int selected, float deltaTime,
                                Color dynamicAccent, Color dynamicAccentDim)
 {
+    (void)dynamicAccent;     // Grid uses its own Apple color scheme
+    (void)dynamicAccentDim;
+
+    // Apple-inspired white theme colors
+    static const Color GRID_BG_WHITE = {250, 250, 252, 255};
+    static const Color GRID_TILE_BG = {255, 255, 255, 255};
+    static const Color GRID_TILE_HOVER = {248, 248, 250, 255};
+    static const Color GRID_TEXT_PRIMARY = {30, 30, 32, 255};
+    static const Color GRID_TEXT_SECONDARY = {100, 100, 105, 255};
+    static const Color GRID_TEXT_DIM = {160, 160, 165, 255};
+    static const Color GRID_BORDER = {220, 220, 225, 255};
+
+    // Apple traffic light colors
+    static const Color APPLE_RED = {255, 95, 86, 255};
+    static const Color APPLE_YELLOW = {255, 189, 46, 255};
+    static const Color APPLE_GREEN = {39, 201, 63, 255};
+
+    // Draw white background (override animated background)
+    DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, GRID_BG_WHITE);
+
     // Lazy load iBrand font on first use
     if (!g_ibrandFontLoaded) {
         LoadIBrandFont();
@@ -1005,14 +1025,23 @@ static void DrawPluginMenuGrid(const PluginRegistry *registry, int selected, flo
     Font gridFont = g_ibrandFontLoaded ? g_ibrandFont : g_menuFont;
 
     if (!registry || registry->count == 0) {
-        DrawTextEx(gridFont, "No plugins found", (Vector2){MENU_PADDING_X, MENU_PADDING_TOP + 40}, 24, 1, COLOR_TEXT_SECONDARY);
-        DrawTextEx(gridFont, "Place .so files in ./plugins", (Vector2){MENU_PADDING_X, MENU_PADDING_TOP + 70}, 18, 1, COLOR_TEXT_DIM);
+        DrawTextEx(gridFont, "No plugins found", (Vector2){MENU_PADDING_X, MENU_PADDING_TOP + 40}, 24, 1, GRID_TEXT_SECONDARY);
+        DrawTextEx(gridFont, "Place .so files in ./plugins", (Vector2){MENU_PADDING_X, MENU_PADDING_TOP + 70}, 18, 1, GRID_TEXT_DIM);
         return;
     }
 
-    // Header
-    DrawTextEx(gridFont, "llizardOS", (Vector2){GRID_PADDING_X, 24}, 32, 2, COLOR_TEXT_PRIMARY);
-    DrawRectangle(GRID_PADDING_X, 62, 120, 3, dynamicAccent);
+    // Header with traffic light dots
+    float dotY = 36;
+    float dotSpacing = 24;
+    float dotRadius = 8;
+    DrawCircle(GRID_PADDING_X + 8, dotY, dotRadius, APPLE_RED);
+    DrawCircle(GRID_PADDING_X + 8 + dotSpacing, dotY, dotRadius, APPLE_YELLOW);
+    DrawCircle(GRID_PADDING_X + 8 + dotSpacing * 2, dotY, dotRadius, APPLE_GREEN);
+
+    DrawTextEx(gridFont, "llizardOS", (Vector2){GRID_PADDING_X + dotSpacing * 3 + 20, 24}, 32, 2, GRID_TEXT_PRIMARY);
+
+    // Subtle divider line
+    DrawRectangle(GRID_PADDING_X, 68, SCREEN_WIDTH - GRID_PADDING_X * 2, 1, GRID_BORDER);
 
     // Calculate which row the selected item is in for vertical scrolling
     int selectedRow = selected / GRID_COLS;
@@ -1045,56 +1074,62 @@ static void DrawPluginMenuGrid(const PluginRegistry *registry, int selected, flo
         bool isSelected = (i == selected);
         Rectangle tileRect = {tileX, tileY, GRID_TILE_WIDTH, GRID_TILE_HEIGHT};
 
-        // Tile shadow for depth
+        // Soft shadow for all tiles
+        Rectangle shadowRect = {tileX + 2, tileY + 2, GRID_TILE_WIDTH, GRID_TILE_HEIGHT};
+        DrawRectangleRounded(shadowRect, 0.12f, 8, ColorAlpha(BLACK, isSelected ? 0.12f : 0.06f));
+
+        // Tile background - white with subtle tint when selected
+        Color tileBg = isSelected ? GRID_TILE_BG : GRID_TILE_HOVER;
+        DrawRectangleRounded(tileRect, 0.12f, 8, tileBg);
+
+        // Selection color - orange/yellow tint
+        static const Color APPLE_ORANGE = {255, 159, 10, 255};
+
+        // Border - orange when selected
+        Color borderColor = isSelected ? APPLE_ORANGE : GRID_BORDER;
+        DrawRectangleRoundedLines(tileRect, 0.12f, 8, borderColor);
+
+        // Selection indicator - left edge colored bar
         if (isSelected) {
-            Rectangle shadowRect = {tileX + 6, tileY + 6, GRID_TILE_WIDTH, GRID_TILE_HEIGHT};
-            DrawRectangleRounded(shadowRect, 0.1f, 8, ColorAlpha(BLACK, 0.4f));
+            Rectangle accentBar = {tileX, tileY + 10, 4, GRID_TILE_HEIGHT - 20};
+            DrawRectangleRounded(accentBar, 1.0f, 4, APPLE_ORANGE);
         }
 
-        // Tile background - gradient from accent for selected
-        Color tileTop = isSelected ? ColorAlpha(dynamicAccent, 0.25f) : COLOR_CARD_BG;
-        Color tileBottom = COLOR_CARD_BG;
-
-        // Draw gradient manually
-        DrawRectangleGradientV((int)tileX, (int)tileY, (int)GRID_TILE_WIDTH, (int)GRID_TILE_HEIGHT, tileTop, tileBottom);
-        DrawRectangleRounded(tileRect, 0.1f, 8, ColorAlpha(COLOR_CARD_BG, 0.0f));  // Just for shape clip
-
-        // Border
-        Color borderColor = isSelected ? dynamicAccent : ColorAlpha(COLOR_CARD_BORDER, 0.4f);
-        DrawRectangleRoundedLines(tileRect, 0.1f, 8, borderColor);
-
-        // Selection glow
-        if (isSelected) {
-            Rectangle glowRect = {tileX - 3, tileY - 3, GRID_TILE_WIDTH + 6, GRID_TILE_HEIGHT + 6};
-            DrawRectangleRoundedLines(glowRect, 0.1f, 8, ColorAlpha(dynamicAccent, 0.4f));
-        }
-
-        // Large icon circle on left side of tile
+        // Icon circle on left side of tile - cycle through traffic light colors
+        // Fades out when selected
         float iconRadius = 50;
         float iconX = tileX + 70;
         float iconY = tileY + GRID_TILE_HEIGHT / 2;
 
-        Color iconBg = isSelected ? ColorAlpha(dynamicAccent, 0.2f) : ColorAlpha(dynamicAccentDim, 0.15f);
-        DrawCircle((int)iconX, (int)iconY, iconRadius, iconBg);
-        DrawCircleLines((int)iconX, (int)iconY, iconRadius, isSelected ? dynamicAccent : COLOR_CARD_BORDER);
+        // Cycle colors: red, yellow, green based on index
+        Color iconColors[] = {APPLE_RED, APPLE_YELLOW, APPLE_GREEN};
+        Color iconColor = iconColors[i % 3];
 
-        // Initial letter
-        if (registry->items[i].displayName[0]) {
-            char initial[2] = {registry->items[i].displayName[0], '\0'};
-            float initialSize = 40;
-            Vector2 initialDim = MeasureTextEx(gridFont, initial, initialSize, 1);
-            Color initialColor = isSelected ? dynamicAccent : COLOR_TEXT_SECONDARY;
-            DrawTextEx(gridFont, initial,
-                      (Vector2){iconX - initialDim.x / 2, iconY - initialDim.y / 2},
-                      initialSize, 1, initialColor);
+        // Fade out icon when selected
+        float iconAlpha = isSelected ? 0.0f : 1.0f;
+        if (iconAlpha > 0.0f) {
+            Color iconBg = ColorAlpha(iconColor, 0.08f * iconAlpha);
+            DrawCircle((int)iconX, (int)iconY, iconRadius, iconBg);
+            DrawCircleLines((int)iconX, (int)iconY, iconRadius, ColorAlpha(iconColor, 0.4f * iconAlpha));
+
+            // Initial letter
+            if (registry->items[i].displayName[0]) {
+                char initial[2] = {registry->items[i].displayName[0], '\0'};
+                float initialSize = 40;
+                Vector2 initialDim = MeasureTextEx(gridFont, initial, initialSize, 1);
+                Color initialColor = ColorAlpha(iconColor, 0.7f * iconAlpha);
+                DrawTextEx(gridFont, initial,
+                          (Vector2){iconX - initialDim.x / 2, iconY - initialDim.y / 2},
+                          initialSize, 1, initialColor);
+            }
         }
 
-        // Plugin name on right side - vertically centered (no description)
-        float textX = iconX + iconRadius + 30;
-        float maxTextWidth = GRID_TILE_WIDTH - (textX - tileX) - 20;
+        // Plugin name - bigger when selected, positioned differently
+        float textX = isSelected ? (tileX + 30) : (iconX + iconRadius + 30);
+        float maxTextWidth = isSelected ? (GRID_TILE_WIDTH - 60) : (GRID_TILE_WIDTH - (textX - tileX) - 20);
 
-        Color nameColor = isSelected ? COLOR_TEXT_PRIMARY : COLOR_TEXT_SECONDARY;
-        float nameSize = 28;
+        Color nameColor = isSelected ? GRID_TEXT_PRIMARY : GRID_TEXT_SECONDARY;
+        float nameSize = isSelected ? 36 : 28;
         Vector2 nameDim = MeasureTextEx(gridFont, registry->items[i].displayName, nameSize, 1);
 
         // Vertically center the name in the tile
@@ -1117,13 +1152,13 @@ static void DrawPluginMenuGrid(const PluginRegistry *registry, int selected, flo
             DrawTextEx(gridFont, registry->items[i].displayName, (Vector2){textX, nameY}, nameSize, 1, nameColor);
         }
 
-        // Index badge in corner
+        // Index badge in corner - subtle
         char indexStr[16];
         snprintf(indexStr, sizeof(indexStr), "%d", i + 1);
         Vector2 indexSize = MeasureTextEx(gridFont, indexStr, 14, 1);
         float indexX = tileX + GRID_TILE_WIDTH - indexSize.x - 12;
         float indexY = tileY + GRID_TILE_HEIGHT - 24;
-        DrawTextEx(gridFont, indexStr, (Vector2){indexX, indexY}, 14, 1, ColorAlpha(COLOR_TEXT_DIM, 0.5f));
+        DrawTextEx(gridFont, indexStr, (Vector2){indexX, indexY}, 14, 1, GRID_TEXT_DIM);
     }
 
     EndScissorMode();
@@ -1132,7 +1167,7 @@ static void DrawPluginMenuGrid(const PluginRegistry *registry, int selected, flo
     char pageStr[32];
     snprintf(pageStr, sizeof(pageStr), "%d of %d", selected + 1, registry->count);
     Vector2 pageSize = MeasureTextEx(gridFont, pageStr, 16, 1);
-    DrawTextEx(gridFont, pageStr, (Vector2){(SCREEN_WIDTH - pageSize.x) / 2, SCREEN_HEIGHT - 30}, 16, 1, COLOR_TEXT_DIM);
+    DrawTextEx(gridFont, pageStr, (Vector2){(SCREEN_WIDTH - pageSize.x) / 2, SCREEN_HEIGHT - 30}, 16, 1, GRID_TEXT_SECONDARY);
 }
 
 // ============================================================================
