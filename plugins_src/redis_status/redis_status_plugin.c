@@ -36,7 +36,7 @@ typedef struct {
     bool reconnectButtonHover;
     float reconnectFeedbackTimer;
     bool reconnectSuccess;
-    // Restart Janus button state
+    // Restart Mercury button state
     bool restartButtonHover;
     float restartFeedbackTimer;
     bool restartSuccess;
@@ -138,7 +138,7 @@ static Rectangle GetReconnectButtonRect(void)
     };
 }
 
-// Get restart janus button rectangle
+// Get restart mercury button rectangle
 static Rectangle GetRestartButtonRect(void)
 {
     return (Rectangle){
@@ -190,18 +190,18 @@ static void PluginUpdate(const LlzInputState *input, float deltaTime)
     g_state.restartButtonHover = false;
 
     if (input && input->tap) {
-        // Reconnect button - sends Redis signal to janus
+        // Reconnect button - sends Redis signal to mercury
         if (CheckCollisionPointRec(input->tapPosition, reconnectBtn)) {
             bool success = LlzMediaRequestBLEReconnect();
             printf("[REDIS_STATUS] BLE reconnect request %s\n", success ? "sent" : "failed");
             g_state.reconnectSuccess = success;
             g_state.reconnectFeedbackTimer = 2.0f;
         }
-        // Restart Janus button - fully restarts the service
+        // Restart Mercury button - fully restarts the service
         else if (CheckCollisionPointRec(input->tapPosition, restartBtn)) {
-            printf("[REDIS_STATUS] Restarting janus service...\n");
+            printf("[REDIS_STATUS] Restarting mercury service...\n");
             bool success = LlzMediaRestartBLEService();
-            printf("[REDIS_STATUS] Janus restart %s\n", success ? "initiated" : "failed");
+            printf("[REDIS_STATUS] Mercury restart %s\n", success ? "initiated" : "failed");
             g_state.restartSuccess = success;
             g_state.restartFeedbackTimer = 2.0f;
         }
@@ -227,10 +227,10 @@ static void DrawHeader(void)
     // Connection indicators on right side (3 indicators now)
     float indicatorX = g_screenWidth - RS_SPACING_MD - 180;
 
-    // Janus service status
-    bool janusOk = LlzMediaIsBLEServiceRunning();
-    LlzDrawText("Janus", (int)indicatorX, 12, 14, RS_TEXT_MUTED);
-    DrawStatusIndicator(indicatorX + 55, 20, janusOk);
+    // Mercury service status
+    bool mercuryOk = LlzMediaIsBLEServiceRunning();
+    LlzDrawText("Mercury", (int)indicatorX, 12, 14, RS_TEXT_MUTED);
+    DrawStatusIndicator(indicatorX + 65, 20, mercuryOk);
 
     // Redis connection
     indicatorX += 70;
@@ -425,7 +425,7 @@ static void DrawRestartButton(void)
     if (g_state.restartFeedbackTimer > 0.0f) {
         btnText = g_state.restartSuccess ? "Restarting..." : "Failed";
     } else {
-        btnText = "Restart Janus";
+        btnText = "Restart Mercury";
     }
 
     int textWidth = LlzMeasureText(btnText, 16);

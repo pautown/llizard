@@ -637,9 +637,9 @@ bool LlzMediaRequestBLEReconnect(void)
 bool LlzMediaIsBLEServiceRunning(void)
 {
 #ifdef PLATFORM_DRM
-    // Use runit sv status to check if janus service is running
+    // Use runit sv status to check if mercury service is running
     // sv status returns 0 if service is running, non-zero otherwise
-    int result = system("sv status janus > /dev/null 2>&1");
+    int result = system("sv status mercury > /dev/null 2>&1");
     return (result == 0);
 #else
     // On desktop, assume service is always "running" (development mode)
@@ -650,8 +650,8 @@ bool LlzMediaIsBLEServiceRunning(void)
 bool LlzMediaRestartBLEService(void)
 {
 #ifdef PLATFORM_DRM
-    // Use runit sv restart to restart the janus service
-    int result = system("sv restart janus");
+    // Use runit sv restart to restart the mercury service
+    int result = system("sv restart mercury");
     return (result == 0);
 #else
     // On desktop, just return true (no service to restart)

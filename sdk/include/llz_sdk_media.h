@@ -110,12 +110,12 @@ const char *LlzMediaGenerateArtHash(const char *artist, const char *album);
 // Returns true if request was sent successfully
 bool LlzMediaRequestBLEReconnect(void);
 
-// Check if BLE service (janus) is running
+// Check if BLE service (mercury) is running
 // Uses runit sv status command on DRM platform
 // Returns true if service is running, false otherwise
 bool LlzMediaIsBLEServiceRunning(void);
 
-// Restart BLE service (janus) via runit
+// Restart BLE service (mercury) via runit
 // Uses sv restart command on DRM platform
 // Returns true if restart command was executed successfully
 bool LlzMediaRestartBLEService(void);
