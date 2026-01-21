@@ -82,6 +82,10 @@ sshpass -p "$CARTHING_PASS" ssh -o StrictHostKeyChecking=no "$CARTHING_USER@$CAR
 echo -e "${YELLOW}Copying main executable...${NC}"
 sshpass -p "$CARTHING_PASS" scp -o StrictHostKeyChecking=no llizardgui-host "$CARTHING_USER@$CARTHING_IP:/tmp/"
 
+# Also copy to permanent location for the service
+echo -e "${YELLOW}Installing to /usr/bin/llizardGUI...${NC}"
+sshpass -p "$CARTHING_PASS" ssh -o StrictHostKeyChecking=no "$CARTHING_USER@$CARTHING_IP" "cp /tmp/llizardgui-host /usr/bin/llizardGUI && chmod +x /usr/bin/llizardGUI"
+
 # Deploy all plugins
 echo -e "${YELLOW}Copying plugins...${NC}"
 for plugin in *.so; do
