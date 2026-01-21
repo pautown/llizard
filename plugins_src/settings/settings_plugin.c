@@ -3,8 +3,10 @@
 #include "raylib.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <dirent.h>
 
 // Screen dimensions
 static int g_screenWidth = 800;
@@ -19,7 +21,13 @@ typedef enum {
 
 static SettingsMode g_mode = MODE_NAVIGATE;
 static int g_selectedItem = 0;
-#define MENU_ITEM_COUNT 3
+#define MENU_ITEM_COUNT 4
+
+// Startup plugin selection state
+#define MAX_STARTUP_OPTIONS 32
+static char g_startupOptions[MAX_STARTUP_OPTIONS][64];
+static int g_startupOptionCount = 0;
+static int g_selectedStartupIndex = 0;  // 0 = Menu, 1+ = plugins
 
 // Smooth scroll state (like main host)
 static float g_scrollOffset = 0.0f;
@@ -125,6 +133,78 @@ static float EaseOutBack(float t) {
 
 static float EaseInOutQuad(float t) {
     return t < 0.5f ? 2.0f * t * t : 1.0f - powf(-2.0f * t + 2.0f, 2.0f) / 2.0f;
+}
+
+// ============================================================================
+// Startup Plugin Discovery
+// ============================================================================
+static void ScanAvailablePlugins(void) {
+    g_startupOptionCount = 1;  // First option is always "Menu"
+    strncpy(g_startupOptions[0], "Menu", sizeof(g_startupOptions[0]) - 1);
+
+    // Get the plugins directory path
+    const char *workingDir = GetWorkingDirectory();
+    char pluginDir[512];
+    snprintf(pluginDir, sizeof(pluginDir), "%s/plugins", workingDir ? workingDir : ".");
+
+    DIR *dir = opendir(pluginDir);
+    if (!dir) {
+        printf("Settings: Could not open plugins directory: %s\n", pluginDir);
+        return;
+    }
+
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL && g_startupOptionCount < MAX_STARTUP_OPTIONS) {
+        // Skip . and ..
+        if (entry->d_name[0] == '.') continue;
+
+        // Check for .so extension
+        size_t len = strlen(entry->d_name);
+        if (len > 3 && strcmp(entry->d_name + len - 3, ".so") == 0) {
+            // Extract plugin name (remove .so extension)
+            char pluginName[64];
+            strncpy(pluginName, entry->d_name, len - 3);
+            pluginName[len - 3] = '\0';
+
+            // Convert to display name (capitalize first letter)
+            if (pluginName[0] >= 'a' && pluginName[0] <= 'z') {
+                pluginName[0] -= 32;
+            }
+
+            // Replace underscores with spaces
+            for (int i = 0; pluginName[i]; i++) {
+                if (pluginName[i] == '_') pluginName[i] = ' ';
+            }
+
+            strncpy(g_startupOptions[g_startupOptionCount], pluginName,
+                    sizeof(g_startupOptions[0]) - 1);
+            g_startupOptionCount++;
+        }
+    }
+
+    closedir(dir);
+    printf("Settings: Found %d startup options\n", g_startupOptionCount);
+}
+
+static int FindStartupOptionIndex(const char *pluginName) {
+    if (!pluginName || pluginName[0] == '\0') {
+        return 0;  // Menu
+    }
+
+    for (int i = 1; i < g_startupOptionCount; i++) {
+        if (strcasecmp(g_startupOptions[i], pluginName) == 0) {
+            return i;
+        }
+    }
+
+    return 0;  // Not found, default to Menu
+}
+
+static const char *GetStartupPluginNameForConfig(int index) {
+    if (index <= 0 || index >= g_startupOptionCount) {
+        return "";  // Menu (empty string)
+    }
+    return g_startupOptions[index];
 }
 
 // ============================================================================
@@ -383,6 +463,39 @@ static void DrawSettingCard(int index, const char *title, const char *descriptio
             LlzDrawText("select to toggle", (int)textX, (int)textY + 52, 12, COLOR_TEXT_HINT);
         }
     } else if (index == 2) {
+        // Startup Plugin selector
+        const char *startupName = g_startupOptions[g_selectedStartupIndex];
+        Color startupColor = editing ? COLOR_ACCENT_BRIGHT : (selected ? COLOR_ACCENT : COLOR_TEXT_SECONDARY);
+        int startupWidth = LlzMeasureText(startupName, LLZ_FONT_SIZE_NORMAL);
+
+        // Draw selection badge
+        float badgeWidth = startupWidth + 24;
+        float badgeX = controlEndX - badgeWidth;
+        Rectangle badgeRect = {badgeX, controlY - 14, badgeWidth, 28};
+
+        if (editing) {
+            // Pulsing glow when editing
+            float pulse = 0.5f + 0.3f * sinf(g_animTime * 4.0f);
+            Color glowColor = COLOR_ACCENT;
+            glowColor.a = (unsigned char)(60 * pulse);
+            DrawRectangleRounded((Rectangle){badgeX - 4, controlY - 18, badgeWidth + 8, 36}, 0.4f, 8, glowColor);
+        }
+
+        DrawRectangleRounded(badgeRect, 0.4f, 8, editing ? COLOR_ACCENT_SOFT : (Color){45, 45, 60, 200});
+        LlzDrawText(startupName, (int)(badgeX + 12), (int)controlY - 9, LLZ_FONT_SIZE_NORMAL, startupColor);
+
+        // Navigation arrows when editing
+        if (editing) {
+            LlzDrawText("<", (int)(badgeX - 20), (int)controlY - 9, LLZ_FONT_SIZE_NORMAL, COLOR_TEXT_SECONDARY);
+            LlzDrawText(">", (int)(controlEndX + 8), (int)controlY - 9, LLZ_FONT_SIZE_NORMAL, COLOR_TEXT_SECONDARY);
+        }
+
+        if (selected && !editing) {
+            LlzDrawText("select to change", (int)textX, (int)textY + 52, 12, COLOR_TEXT_HINT);
+        } else if (editing) {
+            LlzDrawText("scroll to cycle options", (int)textX, (int)textY + 52, 12, COLOR_TEXT_HINT);
+        }
+    } else if (index == 3) {
         // Restart
         const char *restartText = "Tap or select";
         Color restartColor = selected ? COLOR_DANGER : COLOR_TEXT_SECONDARY;
@@ -585,17 +698,22 @@ static void PluginInit(int width, int height) {
     // Initialize media for lyrics
     LlzMediaInit(NULL);
 
+    // Scan for available plugins (for startup selector)
+    ScanAvailablePlugins();
+
     // Load config
     const LlzConfig *config = LlzConfigGet();
     g_isAutoBrightness = (config->brightness == LLZ_BRIGHTNESS_AUTO);
     g_pendingBrightness = g_isAutoBrightness ? 80 : config->brightness;
     g_lyricsEnabled = LlzLyricsIsEnabled();
     g_toggleAnim = g_lyricsEnabled ? 1.0f : 0.0f;
+    g_selectedStartupIndex = FindStartupOptionIndex(LlzConfigGetStartupPlugin());
     g_hasChanges = false;
 
-    printf("Settings plugin initialized (brightness=%s%d, lyrics=%s)\n",
+    printf("Settings plugin initialized (brightness=%s%d, lyrics=%s, startup=%s)\n",
            g_isAutoBrightness ? "AUTO/" : "", g_pendingBrightness,
-           g_lyricsEnabled ? "ON" : "OFF");
+           g_lyricsEnabled ? "ON" : "OFF",
+           g_startupOptions[g_selectedStartupIndex]);
 }
 
 static Rectangle GetMenuItemBounds(int index) {
@@ -718,9 +836,9 @@ static void PluginUpdate(const LlzInputState *hostInput, float deltaTime) {
             g_targetScrollOffset = CalculateTargetScroll(g_selectedItem);
         }
 
-        // Select button enters edit mode (or activates for restart)
+        // Select button enters edit mode (or activates for restart/toggle)
         if (input->selectPressed || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE)) {
-            if (g_selectedItem == 2) {
+            if (g_selectedItem == 3) {
                 // Restart - open confirmation
                 g_restartConfirmActive = true;
                 g_restartSwipeProgress = 0.0f;
@@ -730,8 +848,8 @@ static void PluginUpdate(const LlzInputState *hostInput, float deltaTime) {
                 g_lyricsEnabled = !g_lyricsEnabled;
                 g_hasChanges = true;
                 LlzLyricsSetEnabled(g_lyricsEnabled);
-            } else {
-                // Brightness - enter edit mode
+            } else if (g_selectedItem == 0 || g_selectedItem == 2) {
+                // Brightness or Startup Plugin - enter edit mode
                 g_mode = MODE_EDIT;
             }
         }
@@ -751,11 +869,11 @@ static void PluginUpdate(const LlzInputState *hostInput, float deltaTime) {
                             g_lyricsEnabled = !g_lyricsEnabled;
                             g_hasChanges = true;
                             LlzLyricsSetEnabled(g_lyricsEnabled);
-                        } else if (i == 2) {
+                        } else if (i == 3) {
                             g_restartConfirmActive = true;
                             g_restartSwipeProgress = 0.0f;
                             g_restartPulseAnim = 0.0f;
-                        } else {
+                        } else if (i == 0 || i == 2) {
                             g_mode = MODE_EDIT;
                         }
                     }
@@ -793,6 +911,14 @@ static void PluginUpdate(const LlzInputState *hostInput, float deltaTime) {
                 } else {
                     LlzConfigSetBrightness(g_pendingBrightness);
                 }
+            } else if (g_selectedItem == 2) {
+                // Startup Plugin - cycle through options
+                int delta = (input->scrollDelta > 0) ? 1 : -1;
+                g_selectedStartupIndex += delta;
+                if (g_selectedStartupIndex < 0) g_selectedStartupIndex = g_startupOptionCount - 1;
+                if (g_selectedStartupIndex >= g_startupOptionCount) g_selectedStartupIndex = 0;
+                g_hasChanges = true;
+                LlzConfigSetStartupPlugin(GetStartupPluginNameForConfig(g_selectedStartupIndex));
             }
         }
 
@@ -819,6 +945,14 @@ static void PluginUpdate(const LlzInputState *hostInput, float deltaTime) {
             } else {
                 LlzConfigSetBrightness(g_pendingBrightness);
             }
+        } else if (g_selectedItem == 2 && (leftPressed || rightPressed)) {
+            // Startup Plugin - cycle with arrow keys
+            int delta = rightPressed ? 1 : -1;
+            g_selectedStartupIndex += delta;
+            if (g_selectedStartupIndex < 0) g_selectedStartupIndex = g_startupOptionCount - 1;
+            if (g_selectedStartupIndex >= g_startupOptionCount) g_selectedStartupIndex = 0;
+            g_hasChanges = true;
+            LlzConfigSetStartupPlugin(GetStartupPluginNameForConfig(g_selectedStartupIndex));
         }
 
         // Select or back exits edit mode
@@ -855,10 +989,11 @@ static void PluginDraw(void) {
         bool selected = (i == g_selectedItem);
         bool editing = selected && (g_mode == MODE_EDIT);
 
-        const char *titles[] = {"Brightness", "Lyrics", "Restart Device"};
+        const char *titles[] = {"Brightness", "Lyrics", "Startup Screen", "Restart Device"};
         const char *descriptions[] = {
             g_isAutoBrightness ? "Auto-adjusts based on ambient light" : "Manual brightness control",
             "Show synchronized lyrics during playback",
+            "Plugin to launch on boot",
             "Reboot the CarThing"
         };
 
@@ -874,9 +1009,10 @@ static void PluginDraw(void) {
 static void PluginShutdown(void) {
     if (g_hasChanges) {
         LlzConfigSave();
-        printf("Settings saved: brightness=%s%d, lyrics=%s\n",
+        printf("Settings saved: brightness=%s%d, lyrics=%s, startup=%s\n",
                g_isAutoBrightness ? "AUTO/" : "", g_pendingBrightness,
-               g_lyricsEnabled ? "ON" : "OFF");
+               g_lyricsEnabled ? "ON" : "OFF",
+               g_startupOptions[g_selectedStartupIndex]);
     }
     g_wantsClose = false;
     g_restartConfirmActive = false;

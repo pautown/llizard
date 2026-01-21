@@ -17,6 +17,20 @@
 #define MENU_PADDING_TOP 120
 #define MENU_VISIBLE_AREA (SCREEN_HEIGHT - MENU_PADDING_TOP)
 
+// Menu navigation styles
+typedef enum {
+    MENU_STYLE_LIST = 0,      // Classic vertical list (current)
+    MENU_STYLE_CAROUSEL,      // Apple Music inspired horizontal carousel
+    MENU_STYLE_CARDS,         // Spotify inspired large card view
+    MENU_STYLE_COUNT
+} MenuScrollStyle;
+
+static const char *g_styleNames[] = {
+    "List",
+    "Carousel",
+    "Cards"
+};
+
 // Color palette
 static const Color COLOR_BG_DARK = {18, 18, 22, 255};
 static const Color COLOR_BG_GRADIENT = {28, 24, 38, 255};
@@ -32,6 +46,13 @@ static const Color COLOR_CARD_BORDER = {60, 55, 80, 255};
 // Smooth scroll state
 static float g_scrollOffset = 0.0f;
 static float g_targetScrollOffset = 0.0f;
+
+// Menu style state
+static MenuScrollStyle g_menuStyle = MENU_STYLE_LIST;
+static float g_carouselOffset = 0.0f;       // Horizontal offset for carousel
+static float g_carouselTarget = 0.0f;       // Target offset for smooth animation
+static float g_styleIndicatorAlpha = 0.0f;  // Fade for style indicator
+static float g_styleIndicatorTimer = 0.0f;  // Timer for indicator visibility
 
 // Plugin refresh state
 #define PLUGIN_REFRESH_INTERVAL 2.0f  // Check for changes every 2 seconds
@@ -167,6 +188,70 @@ static void UpdateScroll(float deltaTime)
     }
 }
 
+// Update carousel horizontal scroll
+static void UpdateCarouselScroll(float deltaTime)
+{
+    float diff = g_carouselTarget - g_carouselOffset;
+    float speed = 10.0f;
+
+    g_carouselOffset += diff * speed * deltaTime;
+
+    if (fabsf(diff) < 0.5f) {
+        g_carouselOffset = g_carouselTarget;
+    }
+}
+
+// Cycle to next menu style
+static void CycleMenuStyle(void)
+{
+    g_menuStyle = (g_menuStyle + 1) % MENU_STYLE_COUNT;
+    g_styleIndicatorAlpha = 1.0f;
+    g_styleIndicatorTimer = 2.0f;  // Show indicator for 2 seconds
+    printf("Menu style: %s\n", g_styleNames[g_menuStyle]);
+}
+
+// Update style indicator fade
+static void UpdateStyleIndicator(float deltaTime)
+{
+    if (g_styleIndicatorTimer > 0.0f) {
+        g_styleIndicatorTimer -= deltaTime;
+        if (g_styleIndicatorTimer <= 0.5f) {
+            // Fade out in last 0.5 seconds
+            g_styleIndicatorAlpha = g_styleIndicatorTimer / 0.5f;
+        }
+    } else {
+        g_styleIndicatorAlpha = 0.0f;
+    }
+}
+
+// Draw style indicator overlay
+static void DrawStyleIndicator(void)
+{
+    if (g_styleIndicatorAlpha <= 0.0f) return;
+
+    const char *styleName = g_styleNames[g_menuStyle];
+
+    // Background pill
+    float fontSize = 24;
+    Vector2 textSize = MeasureTextEx(g_menuFont, styleName, fontSize, 1);
+    float pillWidth = textSize.x + 40;
+    float pillHeight = 44;
+    float pillX = (SCREEN_WIDTH - pillWidth) / 2;
+    float pillY = SCREEN_HEIGHT - 70;
+
+    Color bgColor = ColorAlpha(COLOR_BG_DARK, 0.9f * g_styleIndicatorAlpha);
+    Color borderColor = ColorAlpha(COLOR_ACCENT, 0.6f * g_styleIndicatorAlpha);
+    Color textColor = ColorAlpha(COLOR_TEXT_PRIMARY, g_styleIndicatorAlpha);
+
+    Rectangle pill = {pillX, pillY, pillWidth, pillHeight};
+    DrawRectangleRounded(pill, 0.5f, 8, bgColor);
+    DrawRectangleRoundedLines(pill, 0.5f, 8, borderColor);
+
+    DrawTextEx(g_menuFont, styleName,
+               (Vector2){pillX + 20, pillY + (pillHeight - fontSize) / 2},
+               fontSize, 1, textColor);
+}
+
 static void DrawMenuBackground(void)
 {
     if (LlzBackgroundIsEnabled()) {
@@ -185,23 +270,11 @@ static void DrawMenuBackground(void)
     }
 }
 
-static void DrawPluginMenu(const PluginRegistry *registry, int selected, float deltaTime)
+// Draw menu header (shared across styles)
+static void DrawMenuHeader(const PluginRegistry *registry, int selected, Color dynamicAccent, Color complementary)
 {
-    DrawMenuBackground();
-
-    // Get dynamic accent color from background palette
-    const LlzBackgroundPalette *palette = LlzBackgroundGetPalette();
-    Color dynamicAccent = palette ? palette->colors[1] : COLOR_ACCENT;
-    Color dynamicAccentDim = ColorAlpha(dynamicAccent, 0.6f);
-
-    // Calculate complementary color (opposite hue) like nowplaying volume bar
-    Color primaryColor = palette ? palette->colors[0] : COLOR_ACCENT;
-    Vector3 hsv = ColorToHSV(primaryColor);
-    float compHue = fmodf(hsv.x + 180.0f, 360.0f);
-    Color complementary = ColorFromHSV(compHue, fminf(hsv.y * 0.8f, 0.7f), fminf(hsv.z + 0.2f, 0.9f));
-
     // Header
-    DrawTextEx(g_menuFont, "llizardgui", (Vector2){MENU_PADDING_X, 28}, 38, 2, COLOR_TEXT_PRIMARY);
+    DrawTextEx(g_menuFont, "llizardOS", (Vector2){MENU_PADDING_X, 28}, 38, 2, COLOR_TEXT_PRIMARY);
 
     // Selected plugin name in top right (if plugins exist) - uses complementary color
     if (registry && registry->count > 0 && selected >= 0 && selected < registry->count) {
@@ -220,7 +293,261 @@ static void DrawPluginMenu(const PluginRegistry *registry, int selected, float d
     // Instruction text
     const char *instructions = "scroll to navigate • select to launch";
     DrawTextEx(g_menuFont, instructions, (Vector2){MENU_PADDING_X, 88}, 16, 1, COLOR_TEXT_DIM);
+}
 
+// ============================================================================
+// CAROUSEL STYLE - Apple Music inspired horizontal cover flow
+// ============================================================================
+
+#define CAROUSEL_ITEM_WIDTH 280
+#define CAROUSEL_ITEM_HEIGHT 200
+#define CAROUSEL_CENTER_Y (SCREEN_HEIGHT / 2 + 20)
+#define CAROUSEL_SPACING 40
+
+static void DrawPluginMenuCarousel(const PluginRegistry *registry, int selected, float deltaTime,
+                                   Color dynamicAccent, Color dynamicAccentDim)
+{
+    if (!registry || registry->count == 0) {
+        DrawTextEx(g_menuFont, "No plugins found", (Vector2){MENU_PADDING_X, MENU_PADDING_TOP + 40}, 24, 1, COLOR_TEXT_SECONDARY);
+        DrawTextEx(g_menuFont, "Place .so files in ./plugins", (Vector2){MENU_PADDING_X, MENU_PADDING_TOP + 70}, 18, 1, COLOR_TEXT_DIM);
+        return;
+    }
+
+    // Update carousel scroll to center on selected item
+    float itemSpacing = CAROUSEL_ITEM_WIDTH + CAROUSEL_SPACING;
+    g_carouselTarget = selected * itemSpacing;
+    UpdateCarouselScroll(deltaTime);
+
+    float centerX = SCREEN_WIDTH / 2.0f;
+
+    // Draw items with perspective scaling
+    for (int i = 0; i < registry->count; i++) {
+        // Calculate horizontal position relative to center
+        float itemCenterX = i * itemSpacing - g_carouselOffset + centerX;
+        float distFromCenter = fabsf(itemCenterX - centerX);
+
+        // Skip items too far off screen
+        if (itemCenterX < -CAROUSEL_ITEM_WIDTH || itemCenterX > SCREEN_WIDTH + CAROUSEL_ITEM_WIDTH) continue;
+
+        // Scale and alpha based on distance from center (Apple Music cover flow effect)
+        float maxDist = SCREEN_WIDTH / 2.0f;
+        float normalizedDist = fminf(distFromCenter / maxDist, 1.0f);
+
+        // Center item is full size, others shrink
+        float scale = 1.0f - normalizedDist * 0.35f;
+        float alpha = 1.0f - normalizedDist * 0.6f;
+
+        // 3D-ish perspective: items offset vertically as they move away
+        float yOffset = normalizedDist * 30.0f;
+
+        bool isSelected = (i == selected);
+
+        // Calculate card dimensions with scale
+        float cardWidth = CAROUSEL_ITEM_WIDTH * scale;
+        float cardHeight = CAROUSEL_ITEM_HEIGHT * scale;
+        float cardX = itemCenterX - cardWidth / 2.0f;
+        float cardY = CAROUSEL_CENTER_Y - cardHeight / 2.0f + yOffset;
+
+        Rectangle cardRect = {cardX, cardY, cardWidth, cardHeight};
+
+        // Card background with depth shadow
+        if (scale > 0.7f) {
+            Color shadowColor = ColorAlpha(BLACK, 0.3f * alpha);
+            Rectangle shadowRect = {cardX + 8, cardY + 8, cardWidth, cardHeight};
+            DrawRectangleRounded(shadowRect, 0.12f, 8, shadowColor);
+        }
+
+        Color cardBg = isSelected ? COLOR_CARD_SELECTED : COLOR_CARD_BG;
+        Color borderColor = isSelected ? dynamicAccent : COLOR_CARD_BORDER;
+
+        DrawRectangleRounded(cardRect, 0.12f, 8, ColorAlpha(cardBg, alpha));
+        DrawRectangleRoundedLines(cardRect, 0.12f, 8, ColorAlpha(borderColor, alpha * (isSelected ? 0.8f : 0.3f)));
+
+        // Selection glow ring for center item
+        if (isSelected && normalizedDist < 0.1f) {
+            Rectangle glowRect = {cardX - 4, cardY - 4, cardWidth + 8, cardHeight + 8};
+            DrawRectangleRoundedLines(glowRect, 0.12f, 8, ColorAlpha(dynamicAccent, 0.4f));
+        }
+
+        // Plugin icon placeholder (large centered circle)
+        float iconRadius = cardHeight * 0.25f;
+        float iconY = cardY + cardHeight * 0.35f;
+        DrawCircle((int)(cardX + cardWidth / 2), (int)iconY, iconRadius, ColorAlpha(dynamicAccentDim, alpha * 0.4f));
+        DrawCircleLines((int)(cardX + cardWidth / 2), (int)iconY, iconRadius, ColorAlpha(dynamicAccent, alpha * 0.6f));
+
+        // First letter as icon
+        if (registry->items[i].displayName[0]) {
+            char initial[2] = {registry->items[i].displayName[0], '\0'};
+            float initialSize = iconRadius * 1.2f;
+            Vector2 initialDim = MeasureTextEx(g_menuFont, initial, initialSize, 1);
+            DrawTextEx(g_menuFont, initial,
+                      (Vector2){cardX + cardWidth / 2 - initialDim.x / 2, iconY - initialDim.y / 2},
+                      initialSize, 1, ColorAlpha(COLOR_TEXT_PRIMARY, alpha));
+        }
+
+        // Plugin name below icon
+        float fontSize = 20 * scale;
+        if (fontSize > 12) {
+            Vector2 nameSize = MeasureTextEx(g_menuFont, registry->items[i].displayName, fontSize, 1);
+            float nameX = cardX + (cardWidth - nameSize.x) / 2;
+            float nameY = cardY + cardHeight * 0.7f;
+            Color nameColor = isSelected ? COLOR_TEXT_PRIMARY : COLOR_TEXT_SECONDARY;
+            DrawTextEx(g_menuFont, registry->items[i].displayName,
+                      (Vector2){nameX, nameY}, fontSize, 1, ColorAlpha(nameColor, alpha));
+        }
+
+        // Description for selected item only
+        if (isSelected && registry->items[i].api && registry->items[i].api->description) {
+            float descFontSize = 14;
+            const char *desc = registry->items[i].api->description;
+            Vector2 descSize = MeasureTextEx(g_menuFont, desc, descFontSize, 1);
+            float descX = cardX + (cardWidth - descSize.x) / 2;
+            float descY = cardY + cardHeight * 0.85f;
+            DrawTextEx(g_menuFont, desc, (Vector2){descX, descY}, descFontSize, 1,
+                      ColorAlpha(COLOR_TEXT_DIM, alpha));
+        }
+    }
+
+    // Navigation dots at bottom
+    float dotY = CAROUSEL_CENTER_Y + CAROUSEL_ITEM_HEIGHT / 2 + 50;
+    float totalDotsWidth = registry->count * 16;
+    float dotStartX = (SCREEN_WIDTH - totalDotsWidth) / 2;
+
+    for (int i = 0; i < registry->count; i++) {
+        float dotX = dotStartX + i * 16 + 4;
+        Color dotColor = (i == selected) ? dynamicAccent : ColorAlpha(COLOR_TEXT_DIM, 0.4f);
+        float dotRadius = (i == selected) ? 5.0f : 3.0f;
+        DrawCircle((int)dotX, (int)dotY, dotRadius, dotColor);
+    }
+}
+
+// ============================================================================
+// CARDS STYLE - Spotify inspired large single-card view
+// ============================================================================
+
+static void DrawPluginMenuCards(const PluginRegistry *registry, int selected,
+                                Color dynamicAccent, Color complementary)
+{
+    if (!registry || registry->count == 0) {
+        DrawTextEx(g_menuFont, "No plugins found", (Vector2){MENU_PADDING_X, MENU_PADDING_TOP + 40}, 24, 1, COLOR_TEXT_SECONDARY);
+        DrawTextEx(g_menuFont, "Place .so files in ./plugins", (Vector2){MENU_PADDING_X, MENU_PADDING_TOP + 70}, 18, 1, COLOR_TEXT_DIM);
+        return;
+    }
+
+    // Large card dimensions - fills most of the screen
+    float cardWidth = SCREEN_WIDTH - 80;
+    float cardHeight = 280;
+    float cardX = 40;
+    float cardY = MENU_PADDING_TOP + 20;
+
+    // Main card background with gradient
+    Rectangle cardRect = {cardX, cardY, cardWidth, cardHeight};
+
+    // Spotify-style gradient background on card
+    Color gradientTop = ColorAlpha(dynamicAccent, 0.15f);
+    Color gradientBottom = COLOR_CARD_BG;
+    DrawRectangleGradientV((int)cardX, (int)cardY, (int)cardWidth, (int)cardHeight, gradientTop, gradientBottom);
+    DrawRectangleRoundedLines(cardRect, 0.05f, 8, ColorAlpha(dynamicAccent, 0.3f));
+
+    // Large plugin icon/initial on the left side
+    float iconSize = 160;
+    float iconX = cardX + 40;
+    float iconY = cardY + (cardHeight - iconSize) / 2;
+
+    // Icon background circle
+    DrawCircle((int)(iconX + iconSize / 2), (int)(iconY + iconSize / 2), iconSize / 2 + 4, ColorAlpha(dynamicAccent, 0.2f));
+    DrawCircle((int)(iconX + iconSize / 2), (int)(iconY + iconSize / 2), iconSize / 2, COLOR_CARD_SELECTED);
+
+    // Large initial letter
+    if (registry->items[selected].displayName[0]) {
+        char initial[2] = {registry->items[selected].displayName[0], '\0'};
+        float initialSize = iconSize * 0.6f;
+        Vector2 initialDim = MeasureTextEx(g_menuFont, initial, initialSize, 1);
+        DrawTextEx(g_menuFont, initial,
+                  (Vector2){iconX + iconSize / 2 - initialDim.x / 2, iconY + iconSize / 2 - initialDim.y / 2},
+                  initialSize, 1, dynamicAccent);
+    }
+
+    // Plugin info on the right side
+    float textX = iconX + iconSize + 40;
+
+    // Large plugin name
+    DrawTextEx(g_menuFont, registry->items[selected].displayName,
+              (Vector2){textX, cardY + 50}, 42, 2, COLOR_TEXT_PRIMARY);
+
+    // Description
+    if (registry->items[selected].api && registry->items[selected].api->description) {
+        DrawTextEx(g_menuFont, registry->items[selected].api->description,
+                  (Vector2){textX, cardY + 105}, 20, 1, COLOR_TEXT_SECONDARY);
+    }
+
+    // Plugin index badge
+    char indexStr[32];
+    snprintf(indexStr, sizeof(indexStr), "Plugin %d of %d", selected + 1, registry->count);
+    DrawTextEx(g_menuFont, indexStr, (Vector2){textX, cardY + 150}, 16, 1, COLOR_TEXT_DIM);
+
+    // "Press select to launch" hint
+    DrawTextEx(g_menuFont, "Press SELECT to launch",
+              (Vector2){textX, cardY + cardHeight - 60}, 18, 1, complementary);
+
+    // Previous/Next preview cards (smaller, on sides)
+    float previewWidth = 140;
+    float previewHeight = 100;
+    float previewY = cardY + cardHeight + 30;
+
+    // Previous plugin preview (if exists)
+    if (selected > 0) {
+        int prevIdx = selected - 1;
+        Rectangle prevRect = {40, previewY, previewWidth, previewHeight};
+        DrawRectangleRounded(prevRect, 0.1f, 6, ColorAlpha(COLOR_CARD_BG, 0.6f));
+        DrawRectangleRoundedLines(prevRect, 0.1f, 6, ColorAlpha(COLOR_CARD_BORDER, 0.3f));
+
+        // Arrow and name
+        DrawTextEx(g_menuFont, "◀", (Vector2){50, previewY + 15}, 24, 1, COLOR_TEXT_DIM);
+        DrawTextEx(g_menuFont, registry->items[prevIdx].displayName,
+                  (Vector2){50, previewY + 50}, 16, 1, COLOR_TEXT_SECONDARY);
+    }
+
+    // Next plugin preview (if exists)
+    if (selected < registry->count - 1) {
+        int nextIdx = selected + 1;
+        float nextX = SCREEN_WIDTH - 40 - previewWidth;
+        Rectangle nextRect = {nextX, previewY, previewWidth, previewHeight};
+        DrawRectangleRounded(nextRect, 0.1f, 6, ColorAlpha(COLOR_CARD_BG, 0.6f));
+        DrawRectangleRoundedLines(nextRect, 0.1f, 6, ColorAlpha(COLOR_CARD_BORDER, 0.3f));
+
+        // Arrow and name (right-aligned)
+        Vector2 arrowSize = MeasureTextEx(g_menuFont, "▶", 24, 1);
+        DrawTextEx(g_menuFont, "▶", (Vector2){nextX + previewWidth - arrowSize.x - 10, previewY + 15}, 24, 1, COLOR_TEXT_DIM);
+
+        Vector2 nameSize = MeasureTextEx(g_menuFont, registry->items[nextIdx].displayName, 16, 1);
+        float nameX = nextX + previewWidth - nameSize.x - 10;
+        DrawTextEx(g_menuFont, registry->items[nextIdx].displayName,
+                  (Vector2){nameX, previewY + 50}, 16, 1, COLOR_TEXT_SECONDARY);
+    }
+
+    // Progress bar at bottom showing position
+    float barWidth = SCREEN_WIDTH - 160;
+    float barX = 80;
+    float barY = SCREEN_HEIGHT - 30;
+    float barHeight = 4;
+
+    DrawRectangleRounded((Rectangle){barX, barY, barWidth, barHeight}, 0.5f, 4, ColorAlpha(COLOR_CARD_BORDER, 0.3f));
+
+    // Progress indicator
+    float progress = (float)selected / (float)(registry->count - 1 > 0 ? registry->count - 1 : 1);
+    float indicatorWidth = barWidth / registry->count;
+    float indicatorX = barX + progress * (barWidth - indicatorWidth);
+    DrawRectangleRounded((Rectangle){indicatorX, barY, indicatorWidth, barHeight}, 0.5f, 4, dynamicAccent);
+}
+
+// ============================================================================
+// LIST STYLE - Classic vertical scrolling list (original)
+// ============================================================================
+
+static void DrawPluginMenuList(const PluginRegistry *registry, int selected, float deltaTime,
+                               Color dynamicAccent, Color dynamicAccentDim)
+{
     if (!registry || registry->count == 0) {
         DrawTextEx(g_menuFont, "No plugins found", (Vector2){MENU_PADDING_X, MENU_PADDING_TOP + 40}, 24, 1, COLOR_TEXT_SECONDARY);
         DrawTextEx(g_menuFont, "Place .so files in ./plugins", (Vector2){MENU_PADDING_X, MENU_PADDING_TOP + 70}, 18, 1, COLOR_TEXT_DIM);
@@ -330,6 +657,58 @@ static void DrawPluginMenu(const PluginRegistry *registry, int selected, float d
               16, 1, COLOR_TEXT_DIM);
 }
 
+// ============================================================================
+// MAIN MENU DISPATCHER
+// ============================================================================
+
+static void DrawPluginMenu(const PluginRegistry *registry, int selected, float deltaTime)
+{
+    DrawMenuBackground();
+
+    // Get dynamic accent color from background palette
+    const LlzBackgroundPalette *palette = LlzBackgroundGetPalette();
+    Color dynamicAccent = palette ? palette->colors[1] : COLOR_ACCENT;
+    Color dynamicAccentDim = ColorAlpha(dynamicAccent, 0.6f);
+
+    // Calculate complementary color (opposite hue) like nowplaying volume bar
+    Color primaryColor = palette ? palette->colors[0] : COLOR_ACCENT;
+    Vector3 hsv = ColorToHSV(primaryColor);
+    float compHue = fmodf(hsv.x + 180.0f, 360.0f);
+    Color complementary = ColorFromHSV(compHue, fminf(hsv.y * 0.8f, 0.7f), fminf(hsv.z + 0.2f, 0.9f));
+
+    // Update style indicator animation
+    UpdateStyleIndicator(deltaTime);
+
+    // Draw header (shared across all styles except cards which has its own layout)
+    if (g_menuStyle != MENU_STYLE_CARDS) {
+        DrawMenuHeader(registry, selected, dynamicAccent, complementary);
+    }
+
+    // Dispatch to appropriate style renderer
+    switch (g_menuStyle) {
+        case MENU_STYLE_LIST:
+            DrawPluginMenuList(registry, selected, deltaTime, dynamicAccent, dynamicAccentDim);
+            break;
+
+        case MENU_STYLE_CAROUSEL:
+            DrawPluginMenuCarousel(registry, selected, deltaTime, dynamicAccent, dynamicAccentDim);
+            break;
+
+        case MENU_STYLE_CARDS:
+            // Cards style has its own header in the card design
+            DrawMenuHeader(registry, selected, dynamicAccent, complementary);
+            DrawPluginMenuCards(registry, selected, dynamicAccent, complementary);
+            break;
+
+        default:
+            DrawPluginMenuList(registry, selected, deltaTime, dynamicAccent, dynamicAccentDim);
+            break;
+    }
+
+    // Draw style indicator overlay (shows when style changes)
+    DrawStyleIndicator();
+}
+
 int main(void)
 {
     // Initialize config system first (before display for brightness)
@@ -361,6 +740,64 @@ int main(void)
     bool runningPlugin = false;
     LoadedPlugin *active = NULL;
     int lastPluginIndex = -1;  // Track last opened plugin for quick reopen
+
+    // Check for startup plugin configuration
+    if (LlzConfigHasStartupPlugin() && registry.count > 0) {
+        const char *startupName = LlzConfigGetStartupPlugin();
+        int startupIndex = -1;
+
+        // Find the plugin by name (check displayName, api->name, and filename)
+        for (int i = 0; i < registry.count; i++) {
+            // Check exact match on displayName or api->name
+            if (strcmp(registry.items[i].displayName, startupName) == 0 ||
+                (registry.items[i].api && registry.items[i].api->name &&
+                 strcmp(registry.items[i].api->name, startupName) == 0)) {
+                startupIndex = i;
+                break;
+            }
+
+            // Also check case-insensitive match (settings plugin may capitalize differently)
+            if (strcasecmp(registry.items[i].displayName, startupName) == 0 ||
+                (registry.items[i].api && registry.items[i].api->name &&
+                 strcasecmp(registry.items[i].api->name, startupName) == 0)) {
+                startupIndex = i;
+                break;
+            }
+
+            // Check against filename (e.g., "nowplaying.so" -> "nowplaying")
+            // Settings plugin generates names from filenames, so this helps match
+            const char *path = registry.items[i].path;
+            const char *filename = strrchr(path, '/');
+            filename = filename ? filename + 1 : path;
+            char baseName[64] = {0};
+            const char *dot = strrchr(filename, '.');
+            size_t baseLen = dot ? (size_t)(dot - filename) : strlen(filename);
+            if (baseLen < sizeof(baseName)) {
+                strncpy(baseName, filename, baseLen);
+                // Capitalize first letter for comparison
+                if (baseName[0] >= 'a' && baseName[0] <= 'z') {
+                    baseName[0] -= 32;
+                }
+                if (strcasecmp(baseName, startupName) == 0) {
+                    startupIndex = i;
+                    break;
+                }
+            }
+        }
+
+        if (startupIndex >= 0) {
+            printf("Launching startup plugin: %s\n", startupName);
+            selectedIndex = startupIndex;
+            lastPluginIndex = startupIndex;
+            active = &registry.items[startupIndex];
+            if (active->api && active->api->init) {
+                active->api->init(SCREEN_WIDTH, SCREEN_HEIGHT);
+            }
+            runningPlugin = true;
+        } else {
+            printf("Startup plugin '%s' not found, showing menu\n", startupName);
+        }
+    }
 
     LlzInputState inputState;
 
@@ -438,6 +875,11 @@ int main(void)
             // Cycle background style with screenshot button (or button4)
             if (inputState.screenshotPressed || inputState.button4Pressed) {
                 LlzBackgroundCycleNext();
+            }
+
+            // Cycle menu navigation style with button3 release (display mode button)
+            if (inputState.button3Pressed) {
+                CycleMenuStyle();
             }
 
             // Back button release reopens last plugin

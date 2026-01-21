@@ -12,7 +12,8 @@
 // Global config state
 static LlzConfig g_config = {
     .brightness = DEFAULT_BRIGHTNESS,
-    .rotation = DEFAULT_ROTATION
+    .rotation = DEFAULT_ROTATION,
+    .startup_plugin = ""
 };
 static bool g_initialized = false;
 static char g_configPath[512] = {0};
@@ -125,6 +126,11 @@ static bool LoadConfig(void) {
                 g_config.rotation = (LlzRotation)val;
                 printf("[CONFIG] Loaded rotation=%d\n", g_config.rotation);
             }
+        } else if (strcmp(key, "startup_plugin") == 0) {
+            strncpy(g_config.startup_plugin, value, LLZ_STARTUP_PLUGIN_MAX_LEN - 1);
+            g_config.startup_plugin[LLZ_STARTUP_PLUGIN_MAX_LEN - 1] = '\0';
+            printf("[CONFIG] Loaded startup_plugin=%s\n",
+                   g_config.startup_plugin[0] ? g_config.startup_plugin : "(menu)");
         }
     }
 
@@ -153,6 +159,7 @@ static bool SaveConfig(void) {
         fprintf(file, "brightness=%d\n", g_config.brightness);
     }
     fprintf(file, "rotation=%d\n", g_config.rotation);
+    fprintf(file, "startup_plugin=%s\n", g_config.startup_plugin);
 
     fclose(file);
     printf("[CONFIG] Configuration saved to %s\n", path);
@@ -167,13 +174,15 @@ bool LlzConfigInit(void) {
     // Set defaults
     g_config.brightness = DEFAULT_BRIGHTNESS;
     g_config.rotation = DEFAULT_ROTATION;
+    g_config.startup_plugin[0] = '\0';
 
     // Try to load from file
     LoadConfig();
 
     g_initialized = true;
-    printf("[CONFIG] Config system initialized (brightness=%d, rotation=%d)\n",
-           g_config.brightness, g_config.rotation);
+    printf("[CONFIG] Config system initialized (brightness=%d, rotation=%d, startup=%s)\n",
+           g_config.brightness, g_config.rotation,
+           g_config.startup_plugin[0] ? g_config.startup_plugin : "menu");
 
     // Apply brightness on startup
     LlzConfigApplyBrightness();
@@ -337,6 +346,36 @@ bool LlzConfigSetRotation(LlzRotation rotation) {
     printf("[CONFIG] Rotation set to %d\n", rotation);
 
     return SaveConfig();
+}
+
+const char *LlzConfigGetStartupPlugin(void) {
+    return g_config.startup_plugin;
+}
+
+bool LlzConfigSetStartupPlugin(const char *pluginName) {
+    const char *newValue = (pluginName && pluginName[0]) ? pluginName : "";
+
+    // Check if value changed
+    if (strcmp(g_config.startup_plugin, newValue) == 0) {
+        return true;  // No change needed
+    }
+
+    // Update the value
+    if (newValue[0]) {
+        strncpy(g_config.startup_plugin, newValue, LLZ_STARTUP_PLUGIN_MAX_LEN - 1);
+        g_config.startup_plugin[LLZ_STARTUP_PLUGIN_MAX_LEN - 1] = '\0';
+    } else {
+        g_config.startup_plugin[0] = '\0';
+    }
+
+    printf("[CONFIG] Startup plugin set to: %s\n",
+           g_config.startup_plugin[0] ? g_config.startup_plugin : "(menu)");
+
+    return SaveConfig();
+}
+
+bool LlzConfigHasStartupPlugin(void) {
+    return g_config.startup_plugin[0] != '\0';
 }
 
 bool LlzConfigReload(void) {

@@ -23,12 +23,23 @@ typedef enum {
 #define LLZ_BRIGHTNESS_AUTO (-1)
 
 /**
+ * Special value for startup_plugin meaning no specific plugin (show menu).
+ */
+#define LLZ_STARTUP_MENU ""
+
+/**
+ * Maximum length for startup plugin name.
+ */
+#define LLZ_STARTUP_PLUGIN_MAX_LEN 64
+
+/**
  * Global configuration structure accessible to all plugins.
  * Changes are automatically persisted to the config file.
  */
 typedef struct {
-    int brightness;         // 0-100 percent, or LLZ_BRIGHTNESS_AUTO for auto mode
-    LlzRotation rotation;   // Screen rotation
+    int brightness;                              // 0-100 percent, or LLZ_BRIGHTNESS_AUTO for auto mode
+    LlzRotation rotation;                        // Screen rotation
+    char startup_plugin[LLZ_STARTUP_PLUGIN_MAX_LEN];  // Plugin to launch on boot (empty = show menu)
 } LlzConfig;
 
 /**
@@ -112,6 +123,26 @@ LlzRotation LlzConfigGetRotation(void);
  * @return true if saved successfully
  */
 bool LlzConfigSetRotation(LlzRotation rotation);
+
+/**
+ * Get the startup plugin name.
+ * @return Plugin name, or empty string "" if set to show menu
+ */
+const char *LlzConfigGetStartupPlugin(void);
+
+/**
+ * Set the startup plugin and save to config file.
+ * Pass NULL or empty string to set to menu (no startup plugin).
+ * @param pluginName Name of the plugin to launch on boot
+ * @return true if saved successfully
+ */
+bool LlzConfigSetStartupPlugin(const char *pluginName);
+
+/**
+ * Check if a startup plugin is configured.
+ * @return true if a startup plugin is set (not menu)
+ */
+bool LlzConfigHasStartupPlugin(void);
 
 /**
  * Force reload configuration from file.
