@@ -1765,6 +1765,7 @@ static LlzPluginAPI g_api = {
     .shutdown = PluginShutdown,
     .wants_close = PluginWantsClose,
     .handles_back_button = true,  // Plugin handles back for hierarchical navigation
+    .category = LLZ_CATEGORY_MEDIA
 };
 
 const LlzPluginAPI *LlzGetPlugin(void) {

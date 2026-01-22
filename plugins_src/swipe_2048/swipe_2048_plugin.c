@@ -877,7 +877,8 @@ static LlzPluginAPI g_api = {
     .update = PluginUpdate,
     .draw = PluginDraw,
     .shutdown = PluginShutdown,
-    .wants_close = PluginWantsClose
+    .wants_close = PluginWantsClose,
+    .category = LLZ_CATEGORY_GAMES
 };
 
 const LlzPluginAPI *LlzGetPlugin(void)

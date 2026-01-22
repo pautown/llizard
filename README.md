@@ -118,25 +118,38 @@ supporting_projects/salamanders/
 
 **Deploy Flow:** `build-deploy-carthing.sh` copies `plugins/{plugin}/questions/` → `/tmp/{plugin}/questions/` on CarThing.
 
+## Plugin Categories
+
+Plugins are organized into categories for menu organization:
+
+| Category | Description |
+|----------|-------------|
+| `LLZ_CATEGORY_MEDIA` | Music, podcasts, videos, album art viewers |
+| `LLZ_CATEGORY_UTILITIES` | Settings, system tools, plugin manager |
+| `LLZ_CATEGORY_GAMES` | All games and entertainment |
+| `LLZ_CATEGORY_INFO` | Clocks, weather, status displays |
+| `LLZ_CATEGORY_DEBUG` | Development and debugging tools |
+
 ## Available Plugins
 
-| Plugin | Description |
-|--------|-------------|
-| **Now Playing** | Now playing screen with clock overlay and theming |
-| **Lyrics** | Display synced lyrics for current track |
-| **Podcasts** | Browse podcasts and episodes |
-| **Album Art Viewer** | Browse cached album art |
-| **Media Channels** | Browse and switch between media channels |
-| **Clock** | Modern clock with multiple styles |
-| **Settings** | System settings - brightness, lyrics |
-| **Redis Status** | Displays Redis/MediaDash state |
-| **Swipe 2048** | Touch-friendly 2048 clone with swipe + hardware input |
-| **LLZ Blocks** | Block-stacking puzzle with Marathon, Sprint, Ultra & Zen modes |
-| **LLZ Solipskier** | Draw snow lines for a skier to ride! |
-| **Bejeweled** | Match-3 puzzle game with particle effects and animations |
-| **Millionaire** | Who Wants to Be a Millionaire trivia game |
-| **Flashcards** | Multiple choice quiz tester |
-| **Cauldron Cascade** | Gold becoming aware of itself becoming gold |
+| Plugin | Category | Description |
+|--------|----------|-------------|
+| **Now Playing** | Media | Now playing screen with clock overlay and theming |
+| **Lyrics** | Media | Display synced lyrics for current track |
+| **Podcasts** | Media | Browse podcasts and episodes |
+| **Album Art Viewer** | Media | Browse cached album art |
+| **Media Channels** | Media | Browse and switch between media channels |
+| **Clock** | Info | Modern clock with multiple styles |
+| **Settings** | Utilities | System settings - brightness, lyrics |
+| **Redis Status** | Debug | Displays Redis/MediaDash state |
+| **Swipe 2048** | Games | Touch-friendly 2048 clone with swipe + hardware input |
+| **LLZ Blocks** | Games | Block-stacking puzzle with Marathon, Sprint, Ultra & Zen modes |
+| **LLZ Solipskier** | Games | Draw snow lines for a skier to ride! |
+| **Bejeweled** | Games | Match-3 puzzle game with particle effects and animations |
+| **Millionaire** | Games | Who Wants to Be a Millionaire trivia game |
+| **Flashcards** | Games | Multiple choice quiz tester |
+| **Cauldron Cascade** | Games | Gold becoming aware of itself becoming gold |
+| **LLZ Survivors** | Games | Arena survival - dodge enemies, collect XP, upgrade! |
 
 ## SDK Overview
 
@@ -217,7 +230,8 @@ static LlzPluginAPI api = {
     .update = PluginUpdate,
     .draw = PluginDraw,
     .shutdown = PluginShutdown,
-    .wants_close = NULL
+    .wants_close = NULL,
+    .category = LLZ_CATEGORY_UTILITIES  // Required: MEDIA, UTILITIES, GAMES, INFO, or DEBUG
 };
 
 const LlzPluginAPI *LlzGetPlugin(void) { return &api; }

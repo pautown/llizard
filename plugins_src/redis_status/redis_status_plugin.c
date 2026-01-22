@@ -498,7 +498,8 @@ static LlzPluginAPI g_plugin = {
     .update = PluginUpdate,
     .draw = PluginDraw,
     .shutdown = PluginShutdown,
-    .wants_close = PluginWantsClose
+    .wants_close = PluginWantsClose,
+    .category = LLZ_CATEGORY_DEBUG
 };
 
 const LlzPluginAPI *LlzGetPlugin(void)

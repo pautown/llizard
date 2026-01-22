@@ -1356,7 +1356,8 @@ static LlzPluginAPI g_plugin = {
     .update = PluginUpdate,
     .draw = PluginDraw,
     .shutdown = PluginShutdown,
-    .wants_close = PluginClose
+    .wants_close = PluginClose,
+    .category = LLZ_CATEGORY_GAMES
 };
 
 LlzPluginAPI* LlzGetPlugin(void) { return &g_plugin; }

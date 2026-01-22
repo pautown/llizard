@@ -316,6 +316,34 @@ add_custom_command(TARGET settings_plugin POST_BUILD
     COMMENT "Copying settings plugin to runtime plugins directory"
 )
 
+# ===== Plugin Manager Plugin =====
+set(PLUGIN_MANAGER_SOURCES
+    plugins_src/plugin_manager/plugin_manager_plugin.c
+)
+
+add_library(plugin_manager_plugin SHARED ${PLUGIN_MANAGER_SOURCES})
+set_target_properties(plugin_manager_plugin PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+target_include_directories(plugin_manager_plugin PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/external/raylib/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/sdk/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/plugins_src
+)
+
+target_link_libraries(plugin_manager_plugin llz_sdk ${CMAKE_DL_LIBS})
+
+set_target_properties(plugin_manager_plugin PROPERTIES
+    PREFIX ""
+    OUTPUT_NAME "plugin_manager"
+)
+
+add_custom_command(TARGET plugin_manager_plugin POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/plugins
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:plugin_manager_plugin> ${CMAKE_CURRENT_SOURCE_DIR}/plugins/
+    COMMENT "Copying plugin_manager plugin to runtime plugins directory"
+)
+
 # ===== Media Channels Plugin =====
 set(MEDIA_CHANNELS_PLUGIN_SOURCES
     plugins_src/media_channels/media_channels_plugin.c
@@ -552,4 +580,34 @@ add_custom_command(TARGET bejeweled_plugin POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/plugins
     COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:bejeweled_plugin> ${CMAKE_CURRENT_SOURCE_DIR}/plugins/
     COMMENT "Copying bejeweled plugin to runtime plugins directory"
+)
+
+# ===== LLZ Survivors Plugin =====
+set(LLZSURVIVORS_PLUGIN_SOURCES
+    plugins_src/llzsurvivors/llzsurvivors_plugin.c
+    plugins_src/llzsurvivors/llzsurvivors_game.c
+)
+
+add_library(llzsurvivors_plugin SHARED ${LLZSURVIVORS_PLUGIN_SOURCES})
+set_target_properties(llzsurvivors_plugin PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+target_include_directories(llzsurvivors_plugin PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/external/raylib/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/sdk/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/plugins_src
+    ${CMAKE_CURRENT_SOURCE_DIR}/plugins_src/llzsurvivors
+)
+
+target_link_libraries(llzsurvivors_plugin llz_sdk)
+
+set_target_properties(llzsurvivors_plugin PROPERTIES
+    PREFIX ""
+    OUTPUT_NAME "llzsurvivors"
+)
+
+add_custom_command(TARGET llzsurvivors_plugin POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/plugins
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:llzsurvivors_plugin> ${CMAKE_CURRENT_SOURCE_DIR}/plugins/
+    COMMENT "Copying llzsurvivors plugin to runtime plugins directory"
 )
