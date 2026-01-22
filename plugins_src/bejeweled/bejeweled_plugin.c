@@ -74,9 +74,9 @@ static const Color GEM_COLORS_DARK[] = {
 #define ANIM_REMOVE_SPEED   8.0f
 #define ANIM_SPAWN_SPEED    6.0f
 
-/* Particle system */
-#define MAX_PARTICLES       256
-#define PARTICLE_LIFE       0.8f
+/* Particle system - optimized for performance */
+#define MAX_PARTICLES       96
+#define PARTICLE_LIFE       0.6f
 
 /* Score popups */
 #define MAX_SCORE_POPUPS    16
@@ -171,8 +171,94 @@ static int g_lightningCenterY = 0;
 static Vector2 g_lightningPoints[LIGHTNING_SEGMENTS + 1];
 
 /* ============================================================================
+ * ENHANCED VISUAL SYSTEM - Background, Combos, Effects
+ * ============================================================================ */
+
+/* Background star field - reduced for performance */
+#define MAX_BG_STARS 12
+typedef struct {
+    Vector2 pos;
+    float depth;
+    float brightness;
+    float twinklePhase;
+    float size;
+} BackgroundStar;
+static BackgroundStar g_bgStars[MAX_BG_STARS];
+
+/* Background animation state */
+static float g_bgPulseIntensity = 0.0f;
+static float g_bgGridOffset = 0.0f;
+static float g_cascadeFlashTimer = 0.0f;
+static Color g_cascadeFlashColor = {0, 0, 0, 0};
+
+/* Combo announcement system */
+#define MAX_COMBO_ANNOUNCEMENTS 3
+typedef struct {
+    char text[32];
+    float x, y;
+    float life;
+    float maxLife;
+    float scale;
+    float rotation;
+    Color color;
+    bool active;
+} ComboAnnouncement;
+static ComboAnnouncement g_comboAnnouncements[MAX_COMBO_ANNOUNCEMENTS];
+static int g_lastCascadeLevel = 0;
+
+/* Animated score display */
+static int g_displayScore = 0;
+static float g_scoreAnimTimer = 0.0f;
+static float g_scorePulse = 0.0f;
+static int g_previousLevel = 1;
+
+/* Level up celebration */
+static bool g_levelUpActive = false;
+static float g_levelUpTimer = 0.0f;
+static int g_levelUpLevel = 0;
+
+/* Screen flash effect */
+static float g_screenFlashTimer = 0.0f;
+static Color g_screenFlashColor = {255, 255, 255, 0};
+
+/* Combo tier definitions */
+static const char* COMBO_TEXTS[] = {
+    "",           /* 0 - unused */
+    "",           /* 1 - no combo */
+    "COMBO!",     /* 2 */
+    "EXCELLENT!", /* 3 */
+    "FANTASTIC!", /* 4 */
+    "INCREDIBLE!",/* 5 */
+    "LEGENDARY!", /* 6 */
+    "GODLIKE!"    /* 7+ */
+};
+
+static const Color COMBO_COLORS[] = {
+    {255, 255, 255, 255},  /* 0 */
+    {255, 255, 255, 255},  /* 1 */
+    {255, 215, 0, 255},    /* 2 - Gold */
+    {50, 255, 50, 255},    /* 3 - Green */
+    {0, 200, 255, 255},    /* 4 - Cyan */
+    {255, 100, 255, 255},  /* 5 - Magenta */
+    {255, 50, 50, 255},    /* 6 - Red */
+    {255, 255, 255, 255}   /* 7+ - White (rainbow) */
+};
+
+/* ============================================================================
  * HELPER FUNCTIONS
  * ============================================================================ */
+
+static float EaseInOutCubic(float t) {
+    return t < 0.5f ? 4.0f * t * t * t : 1.0f - powf(-2.0f * t + 2.0f, 3.0f) / 2.0f;
+}
+
+static float EaseOutBounce(float t) {
+    float n1 = 7.5625f, d1 = 2.75f;
+    if (t < 1.0f / d1) return n1 * t * t;
+    if (t < 2.0f / d1) { t -= 1.5f / d1; return n1 * t * t + 0.75f; }
+    if (t < 2.5f / d1) { t -= 2.25f / d1; return n1 * t * t + 0.9375f; }
+    t -= 2.625f / d1; return n1 * t * t + 0.984375f;
+}
 
 static float Lerp(float a, float b, float t) {
     return a + (b - a) * t;
@@ -262,11 +348,9 @@ static void SpawnMatchParticles(int x, int y, int gemType) {
     GridToScreen(x, y, &sx, &sy);
 
     Color baseColor = GEM_COLORS_BASE[gemType];
-    Color lightColor = GEM_COLORS_LIGHT[gemType];
 
-    /* Spawn colorful burst */
-    SpawnParticles(sx, sy, baseColor, 8);
-    SpawnParticles(sx, sy, lightColor, 4);
+    /* Spawn simple burst - reduced for performance */
+    SpawnParticles(sx, sy, baseColor, 4);
     SpawnParticles(sx, sy, WHITE, 2);
 }
 
@@ -300,14 +384,10 @@ static void DrawParticles(void) {
         Color color = p->color;
         color.a = (unsigned char)(color.a * lifeRatio);
 
-        /* Draw as rotated diamond/star shape */
+        /* Simple circle drawing - much faster than polys */
         Vector2 pos = {p->pos.x + g_shakeOffset.x, p->pos.y + g_shakeOffset.y};
-        DrawPoly(pos, 4, p->size * lifeRatio, p->rotation, color);
-
-        /* Glow effect */
-        Color glow = color;
-        glow.a = (unsigned char)(glow.a * 0.3f);
-        DrawPoly(pos, 4, p->size * lifeRatio * 1.5f, p->rotation, glow);
+        float size = p->size * lifeRatio;
+        DrawCircleV(pos, size, color);
     }
 }
 
@@ -705,6 +785,292 @@ static void DrawHintHighlight(int x1, int y1, int x2, int y2) {
 }
 
 /* ============================================================================
+ * ANIMATED BACKGROUND SYSTEM
+ * ============================================================================ */
+
+static void InitBackgroundStars(void) {
+    for (int i = 0; i < MAX_BG_STARS; i++) {
+        g_bgStars[i].pos = (Vector2){
+            (float)GetRandomValue(0, g_screenWidth),
+            (float)GetRandomValue(0, g_screenHeight)
+        };
+        g_bgStars[i].depth = 0.3f + (float)GetRandomValue(0, 100) / 100.0f * 0.7f;
+        g_bgStars[i].brightness = 0.3f + (float)GetRandomValue(0, 100) / 100.0f * 0.7f;
+        g_bgStars[i].twinklePhase = (float)GetRandomValue(0, 628) / 100.0f;
+        g_bgStars[i].size = 1.0f + (float)GetRandomValue(0, 100) / 100.0f * 1.5f;
+    }
+}
+
+static void DrawAnimatedBackground(void) {
+    /* Simple gradient - fewer iterations for performance */
+    float pulse = g_bgPulseIntensity * sinf(g_animTimer * 2.0f);
+    Color topColor = {
+        (unsigned char)(15 + pulse * 15),
+        (unsigned char)(15 + pulse * 8),
+        (unsigned char)(25 + pulse * 20),
+        255
+    };
+    Color bottomColor = {
+        (unsigned char)(25 + pulse * 10),
+        (unsigned char)(20 + pulse * 5),
+        (unsigned char)(40 + pulse * 15),
+        255
+    };
+
+    /* Draw gradient with just 4 bands instead of many lines */
+    for (int i = 0; i < 4; i++) {
+        float t = (float)i / 4.0f;
+        Color bandColor = LerpColor(topColor, bottomColor, t);
+        DrawRectangle(0, i * g_screenHeight / 4, g_screenWidth, g_screenHeight / 4 + 1, bandColor);
+    }
+
+    /* Simplified grid - larger spacing, fewer lines */
+    Color gridColor = {40, 45, 60, (unsigned char)(30 + g_bgPulseIntensity * 20)};
+    int gridSize = 80;
+    float gridOffset = fmodf(g_bgGridOffset, (float)gridSize);
+
+    for (int x = (int)(-gridOffset); x < g_screenWidth + gridSize; x += gridSize) {
+        DrawLineV((Vector2){(float)x, 0}, (Vector2){(float)x, (float)g_screenHeight}, gridColor);
+    }
+    for (int y = 0; y < g_screenHeight; y += gridSize) {
+        DrawLineV((Vector2){0, (float)y}, (Vector2){(float)g_screenWidth, (float)y}, gridColor);
+    }
+
+    /* Simple twinkling stars - no glow layer */
+    for (int i = 0; i < MAX_BG_STARS; i++) {
+        BackgroundStar *star = &g_bgStars[i];
+        float driftX = fmodf(star->pos.x + g_bgGridOffset * (1.0f - star->depth) * 0.1f, (float)g_screenWidth);
+        float twinkle = (sinf(g_animTimer * 2.5f + star->twinklePhase) + 1.0f) * 0.5f;
+        float finalBrightness = star->brightness * (0.5f + twinkle * 0.5f);
+
+        Color starCore = {255, 255, 255, (unsigned char)(200 * finalBrightness)};
+        DrawCircle((int)driftX, (int)star->pos.y, star->size, starCore);
+    }
+
+    /* Cascade flash overlay */
+    if (g_cascadeFlashTimer > 0) {
+        Color flashColor = g_cascadeFlashColor;
+        flashColor.a = (unsigned char)(g_cascadeFlashTimer * 50);
+        DrawRectangle(0, 0, g_screenWidth, g_screenHeight, flashColor);
+    }
+}
+
+static void TriggerCascadeFlash(int cascadeLevel) {
+    g_cascadeFlashTimer = 0.4f;
+    if (cascadeLevel >= 5) {
+        g_cascadeFlashColor = (Color){255, 100, 50, 255};  /* Hot orange */
+    } else if (cascadeLevel >= 3) {
+        g_cascadeFlashColor = (Color){50, 255, 100, 255};  /* Lime green */
+    } else {
+        g_cascadeFlashColor = (Color){100, 150, 255, 255}; /* Cool blue */
+    }
+    g_bgPulseIntensity = fminf(1.0f, g_bgPulseIntensity + 0.3f);
+}
+
+/* ============================================================================
+ * COMBO ANNOUNCEMENT SYSTEM
+ * ============================================================================ */
+
+static void SpawnComboAnnouncement(int comboLevel) {
+    if (comboLevel < 2) return;
+
+    /* Find inactive slot */
+    for (int i = 0; i < MAX_COMBO_ANNOUNCEMENTS; i++) {
+        if (!g_comboAnnouncements[i].active) {
+            ComboAnnouncement *ann = &g_comboAnnouncements[i];
+            ann->active = true;
+            ann->life = 0.0f;
+            ann->maxLife = 1.5f + (comboLevel >= 5 ? 0.5f : 0.0f);
+
+            /* Text based on combo level */
+            int textIdx = (comboLevel > 7) ? 7 : comboLevel;
+            snprintf(ann->text, sizeof(ann->text), "%s", COMBO_TEXTS[textIdx]);
+
+            /* Position - center of board with slight randomness */
+            ann->x = g_boardX + g_boardSize / 2.0f + (float)GetRandomValue(-30, 30);
+            ann->y = g_boardY + g_boardSize / 2.0f - 50;
+
+            /* Visual properties based on combo level */
+            ann->scale = 1.0f + (comboLevel - 2) * 0.15f;
+            ann->rotation = (float)GetRandomValue(-10, 10);
+            ann->color = COMBO_COLORS[textIdx];
+
+            /* Rainbow effect for max combo */
+            if (comboLevel >= 7) {
+                ann->color = (Color){255, 255, 255, 255};
+            }
+            break;
+        }
+    }
+}
+
+static void UpdateComboAnnouncements(float dt) {
+    for (int i = 0; i < MAX_COMBO_ANNOUNCEMENTS; i++) {
+        ComboAnnouncement *ann = &g_comboAnnouncements[i];
+        if (!ann->active) continue;
+
+        ann->life += dt;
+        if (ann->life >= ann->maxLife) {
+            ann->active = false;
+        } else {
+            /* Float upward */
+            ann->y -= dt * 30.0f;
+            /* Wobble rotation */
+            ann->rotation = sinf(ann->life * 8.0f) * 5.0f;
+        }
+    }
+}
+
+static void DrawComboAnnouncements(void) {
+    for (int i = 0; i < MAX_COMBO_ANNOUNCEMENTS; i++) {
+        ComboAnnouncement *ann = &g_comboAnnouncements[i];
+        if (!ann->active) continue;
+
+        float progress = ann->life / ann->maxLife;
+
+        /* Scale animation: bounce in, then shrink out */
+        float scaleAnim;
+        if (progress < 0.2f) {
+            scaleAnim = EaseOutBack(progress / 0.2f) * ann->scale;
+        } else if (progress > 0.7f) {
+            scaleAnim = ann->scale * (1.0f - (progress - 0.7f) / 0.3f);
+        } else {
+            scaleAnim = ann->scale;
+        }
+
+        /* Alpha: fade in fast, hold, fade out */
+        float alpha;
+        if (progress < 0.1f) {
+            alpha = progress / 0.1f;
+        } else if (progress > 0.8f) {
+            alpha = 1.0f - (progress - 0.8f) / 0.2f;
+        } else {
+            alpha = 1.0f;
+        }
+
+        int fontSize = (int)(36 * scaleAnim);
+        if (fontSize < 8) continue;
+
+        Vector2 textSize = MeasureTextEx(g_font, ann->text, (float)fontSize, 1);
+        float tx = ann->x - textSize.x / 2.0f;
+        float ty = ann->y - textSize.y / 2.0f;
+
+        /* Rainbow effect for high combos */
+        Color textColor = ann->color;
+        if (ann->color.r == 255 && ann->color.g == 255 && ann->color.b == 255) {
+            float hue = fmodf(g_animTimer * 150.0f + i * 60, 360.0f);
+            textColor = ColorFromHSV(hue, 0.8f, 1.0f);
+        }
+        textColor.a = (unsigned char)(255 * alpha);
+
+        /* Simple shadow - just one draw call */
+        Color shadowColor = {0, 0, 0, (unsigned char)(150 * alpha)};
+        DrawTextEx(g_font, ann->text, (Vector2){tx + 2, ty + 2}, (float)fontSize, 1, shadowColor);
+
+        /* Main text */
+        DrawTextEx(g_font, ann->text, (Vector2){tx, ty}, (float)fontSize, 1, textColor);
+    }
+}
+
+/* ============================================================================
+ * LEVEL UP CELEBRATION
+ * ============================================================================ */
+
+static void TriggerLevelUpCelebration(int level) {
+    g_levelUpActive = true;
+    g_levelUpTimer = 0.0f;
+    g_levelUpLevel = level;
+    g_screenFlashTimer = 0.4f;
+    g_screenFlashColor = (Color){100, 200, 255, 255};
+
+    /* Spawn celebration particles - reduced for performance */
+    for (int i = 0; i < 16; i++) {
+        float angle = (float)i / 16.0f * PI * 2.0f;
+        float speed = 180.0f + (float)GetRandomValue(0, 100);
+        float cx = g_boardX + g_boardSize / 2.0f;
+        float cy = g_boardY + g_boardSize / 2.0f;
+
+        /* Find a free particle slot */
+        for (int p = 0; p < MAX_PARTICLES; p++) {
+            if (g_particles[p].life <= 0) {
+                g_particles[p].pos = (Vector2){cx, cy};
+                g_particles[p].vel = (Vector2){cosf(angle) * speed, sinf(angle) * speed - 100};
+                g_particles[p].color = ColorFromHSV((float)i * 9.0f, 0.8f, 1.0f);
+                g_particles[p].life = 1.5f;
+                g_particles[p].maxLife = 1.5f;
+                g_particles[p].size = 6.0f + (float)GetRandomValue(0, 8);
+                g_particles[p].rotation = (float)GetRandomValue(0, 360);
+                g_particles[p].rotSpeed = (float)GetRandomValue(-200, 200);
+                g_particleCount++;
+                break;
+            }
+        }
+    }
+}
+
+static void UpdateLevelUpCelebration(float dt) {
+    if (!g_levelUpActive) return;
+
+    g_levelUpTimer += dt;
+    if (g_levelUpTimer >= 2.0f) {
+        g_levelUpActive = false;
+    }
+}
+
+static void DrawLevelUpCelebration(void) {
+    if (!g_levelUpActive) return;
+
+    float progress = g_levelUpTimer / 2.0f;  /* Shorter duration */
+
+    /* Scale animation */
+    float scale;
+    if (progress < 0.15f) {
+        scale = EaseOutBack(progress / 0.15f);
+    } else if (progress > 0.75f) {
+        scale = 1.0f - (progress - 0.75f) / 0.25f;
+    } else {
+        scale = 1.0f;
+    }
+
+    /* Alpha */
+    float alpha;
+    if (progress < 0.1f) {
+        alpha = progress / 0.1f;
+    } else if (progress > 0.8f) {
+        alpha = 1.0f - (progress - 0.8f) / 0.2f;
+    } else {
+        alpha = 1.0f;
+    }
+
+    /* Center of screen */
+    float cx = g_screenWidth / 2.0f;
+    float cy = g_screenHeight / 2.0f - 30;
+
+    /* Simple background glow - just one circle */
+    Color glowColor = {100, 200, 255, (unsigned char)(60 * alpha)};
+    DrawCircle((int)cx, (int)cy, 120 * scale, glowColor);
+
+    /* Level up text */
+    char levelText[32];
+    snprintf(levelText, sizeof(levelText), "LEVEL %d!", g_levelUpLevel);
+
+    int fontSize = (int)(44 * scale);
+    Vector2 textSize = MeasureTextEx(g_font, levelText, (float)fontSize, 1);
+    float tx = cx - textSize.x / 2.0f;
+    float ty = cy - textSize.y / 2.0f;
+
+    /* Simple gold color with subtle pulse */
+    float pulse = sinf(g_animTimer * 6.0f) * 0.15f + 0.85f;
+    Color textColor = {255, (unsigned char)(200 * pulse), 50, (unsigned char)(255 * alpha)};
+
+    /* Shadow */
+    DrawTextEx(g_font, levelText, (Vector2){tx + 2, ty + 2}, (float)fontSize, 1, (Color){0, 0, 0, (unsigned char)(180 * alpha)});
+
+    /* Main text */
+    DrawTextEx(g_font, levelText, (Vector2){tx, ty}, (float)fontSize, 1, textColor);
+}
+
+/* ============================================================================
  * BOARD RENDERING
  * ============================================================================ */
 
@@ -796,21 +1162,52 @@ static void DrawBoard(void) {
  * ============================================================================ */
 
 static void DrawHUD(void) {
-    /* Score panel on left */
-    Rectangle scorePanel = {16, 16, 160, 140};
-    DrawRectangleRounded(scorePanel, 0.1f, 12, COLOR_BOARD_BG);
+    /* Score panel on left with subtle glow */
+    Rectangle scorePanel = {16, 16, 160, 160};
 
-    /* Score */
+    /* Panel glow when score is animating */
+    if (g_scorePulse > 0.1f) {
+        Color panelGlow = {255, 215, 0, (unsigned char)(40 * g_scorePulse)};
+        DrawRectangleRounded((Rectangle){scorePanel.x - 4, scorePanel.y - 4,
+                            scorePanel.width + 8, scorePanel.height + 8}, 0.1f, 12, panelGlow);
+    }
+    DrawRectangleRounded(scorePanel, 0.1f, 12, COLOR_BOARD_BG);
+    DrawRectangleRoundedLines(scorePanel, 0.1f, 12, (Color){60, 65, 80, 255});
+
+    /* Score with animated counter */
     DrawTextEx(g_font, "SCORE", (Vector2){scorePanel.x + 16, scorePanel.y + 12}, 18, 1, COLOR_TEXT_MUTED);
     char scoreText[32];
-    snprintf(scoreText, sizeof(scoreText), "%d", GetScore());
-    DrawTextEx(g_font, scoreText, (Vector2){scorePanel.x + 16, scorePanel.y + 34}, 32, 1, COLOR_TEXT);
+    snprintf(scoreText, sizeof(scoreText), "%d", g_displayScore);
 
-    /* Level */
+    /* Pulse effect on score change */
+    float scoreFontSize = 32 + g_scorePulse * 4;
+    Color scoreColor = LerpColor(COLOR_TEXT, COLOR_HIGHLIGHT, g_scorePulse);
+    DrawTextEx(g_font, scoreText, (Vector2){scorePanel.x + 16, scorePanel.y + 32}, scoreFontSize, 1, scoreColor);
+
+    /* Level with progress bar */
     DrawTextEx(g_font, "LEVEL", (Vector2){scorePanel.x + 16, scorePanel.y + 76}, 18, 1, COLOR_TEXT_MUTED);
     char levelText[32];
     snprintf(levelText, sizeof(levelText), "%d", GetLevel());
-    DrawTextEx(g_font, levelText, (Vector2){scorePanel.x + 16, scorePanel.y + 98}, 28, 1, COLOR_TEXT);
+    DrawTextEx(g_font, levelText, (Vector2){scorePanel.x + 16, scorePanel.y + 96}, 28, 1, COLOR_TEXT);
+
+    /* Level progress bar (score to next level) */
+    int currentLevelScore, nextLevelScore;
+    GetLevelProgress(&currentLevelScore, &nextLevelScore);
+    int scoreInLevel = GetScore() - currentLevelScore;
+    int levelRange = nextLevelScore - currentLevelScore;
+    float progress = (levelRange > 0) ? (float)scoreInLevel / levelRange : 0.0f;
+    if (progress > 1.0f) progress = 1.0f;
+    if (progress < 0.0f) progress = 0.0f;
+
+    float barX = scorePanel.x + 16;
+    float barY = scorePanel.y + 130;
+    float barWidth = scorePanel.width - 32;
+    float barHeight = 8;
+
+    DrawRectangle((int)barX, (int)barY, (int)barWidth, (int)barHeight, (Color){30, 35, 50, 255});
+    Color progressColor = LerpColor((Color){60, 120, 230, 255}, (Color){100, 255, 150, 255}, progress);
+    DrawRectangle((int)barX, (int)barY, (int)(barWidth * progress), (int)barHeight, progressColor);
+    DrawRectangleLinesEx((Rectangle){barX, barY, barWidth, barHeight}, 1, (Color){80, 85, 100, 255});
 
     /* Cascade/Combo indicator - only show on 2nd+ match in chain */
     int cascade = GetCascadeLevel();
@@ -831,39 +1228,89 @@ static void DrawHUD(void) {
         DrawTextEx(g_font, cascadeText, (Vector2){cx, cy}, fontSize, 1, cascadeColor);
     }
 
-    /* Game over overlay */
+    /* Game over overlay - enhanced with animations */
     if (GetGameState() == GAME_STATE_GAME_OVER) {
         float bx = g_boardX + g_shakeOffset.x;
         float by = g_boardY + g_shakeOffset.y;
+        float centerX = bx + g_boardSize / 2.0f;
+        float centerY = by + g_boardSize / 2.0f;
 
-        DrawRectangle((int)bx, (int)by, (int)g_boardSize, (int)g_boardSize, (Color){0, 0, 0, 180});
+        /* Animated gradient overlay */
+        for (int i = 0; i < 8; i++) {
+            float alpha = 180 - i * 15;
+            float offset = i * 10.0f * sinf(g_animTimer * 0.5f);
+            DrawRectangle((int)(bx + offset / 2), (int)(by + offset / 2),
+                         (int)(g_boardSize - offset), (int)(g_boardSize - offset),
+                         (Color){0, 0, 0, (unsigned char)alpha});
+        }
 
+        /* Pulsing border glow */
+        float glowPulse = (sinf(g_animTimer * 3.0f) + 1.0f) * 0.5f;
+        Color borderGlow = {255, 100, 100, (unsigned char)(60 + 40 * glowPulse)};
+        DrawRectangleLinesEx((Rectangle){bx - 2, by - 2, g_boardSize + 4, g_boardSize + 4}, 3, borderGlow);
+
+        /* GAME OVER with glow effect */
         const char *gameOverText = "GAME OVER";
-        int fontSize = 48;
-        Vector2 textSize = MeasureTextEx(g_font, gameOverText, fontSize, 1);
-        float tx = bx + g_boardSize / 2.0f - textSize.x / 2.0f;
-        float ty = by + g_boardSize / 2.0f - fontSize;
+        float pulse = 1.0f + sinf(g_animTimer * 4.0f) * 0.05f;
+        int fontSize = (int)(52 * pulse);
+        Vector2 textSize = MeasureTextEx(g_font, gameOverText, (float)fontSize, 1);
+        float tx = centerX - textSize.x / 2.0f;
+        float ty = centerY - 70;
 
-        DrawTextEx(g_font, gameOverText, (Vector2){tx, ty}, fontSize, 1, WHITE);
+        /* Text glow layers */
+        Color glowColor = {255, 80, 80, 60};
+        for (int g = 5; g >= 1; g--) {
+            DrawTextEx(g_font, gameOverText, (Vector2){tx - g, ty}, (float)fontSize, 1, glowColor);
+            DrawTextEx(g_font, gameOverText, (Vector2){tx + g, ty}, (float)fontSize, 1, glowColor);
+            DrawTextEx(g_font, gameOverText, (Vector2){tx, ty - g}, (float)fontSize, 1, glowColor);
+            DrawTextEx(g_font, gameOverText, (Vector2){tx, ty + g}, (float)fontSize, 1, glowColor);
+        }
 
-        const char *scoreLabel = "Final Score:";
-        Vector2 scoreLabelSize = MeasureTextEx(g_font, scoreLabel, 24, 1);
-        DrawTextEx(g_font, scoreLabel,
-                  (Vector2){bx + g_boardSize / 2.0f - scoreLabelSize.x / 2.0f, ty + 60},
-                  24, 1, COLOR_TEXT_MUTED);
+        /* Shadow */
+        DrawTextEx(g_font, gameOverText, (Vector2){tx + 3, ty + 3}, (float)fontSize, 1, (Color){0, 0, 0, 200});
+
+        /* Main text with gradient color */
+        Color textColor = LerpColor((Color){255, 100, 100, 255}, (Color){255, 200, 100, 255}, glowPulse);
+        DrawTextEx(g_font, gameOverText, (Vector2){tx, ty}, (float)fontSize, 1, textColor);
+
+        /* Stats panel */
+        float panelY = ty + 70;
+        Rectangle statsPanel = {centerX - 100, panelY, 200, 110};
+        DrawRectangleRounded(statsPanel, 0.1f, 12, (Color){20, 25, 40, 230});
+        DrawRectangleRoundedLines(statsPanel, 0.1f, 12, (Color){80, 85, 100, 255});
+
+        /* Final Score */
+        const char *scoreLabel = "FINAL SCORE";
+        Vector2 scoreLabelSize = MeasureTextEx(g_font, scoreLabel, 16, 1);
+        DrawTextEx(g_font, scoreLabel, (Vector2){centerX - scoreLabelSize.x / 2, panelY + 12}, 16, 1, COLOR_TEXT_MUTED);
 
         char finalScore[32];
         snprintf(finalScore, sizeof(finalScore), "%d", GetScore());
-        Vector2 finalScoreSize = MeasureTextEx(g_font, finalScore, 36, 1);
-        DrawTextEx(g_font, finalScore,
-                  (Vector2){bx + g_boardSize / 2.0f - finalScoreSize.x / 2.0f, ty + 90},
-                  36, 1, COLOR_HIGHLIGHT);
+        float scorePulse = (sinf(g_animTimer * 5.0f) + 1.0f) * 0.5f;
+        int scoreFontSize = (int)(38 + scorePulse * 4);
+        Vector2 finalScoreSize = MeasureTextEx(g_font, finalScore, (float)scoreFontSize, 1);
 
-        const char *restartText = "Press SELECT to restart";
-        Vector2 restartSize = MeasureTextEx(g_font, restartText, 18, 1);
-        DrawTextEx(g_font, restartText,
-                  (Vector2){bx + g_boardSize / 2.0f - restartSize.x / 2.0f, ty + 140},
-                  18, 1, COLOR_TEXT_MUTED);
+        /* Score with rainbow shimmer for high scores */
+        Color scoreColor;
+        if (GetScore() > 5000) {
+            scoreColor = ColorFromHSV(fmodf(g_animTimer * 60, 360), 0.7f, 1.0f);
+        } else {
+            scoreColor = COLOR_HIGHLIGHT;
+        }
+        DrawTextEx(g_font, finalScore, (Vector2){centerX - finalScoreSize.x / 2, panelY + 32}, (float)scoreFontSize, 1, scoreColor);
+
+        /* Level reached */
+        char levelText[32];
+        snprintf(levelText, sizeof(levelText), "Level %d", GetLevel());
+        Vector2 levelSize = MeasureTextEx(g_font, levelText, 20, 1);
+        DrawTextEx(g_font, levelText, (Vector2){centerX - levelSize.x / 2, panelY + 78}, 20, 1, COLOR_TEXT);
+
+        /* Restart instruction with pulsing */
+        const char *restartText = "Press SELECT to play again";
+        float restartAlpha = 150 + 105 * sinf(g_animTimer * 2.5f);
+        Vector2 restartSize = MeasureTextEx(g_font, restartText, 16, 1);
+        DrawTextEx(g_font, restartText, (Vector2){centerX - restartSize.x / 2, panelY + 130},
+                  16, 1, (Color){240, 240, 250, (unsigned char)restartAlpha});
     }
 }
 
@@ -874,6 +1321,53 @@ static void DrawHUD(void) {
 static void UpdateAnimations(float deltaTime) {
     g_animTimer += deltaTime;
     g_shimmerTime += deltaTime;
+
+    /* Update background animation */
+    g_bgGridOffset += deltaTime * 15.0f;
+    g_bgPulseIntensity *= (1.0f - deltaTime * 2.0f);  /* Decay pulse */
+    if (g_bgPulseIntensity < 0.01f) g_bgPulseIntensity = 0;
+
+    /* Update cascade flash */
+    if (g_cascadeFlashTimer > 0) {
+        g_cascadeFlashTimer -= deltaTime;
+    }
+
+    /* Update screen flash */
+    if (g_screenFlashTimer > 0) {
+        g_screenFlashTimer -= deltaTime;
+    }
+
+    /* Update combo announcements */
+    UpdateComboAnnouncements(deltaTime);
+
+    /* Update level up celebration */
+    UpdateLevelUpCelebration(deltaTime);
+
+    /* Animated score counter - smoothly count toward actual score */
+    int actualScore = GetScore();
+    if (g_displayScore < actualScore) {
+        int diff = actualScore - g_displayScore;
+        int increment = (diff > 100) ? diff / 10 : (diff > 10) ? 5 : 1;
+        g_displayScore += increment;
+        if (g_displayScore > actualScore) g_displayScore = actualScore;
+        g_scorePulse = 1.0f;
+    }
+    g_scorePulse *= (1.0f - deltaTime * 4.0f);
+
+    /* Check for level up */
+    int currentLevel = GetLevel();
+    if (currentLevel > g_previousLevel) {
+        TriggerLevelUpCelebration(currentLevel);
+        g_previousLevel = currentLevel;
+    }
+
+    /* Check for cascade changes */
+    int currentCascade = GetCascadeLevel();
+    if (currentCascade > g_lastCascadeLevel && currentCascade >= 2) {
+        SpawnComboAnnouncement(currentCascade);
+        TriggerCascadeFlash(currentCascade);
+    }
+    g_lastCascadeLevel = currentCascade;
 
     bool anyAnimating = false;
 
@@ -1244,6 +1738,23 @@ static void PluginInit(int width, int height) {
     g_hintTimer = 0;
     g_showHint = false;
 
+    /* Initialize enhanced visual systems */
+    InitBackgroundStars();
+    g_bgPulseIntensity = 0;
+    g_bgGridOffset = 0;
+    g_cascadeFlashTimer = 0;
+    g_lastCascadeLevel = 0;
+    g_displayScore = 0;
+    g_scorePulse = 0;
+    g_previousLevel = 1;
+    g_levelUpActive = false;
+    g_screenFlashTimer = 0;
+
+    /* Reset combo announcements */
+    for (int i = 0; i < MAX_COMBO_ANNOUNCEMENTS; i++) {
+        g_comboAnnouncements[i].active = false;
+    }
+
     /* Initialize notifications */
     LlzNotifyInit(width, height);
 
@@ -1284,11 +1795,30 @@ static void PluginUpdate(const LlzInputState *input, float deltaTime) {
 static void PluginDraw(void) {
     ClearBackground(COLOR_BG);
 
+    /* Animated background layer */
+    DrawAnimatedBackground();
+
+    /* Game elements */
     DrawBoard();
     DrawLightning();
     DrawParticles();
     DrawPopups();
+
+    /* Combo announcements over gameplay */
+    DrawComboAnnouncements();
+
+    /* Level up celebration overlay */
+    DrawLevelUpCelebration();
+
+    /* HUD on top */
     DrawHUD();
+
+    /* Screen flash effect */
+    if (g_screenFlashTimer > 0) {
+        Color flashColor = g_screenFlashColor;
+        flashColor.a = (unsigned char)(g_screenFlashTimer * 150);
+        DrawRectangle(0, 0, g_screenWidth, g_screenHeight, flashColor);
+    }
 
     /* Draw notification overlay */
     LlzNotifyDraw();
