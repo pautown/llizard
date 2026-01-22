@@ -282,6 +282,35 @@ bool LlzLyricsRequest(const char *artist, const char *track);
 // Returns true if stored successfully
 bool LlzLyricsStore(const char *lyricsJson, const char *hash, bool synced);
 
+// ============================================================================
+// Media Channels API
+// ============================================================================
+
+#define LLZ_MEDIA_CHANNEL_MAX 32
+#define LLZ_MEDIA_CHANNEL_NAME_MAX 64
+
+// Media channels response
+typedef struct {
+    char channels[LLZ_MEDIA_CHANNEL_MAX][LLZ_MEDIA_CHANNEL_NAME_MAX];
+    int count;
+    int64_t timestamp;
+} LlzMediaChannels;
+
+// Request media channel list from Android companion via BLE
+// Returns true if request was queued successfully
+bool LlzMediaRequestChannels(void);
+
+// Get cached media channels from Redis
+// outChannels: pointer to receive channel list
+// Returns true if channels were retrieved successfully
+bool LlzMediaGetChannels(LlzMediaChannels *outChannels);
+
+// Get media channels as raw JSON string
+// outJson: buffer to store JSON string
+// maxLen: maximum buffer size
+// Returns true if channels were retrieved successfully
+bool LlzMediaGetChannelsJson(char *outJson, size_t maxLen);
+
 #ifdef __cplusplus
 }
 #endif

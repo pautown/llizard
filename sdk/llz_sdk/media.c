@@ -1399,3 +1399,121 @@ bool LlzLyricsStore(const char *lyricsJson, const char *hash, bool synced)
 
     return syncedOk;
 }
+
+// ============================================================================
+// Media Channels API Implementation
+// ============================================================================
+
+bool LlzMediaRequestChannels(void)
+{
+    if (!g_activeKeys.playbackCommandQueue) return false;
+
+    long long ts = (long long)time(NULL);
+
+    redisReply *reply = llz_media_command(
+        "LPUSH %s {\"action\":\"request_media_channels\",\"timestamp\":%lld}",
+        g_activeKeys.playbackCommandQueue,
+        ts
+    );
+
+    if (!reply) return false;
+    bool success = reply->type == REDIS_REPLY_INTEGER;
+    freeReplyObject(reply);
+
+    if (success) {
+        printf("[MEDIA_CHANNELS] Requested media channel list from Android\n");
+    }
+
+    return success;
+}
+
+bool LlzMediaGetChannels(LlzMediaChannels *outChannels)
+{
+    if (!outChannels) return false;
+    memset(outChannels, 0, sizeof(*outChannels));
+
+    redisReply *reply = llz_media_command("GET media:channels");
+    if (!reply) return false;
+
+    bool success = false;
+    if (reply->type == REDIS_REPLY_STRING && reply->str) {
+        // Parse JSON: {"channels":["Spotify","YouTube"],"count":2,"timestamp":123}
+        // Simple parsing - find channels array
+        const char *json = reply->str;
+
+        // Find "count":
+        const char *countPtr = strstr(json, "\"count\":");
+        if (countPtr) {
+            outChannels->count = atoi(countPtr + 8);
+            if (outChannels->count > LLZ_MEDIA_CHANNEL_MAX) {
+                outChannels->count = LLZ_MEDIA_CHANNEL_MAX;
+            }
+        }
+
+        // Find "timestamp":
+        const char *tsPtr = strstr(json, "\"timestamp\":");
+        if (tsPtr) {
+            outChannels->timestamp = strtoll(tsPtr + 12, NULL, 10);
+        }
+
+        // Find "channels":[ and parse array
+        const char *arrStart = strstr(json, "\"channels\":[");
+        if (arrStart) {
+            arrStart = strchr(arrStart, '[');
+            if (arrStart) {
+                arrStart++; // Skip '['
+                int idx = 0;
+                while (idx < outChannels->count && idx < LLZ_MEDIA_CHANNEL_MAX) {
+                    // Find next string
+                    const char *strStart = strchr(arrStart, '"');
+                    if (!strStart) break;
+                    strStart++; // Skip opening quote
+
+                    const char *strEnd = strchr(strStart, '"');
+                    if (!strEnd) break;
+
+                    size_t len = strEnd - strStart;
+                    if (len >= LLZ_MEDIA_CHANNEL_NAME_MAX) {
+                        len = LLZ_MEDIA_CHANNEL_NAME_MAX - 1;
+                    }
+                    strncpy(outChannels->channels[idx], strStart, len);
+                    outChannels->channels[idx][len] = '\0';
+
+                    idx++;
+                    arrStart = strEnd + 1;
+
+                    // Skip to next element or end
+                    while (*arrStart && *arrStart != '"' && *arrStart != ']') {
+                        arrStart++;
+                    }
+                    if (*arrStart == ']') break;
+                }
+                success = true;
+            }
+        }
+    }
+
+    freeReplyObject(reply);
+    return success;
+}
+
+bool LlzMediaGetChannelsJson(char *outJson, size_t maxLen)
+{
+    if (!outJson || maxLen == 0) return false;
+    outJson[0] = '\0';
+
+    redisReply *reply = llz_media_command("GET media:channels");
+    if (!reply) return false;
+
+    bool success = false;
+    if (reply->type == REDIS_REPLY_STRING && reply->str) {
+        size_t len = strlen(reply->str);
+        if (len < maxLen) {
+            strcpy(outJson, reply->str);
+            success = true;
+        }
+    }
+
+    freeReplyObject(reply);
+    return success;
+}

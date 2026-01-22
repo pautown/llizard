@@ -21,7 +21,7 @@ typedef enum {
 
 static SettingsMode g_mode = MODE_NAVIGATE;
 static int g_selectedItem = 0;
-#define MENU_ITEM_COUNT 4
+#define MENU_ITEM_COUNT 5
 
 // Startup plugin selection state
 #define MAX_STARTUP_OPTIONS 32
@@ -43,6 +43,12 @@ static float g_restartGlowPhase = 0.0f;
 static float g_restartParticles[12][3]; // x offset, y offset, phase
 #define RESTART_SWIPE_THRESHOLD 100
 
+// Media Channels state
+static LlzMediaChannels g_mediaChannels = {0};
+static bool g_mediaChannelsLoading = false;
+static bool g_mediaChannelsLoaded = false;
+static float g_mediaChannelsRequestTime = 0.0f;
+
 // Pending changes
 static int g_pendingBrightness = 80;
 static bool g_lyricsEnabled = false;
@@ -51,7 +57,7 @@ static bool g_isAutoBrightness = false;
 
 // Animation state
 static float g_animTime = 0.0f;
-static float g_selectionAnim[MENU_ITEM_COUNT] = {0};
+static float g_selectionAnim[5] = {0};  // MENU_ITEM_COUNT
 static float g_editModeAnim = 0.0f;
 static float g_toggleAnim = 0.0f;
 static float g_sliderPulse = 0.0f;
@@ -496,6 +502,41 @@ static void DrawSettingCard(int index, const char *title, const char *descriptio
             LlzDrawText("scroll to cycle options", (int)textX, (int)textY + 52, 12, COLOR_TEXT_HINT);
         }
     } else if (index == 3) {
+        // Media Channels
+        if (g_mediaChannelsLoading) {
+            // Loading indicator
+            float pulse = 0.5f + 0.5f * sinf(g_animTime * 4.0f);
+            Color loadColor = COLOR_ACCENT;
+            loadColor.a = (unsigned char)(180 + 75 * pulse);
+            const char *loadText = "Loading...";
+            int loadWidth = LlzMeasureText(loadText, LLZ_FONT_SIZE_NORMAL);
+            LlzDrawText(loadText, (int)(controlEndX - loadWidth), (int)controlY - 7, LLZ_FONT_SIZE_NORMAL, loadColor);
+        } else if (g_mediaChannelsLoaded && g_mediaChannels.count > 0) {
+            // Show channel count with accent badge
+            char countText[32];
+            snprintf(countText, sizeof(countText), "%d channels", g_mediaChannels.count);
+            Color countColor = selected ? COLOR_ACCENT : COLOR_TEXT_SECONDARY;
+            int countWidth = LlzMeasureText(countText, LLZ_FONT_SIZE_NORMAL);
+
+            Rectangle badgeRect = {controlEndX - countWidth - 18, controlY - 12, (float)countWidth + 14, 26};
+            DrawRectangleRounded(badgeRect, 0.4f, 8, COLOR_ACCENT_SOFT);
+            LlzDrawText(countText, (int)(controlEndX - countWidth - 11), (int)controlY - 7, LLZ_FONT_SIZE_NORMAL, countColor);
+        } else {
+            // Request button
+            const char *reqText = "Tap to request";
+            Color reqColor = selected ? COLOR_ACCENT : COLOR_TEXT_SECONDARY;
+            int reqWidth = LlzMeasureText(reqText, LLZ_FONT_SIZE_NORMAL);
+            LlzDrawText(reqText, (int)(controlEndX - reqWidth), (int)controlY - 7, LLZ_FONT_SIZE_NORMAL, reqColor);
+        }
+
+        if (selected && !editing && !g_mediaChannelsLoading) {
+            if (g_mediaChannelsLoaded && g_mediaChannels.count > 0) {
+                LlzDrawText("select to view list", (int)textX, (int)textY + 52, 12, COLOR_TEXT_HINT);
+            } else {
+                LlzDrawText("select to request channels", (int)textX, (int)textY + 52, 12, COLOR_TEXT_HINT);
+            }
+        }
+    } else if (index == 4) {
         // Restart
         const char *restartText = "Tap or select";
         Color restartColor = selected ? COLOR_DANGER : COLOR_TEXT_SECONDARY;
@@ -690,6 +731,12 @@ static void PluginInit(int width, int height) {
         g_restartParticles[i][2] = (float)i * 0.5f;
     }
 
+    // Reset media channels state
+    memset(&g_mediaChannels, 0, sizeof(g_mediaChannels));
+    g_mediaChannelsLoading = false;
+    g_mediaChannelsLoaded = false;
+    g_mediaChannelsRequestTime = 0.0f;
+
     // Reset animations
     for (int i = 0; i < MENU_ITEM_COUNT; i++) {
         g_selectionAnim[i] = (i == 0) ? 1.0f : 0.0f;
@@ -745,6 +792,23 @@ static void PluginUpdate(const LlzInputState *hostInput, float deltaTime) {
 
     // Scroll animation
     UpdateScroll(deltaTime);
+
+    // Poll for media channels response
+    if (g_mediaChannelsLoading) {
+        // Try to get channels from Redis
+        if (LlzMediaGetChannels(&g_mediaChannels)) {
+            g_mediaChannelsLoading = false;
+            g_mediaChannelsLoaded = true;
+            printf("Settings: Received %d media channels\n", g_mediaChannels.count);
+            for (int c = 0; c < g_mediaChannels.count && c < LLZ_MEDIA_CHANNEL_MAX; c++) {
+                printf("  - %s\n", g_mediaChannels.channels[c]);
+            }
+        } else if (g_animTime - g_mediaChannelsRequestTime > 10.0f) {
+            // Timeout after 10 seconds
+            g_mediaChannelsLoading = false;
+            printf("Settings: Media channels request timed out\n");
+        }
+    }
 
     // Handle restart confirmation mode
     if (g_restartConfirmActive) {
@@ -838,7 +902,7 @@ static void PluginUpdate(const LlzInputState *hostInput, float deltaTime) {
 
         // Select button enters edit mode (or activates for restart/toggle)
         if (input->selectPressed || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE)) {
-            if (g_selectedItem == 3) {
+            if (g_selectedItem == 4) {
                 // Restart - open confirmation
                 g_restartConfirmActive = true;
                 g_restartSwipeProgress = 0.0f;
@@ -848,6 +912,23 @@ static void PluginUpdate(const LlzInputState *hostInput, float deltaTime) {
                 g_lyricsEnabled = !g_lyricsEnabled;
                 g_hasChanges = true;
                 LlzLyricsSetEnabled(g_lyricsEnabled);
+            } else if (g_selectedItem == 3) {
+                // Media Channels - request or show list
+                if (!g_mediaChannelsLoading) {
+                    if (!g_mediaChannelsLoaded || g_mediaChannels.count == 0) {
+                        // Request channels
+                        g_mediaChannelsLoading = true;
+                        g_mediaChannelsRequestTime = g_animTime;
+                        LlzMediaRequestChannels();
+                        printf("Settings: Requesting media channels...\n");
+                    } else {
+                        // Show channel list (for now just print)
+                        printf("Settings: Media channels (%d):\n", g_mediaChannels.count);
+                        for (int c = 0; c < g_mediaChannels.count && c < LLZ_MEDIA_CHANNEL_MAX; c++) {
+                            printf("  - %s\n", g_mediaChannels.channels[c]);
+                        }
+                    }
+                }
             } else if (g_selectedItem == 0 || g_selectedItem == 2) {
                 // Brightness or Startup Plugin - enter edit mode
                 g_mode = MODE_EDIT;
@@ -870,6 +951,21 @@ static void PluginUpdate(const LlzInputState *hostInput, float deltaTime) {
                             g_hasChanges = true;
                             LlzLyricsSetEnabled(g_lyricsEnabled);
                         } else if (i == 3) {
+                            // Media Channels
+                            if (!g_mediaChannelsLoading) {
+                                if (!g_mediaChannelsLoaded || g_mediaChannels.count == 0) {
+                                    g_mediaChannelsLoading = true;
+                                    g_mediaChannelsRequestTime = g_animTime;
+                                    LlzMediaRequestChannels();
+                                    printf("Settings: Requesting media channels...\n");
+                                } else {
+                                    printf("Settings: Media channels (%d):\n", g_mediaChannels.count);
+                                    for (int c = 0; c < g_mediaChannels.count && c < LLZ_MEDIA_CHANNEL_MAX; c++) {
+                                        printf("  - %s\n", g_mediaChannels.channels[c]);
+                                    }
+                                }
+                            }
+                        } else if (i == 4) {
                             g_restartConfirmActive = true;
                             g_restartSwipeProgress = 0.0f;
                             g_restartPulseAnim = 0.0f;
@@ -989,11 +1085,12 @@ static void PluginDraw(void) {
         bool selected = (i == g_selectedItem);
         bool editing = selected && (g_mode == MODE_EDIT);
 
-        const char *titles[] = {"Brightness", "Lyrics", "Startup Screen", "Restart Device"};
+        const char *titles[] = {"Brightness", "Lyrics", "Startup Screen", "Media Channels", "Restart Device"};
         const char *descriptions[] = {
             g_isAutoBrightness ? "Auto-adjusts based on ambient light" : "Manual brightness control",
             "Show synchronized lyrics during playback",
             "Plugin to launch on boot",
+            "Audio output apps from phone",
             "Reboot the CarThing"
         };
 
@@ -1025,7 +1122,7 @@ static bool PluginWantsClose(void) {
 
 static LlzPluginAPI g_api = {
     .name = "Settings",
-    .description = "Brightness, lyrics, restart device",
+    .description = "Brightness, lyrics, media channels, restart",
     .init = PluginInit,
     .update = PluginUpdate,
     .draw = PluginDraw,
