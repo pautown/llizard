@@ -13,6 +13,7 @@
 #include "nowplaying/overlays/np_overlay_clock.h"
 #include "nowplaying/overlays/np_overlay_colorpicker.h"
 #include "nowplaying/overlays/np_overlay_lyrics.h"
+#include "nowplaying/overlays/np_overlay_media_channels.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,6 +38,9 @@ static const float VOLUME_OVERLAY_DURATION = 2.0f;
 
 // Color picker overlay state
 static NpColorPickerOverlay g_colorPicker;
+
+// Media channels overlay state
+static NpMediaChannelsOverlay g_mediaChannelsOverlay;
 
 static char g_trackTitle[LLZ_MEDIA_TEXT_MAX] = "No track";
 static char g_trackArtist[LLZ_MEDIA_TEXT_MAX] = "No artist";
@@ -343,6 +347,9 @@ static void PluginInit(int width, int height)
 
     // Initialize color picker
     NpColorPickerOverlayInit(&g_colorPicker);
+
+    // Initialize media channels overlay
+    NpMediaChannelsOverlayInit(&g_mediaChannelsOverlay);
 
     // Note: Don't call LlzBackgroundInit() - host manages the lifecycle
 
@@ -1027,6 +1034,58 @@ static void PluginUpdate(const LlzInputState *hostInput, float deltaTime)
         }
     }
 
+    // Media channels overlay - toggle on back button long press
+    if (input->backHold) {
+        if (g_mediaChannelsOverlay.visible) {
+            NpMediaChannelsOverlayHide(&g_mediaChannelsOverlay);
+            printf("[MEDIA_CHANNELS] Overlay closed (back hold)\n");
+        } else if (!NpMediaChannelsOverlayIsActive(&g_mediaChannelsOverlay)) {
+            NpMediaChannelsOverlayShow(&g_mediaChannelsOverlay);
+            printf("[MEDIA_CHANNELS] Overlay opened (back hold detected: %.2fs)\n", input->backHoldTime);
+        }
+    }
+
+    // When media channels overlay is active (visible or animating), update it
+    if (NpMediaChannelsOverlayIsActive(&g_mediaChannelsOverlay)) {
+        bool wasVisible = g_mediaChannelsOverlay.visible;
+        NpMediaChannelsOverlayUpdate(&g_mediaChannelsOverlay, input, deltaTime);
+
+        // Check if overlay just closed (was visible, now not)
+        if (wasVisible && !g_mediaChannelsOverlay.visible) {
+            // Apply channel selection if user selected one
+            if (NpMediaChannelsOverlayWasChannelSelected(&g_mediaChannelsOverlay)) {
+                const char *selected = NpMediaChannelsOverlayGetSelectedChannel(&g_mediaChannelsOverlay);
+                if (selected) {
+                    printf("[MEDIA_CHANNELS] Selected channel: %s\n", selected);
+                    LlzMediaSelectChannel(selected);
+                }
+            } else {
+                printf("[MEDIA_CHANNELS] Overlay cancelled\n");
+            }
+            // Consume the input event that closed the overlay (prevent backClick from closing plugin)
+            return;
+        }
+
+        // Block all other input processing while media channels overlay is active
+        if (g_mediaChannelsOverlay.visible) {
+            return;
+        }
+    }
+
+    // Back button quick click - close overlay if visible, otherwise exit plugin
+    if (input->backClick) {
+        // If media channels overlay is visible, close it instead of exiting
+        if (g_mediaChannelsOverlay.visible) {
+            NpMediaChannelsOverlayHide(&g_mediaChannelsOverlay);
+            printf("[MEDIA_CHANNELS] Overlay closed via back click\n");
+            return;
+        }
+        // No overlay visible, exit plugin
+        printf("[NOWPLAYING] Back click detected, closing plugin\n");
+        g_wantsClose = true;
+        return;
+    }
+
     if (input->playPausePressed) {
         TogglePlayback();
     }
@@ -1267,6 +1326,9 @@ static void PluginDraw(void)
 
     // Draw color picker overlay on top of everything
     NpColorPickerOverlayDraw(&g_colorPicker, &uiColors);
+
+    // Draw media channels overlay on top of everything
+    NpMediaChannelsOverlayDraw(&g_mediaChannelsOverlay, &uiColors);
 }
 
 static void PluginShutdown(void)
@@ -1292,6 +1354,7 @@ static void PluginShutdown(void)
     g_justSeekedTimer = 0.0f;
 
     NpColorPickerOverlayShutdown(&g_colorPicker);
+    NpMediaChannelsOverlayShutdown(&g_mediaChannelsOverlay);
     NpThemeShutdown();
     g_wantsClose = false;
     printf("NowPlaying plugin shutdown\n");

@@ -117,6 +117,7 @@ set(NOWPLAYING_PLUGIN_SOURCES
     plugins_src/nowplaying/overlays/np_overlay_clock.c
     plugins_src/nowplaying/overlays/np_overlay_colorpicker.c
     plugins_src/nowplaying/overlays/np_overlay_lyrics.c
+    plugins_src/nowplaying/overlays/np_overlay_media_channels.c
     # Screens
     plugins_src/nowplaying/screens/np_screen_now_playing.c
 )

@@ -31,8 +31,10 @@ static double g_buttonDownStartTime[6] = {0};
 static bool g_buttonHoldReported[6] = {false};
 static const float BUTTON_HOLD_THRESHOLD = 0.5f;  // seconds
 
-// Back button tracking
+// Back button tracking (with hold detection)
 static bool g_backButtonDown = false;
+static double g_backButtonDownStartTime = 0.0;
+static bool g_backHoldReported = false;
 
 // Select button tracking (with hold detection)
 static bool g_selectButtonDown = false;
@@ -143,6 +145,21 @@ static void UpdateSelectButtonState(LlzInputState *state) {
     state->selectHoldTime = holdTime;
 }
 
+static void UpdateBackButtonState(LlzInputState *state) {
+    double currentTime = GetTime();
+    float holdTime = g_backButtonDown ? (float)(currentTime - g_backButtonDownStartTime) : 0.0f;
+    bool holdTriggered = false;
+
+    if (g_backButtonDown && holdTime >= BUTTON_HOLD_THRESHOLD && !g_backHoldReported) {
+        holdTriggered = true;
+        g_backHoldReported = true;
+    }
+
+    state->backDown = g_backButtonDown;
+    state->backHold = holdTriggered;
+    state->backHoldTime = holdTime;
+}
+
 static void ProcessGestureRelease(LlzInputState *state, const Vector2 *endPos)
 {
     double elapsed = GetTime() - g_touchStartTime;
@@ -207,8 +224,12 @@ void LlzInputUpdate(LlzInputState *state)
         switch (event.type) {
             case CT_EVENT_BUTTON_PRESS:
                 if (event.button.button == CT_BUTTON_BACK) {
-                    state->backPressed = true;
-                    g_backButtonDown = true;
+                    if (!g_backButtonDown) {
+                        state->backPressed = true;
+                        g_backButtonDown = true;
+                        g_backButtonDownStartTime = GetTime();
+                        g_backHoldReported = false;
+                    }
                 }
                 else if (event.button.button == CT_BUTTON_SELECT) {
                     if (!g_selectButtonDown) {
@@ -243,8 +264,16 @@ void LlzInputUpdate(LlzInputState *state)
             case CT_EVENT_BUTTON_RELEASE:
                 if (event.button.button == CT_BUTTON_BACK) {
                     if (g_backButtonDown) {
-                        state->backReleased = true;
+                        double holdTime = GetTime() - g_backButtonDownStartTime;
+                        // Only report release/click if it was a quick press (not a long press)
+                        // Long press action is handled by backHold, release should be ignored
+                        if (holdTime < BUTTON_HOLD_THRESHOLD) {
+                            state->backReleased = true;
+                            state->backClick = true;
+                        }
                         g_backButtonDown = false;
+                        g_backButtonDownStartTime = 0;
+                        g_backHoldReported = false;
                     }
                 }
                 else if (event.button.button == CT_BUTTON_SELECT) {
@@ -319,15 +348,28 @@ void LlzInputUpdate(LlzInputState *state)
     // Update button states (hold detection, timing, etc.)
     UpdateButtonStates(state, GetFrameTime());
     UpdateSelectButtonState(state);
+    UpdateBackButtonState(state);
 #else
     if (IsKeyPressed(KEY_ESCAPE)) {
-        state->backPressed = true;
-        g_backButtonDown = true;
+        if (!g_backButtonDown) {
+            state->backPressed = true;
+            g_backButtonDown = true;
+            g_backButtonDownStartTime = GetTime();
+            g_backHoldReported = false;
+        }
     }
     if (IsKeyReleased(KEY_ESCAPE)) {
         if (g_backButtonDown) {
-            state->backReleased = true;
+            double holdTime = GetTime() - g_backButtonDownStartTime;
+            // Only report release/click if it was a quick press (not a long press)
+            // Long press action is handled by backHold, release should be ignored
+            if (holdTime < BUTTON_HOLD_THRESHOLD) {
+                state->backReleased = true;
+                state->backClick = true;
+            }
             g_backButtonDown = false;
+            g_backButtonDownStartTime = 0;
+            g_backHoldReported = false;
         }
     }
     if (IsKeyPressed(KEY_ENTER)) {
@@ -408,6 +450,7 @@ void LlzInputUpdate(LlzInputState *state)
     // Update button states (hold detection, timing, etc.)
     UpdateButtonStates(state, GetFrameTime());
     UpdateSelectButtonState(state);
+    UpdateBackButtonState(state);
 #endif
 
     if (g_touchActive) {

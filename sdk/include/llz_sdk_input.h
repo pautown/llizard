@@ -11,6 +11,10 @@ extern "C" {
 typedef struct {
     bool backPressed;
     bool backReleased;    // Back button just released
+    bool backDown;        // Back button currently held
+    bool backHold;        // Back held past threshold (edge-triggered)
+    float backHoldTime;   // Duration held in seconds
+    bool backClick;       // Back quick click (released before hold threshold)
     bool selectPressed;
     bool selectDown;        // Select button currently held
     bool selectHold;        // Select held past threshold (edge-triggered)
