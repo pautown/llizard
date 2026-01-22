@@ -292,15 +292,15 @@ static Color LerpColor(Color a, Color b, float t) {
 
 static void CalculateLayout(void) {
     float margin = 16.0f;
-    float headerHeight = 80.0f;
+    float headerHeight = 60.0f;  /* Reduced header for smaller overlays */
     float availableHeight = g_screenHeight - headerHeight - margin * 2;
     float availableWidth = g_screenHeight - margin * 2; /* Keep board square-ish */
 
     g_boardSize = (availableHeight < availableWidth) ? availableHeight : availableWidth;
     g_cellSize = g_boardSize / BOARD_WIDTH;
 
-    /* Center board vertically, offset to right for score panel */
-    g_boardX = (g_screenWidth - g_boardSize) / 2.0f + 60.0f;
+    /* Center board both horizontally and vertically */
+    g_boardX = (g_screenWidth - g_boardSize) / 2.0f;
     g_boardY = headerHeight + (availableHeight - g_boardSize) / 2.0f + margin;
 }
 
@@ -1162,35 +1162,17 @@ static void DrawBoard(void) {
  * ============================================================================ */
 
 static void DrawHUD(void) {
-    /* Score panel on left with subtle glow */
-    Rectangle scorePanel = {16, 16, 160, 160};
+    /* Level overlay - top left */
+    Rectangle levelPanel = {12, 12, 100, 44};
+    DrawRectangleRounded(levelPanel, 0.2f, 8, COLOR_BOARD_BG);
+    DrawRectangleRoundedLines(levelPanel, 0.2f, 8, (Color){60, 65, 80, 255});
 
-    /* Panel glow when score is animating */
-    if (g_scorePulse > 0.1f) {
-        Color panelGlow = {255, 215, 0, (unsigned char)(40 * g_scorePulse)};
-        DrawRectangleRounded((Rectangle){scorePanel.x - 4, scorePanel.y - 4,
-                            scorePanel.width + 8, scorePanel.height + 8}, 0.1f, 12, panelGlow);
-    }
-    DrawRectangleRounded(scorePanel, 0.1f, 12, COLOR_BOARD_BG);
-    DrawRectangleRoundedLines(scorePanel, 0.1f, 12, (Color){60, 65, 80, 255});
-
-    /* Score with animated counter */
-    DrawTextEx(g_font, "SCORE", (Vector2){scorePanel.x + 16, scorePanel.y + 12}, 18, 1, COLOR_TEXT_MUTED);
-    char scoreText[32];
-    snprintf(scoreText, sizeof(scoreText), "%d", g_displayScore);
-
-    /* Pulse effect on score change */
-    float scoreFontSize = 32 + g_scorePulse * 4;
-    Color scoreColor = LerpColor(COLOR_TEXT, COLOR_HIGHLIGHT, g_scorePulse);
-    DrawTextEx(g_font, scoreText, (Vector2){scorePanel.x + 16, scorePanel.y + 32}, scoreFontSize, 1, scoreColor);
-
-    /* Level with progress bar */
-    DrawTextEx(g_font, "LEVEL", (Vector2){scorePanel.x + 16, scorePanel.y + 76}, 18, 1, COLOR_TEXT_MUTED);
+    DrawTextEx(g_font, "LVL", (Vector2){levelPanel.x + 10, levelPanel.y + 6}, 14, 1, COLOR_TEXT_MUTED);
     char levelText[32];
     snprintf(levelText, sizeof(levelText), "%d", GetLevel());
-    DrawTextEx(g_font, levelText, (Vector2){scorePanel.x + 16, scorePanel.y + 96}, 28, 1, COLOR_TEXT);
+    DrawTextEx(g_font, levelText, (Vector2){levelPanel.x + 50, levelPanel.y + 10}, 26, 1, COLOR_TEXT);
 
-    /* Level progress bar (score to next level) */
+    /* Level progress bar */
     int currentLevelScore, nextLevelScore;
     GetLevelProgress(&currentLevelScore, &nextLevelScore);
     int scoreInLevel = GetScore() - currentLevelScore;
@@ -1199,15 +1181,39 @@ static void DrawHUD(void) {
     if (progress > 1.0f) progress = 1.0f;
     if (progress < 0.0f) progress = 0.0f;
 
-    float barX = scorePanel.x + 16;
-    float barY = scorePanel.y + 130;
-    float barWidth = scorePanel.width - 32;
-    float barHeight = 8;
+    float barX = levelPanel.x + 8;
+    float barY = levelPanel.y + 36;
+    float barWidth = levelPanel.width - 16;
+    float barHeight = 4;
 
     DrawRectangle((int)barX, (int)barY, (int)barWidth, (int)barHeight, (Color){30, 35, 50, 255});
     Color progressColor = LerpColor((Color){60, 120, 230, 255}, (Color){100, 255, 150, 255}, progress);
     DrawRectangle((int)barX, (int)barY, (int)(barWidth * progress), (int)barHeight, progressColor);
-    DrawRectangleLinesEx((Rectangle){barX, barY, barWidth, barHeight}, 1, (Color){80, 85, 100, 255});
+
+    /* Score overlay - top right */
+    Rectangle scorePanel = {g_screenWidth - 112, 12, 100, 44};
+
+    /* Panel glow when score is animating */
+    if (g_scorePulse > 0.1f) {
+        Color panelGlow = {255, 215, 0, (unsigned char)(40 * g_scorePulse)};
+        DrawRectangleRounded((Rectangle){scorePanel.x - 3, scorePanel.y - 3,
+                            scorePanel.width + 6, scorePanel.height + 6}, 0.2f, 8, panelGlow);
+    }
+    DrawRectangleRounded(scorePanel, 0.2f, 8, COLOR_BOARD_BG);
+    DrawRectangleRoundedLines(scorePanel, 0.2f, 8, (Color){60, 65, 80, 255});
+
+    /* Score with animated counter */
+    char scoreText[32];
+    snprintf(scoreText, sizeof(scoreText), "%d", g_displayScore);
+
+    /* Pulse effect on score change */
+    float scoreFontSize = 22 + g_scorePulse * 3;
+    Color scoreColor = LerpColor(COLOR_TEXT, COLOR_HIGHLIGHT, g_scorePulse);
+
+    /* Right-align score text */
+    Vector2 scoreSize = MeasureTextEx(g_font, scoreText, scoreFontSize, 1);
+    float scoreX = scorePanel.x + scorePanel.width - scoreSize.x - 10;
+    DrawTextEx(g_font, scoreText, (Vector2){scoreX, scorePanel.y + 12}, scoreFontSize, 1, scoreColor);
 
     /* Cascade/Combo indicator - only show on 2nd+ match in chain */
     int cascade = GetCascadeLevel();

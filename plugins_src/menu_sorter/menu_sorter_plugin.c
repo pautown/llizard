@@ -558,8 +558,8 @@ static void HandleInput(const LlzInputState *input) {
         }
     }
 
-    // Exit on back
-    if (input->backPressed) {
+    // Exit on back (use backReleased for proper release detection)
+    if (input->backReleased) {
         if (g_configChanged) {
             SaveSortConfig();
         }
@@ -640,6 +640,7 @@ static LlzPluginAPI g_api = {
     .shutdown = PluginShutdown,
     .wants_close = PluginWantsClose,
     .wants_refresh = PluginWantsRefresh,
+    .handles_back_button = true,
     .category = LLZ_CATEGORY_UTILITIES
 };
 

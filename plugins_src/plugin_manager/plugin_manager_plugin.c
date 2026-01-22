@@ -682,8 +682,8 @@ static void HandleInput(const LlzInputState *input, float deltaTime) {
             g_dropdownOpen = false;
         }
 
-        // Cancel
-        if (input->backPressed) {
+        // Cancel (use backReleased for proper release detection)
+        if (input->backReleased) {
             g_dropdownOpen = false;
         }
 
@@ -737,8 +737,8 @@ static void HandleInput(const LlzInputState *input, float deltaTime) {
         CycleVisibility(g_selectedIndex);
     }
 
-    // Exit on back
-    if (input->backPressed) {
+    // Exit on back (use backReleased for proper release detection)
+    if (input->backReleased) {
         if (g_configChanged) {
             SaveVisibilityConfig();
         }
@@ -826,6 +826,7 @@ static LlzPluginAPI g_api = {
     .shutdown = PluginShutdown,
     .wants_close = PluginWantsClose,
     .wants_refresh = PluginWantsRefresh,
+    .handles_back_button = true,
     .category = LLZ_CATEGORY_UTILITIES
 };
 

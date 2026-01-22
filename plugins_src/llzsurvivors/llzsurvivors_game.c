@@ -3084,7 +3084,7 @@ static void HandleMenuInput(const LlzInputState *input) {
         if (g_game.menuIndex == 0) g_game.state = GAME_STATE_WEAPON_SELECT;
         else g_wantsClose = true;
     }
-    if (input->backPressed || input->backReleased) g_wantsClose = true;
+    if (input->backReleased) g_wantsClose = true;
 }
 
 static void HandleWeaponSelectInput(const LlzInputState *input) {
@@ -3099,7 +3099,7 @@ static void HandleWeaponSelectInput(const LlzInputState *input) {
         GameReset();
         g_game.state = GAME_STATE_PLAYING;
     }
-    if (input->backPressed || input->backReleased) g_game.state = GAME_STATE_MENU;
+    if (input->backReleased) g_game.state = GAME_STATE_MENU;
 }
 
 static void HandleLevelUpInput(const LlzInputState *input) {
@@ -3150,7 +3150,7 @@ static void UseSelectedPotion(void) {
 }
 
 static void HandlePlayInput(const LlzInputState *input) {
-    if (input->backPressed || input->backReleased) g_game.state = GAME_STATE_PAUSED;
+    if (input->backReleased) g_game.state = GAME_STATE_PAUSED;
 
     // Potion controls: Up to cycle selection, Down to use
     if (input->upPressed) {
@@ -3169,11 +3169,11 @@ static void HandlePlayInput(const LlzInputState *input) {
 
 static void HandlePausedInput(const LlzInputState *input) {
     if (input->selectPressed || input->tap) g_game.state = GAME_STATE_PLAYING;
-    if (input->backPressed || input->backReleased) g_game.state = GAME_STATE_MENU;
+    if (input->backReleased) g_game.state = GAME_STATE_MENU;
 }
 
 static void HandleGameOverInput(const LlzInputState *input) {
-    if (input->selectPressed || input->tap || input->backPressed || input->backReleased)
+    if (input->selectPressed || input->tap || input->backReleased)
         g_game.state = GAME_STATE_MENU;
 }
 
