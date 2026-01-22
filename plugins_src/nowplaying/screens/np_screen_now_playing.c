@@ -307,6 +307,15 @@ static void DrawAlbumArtOnly(const NpNowPlayingScreen *screen, Texture2D *albumA
     // Draw track info at bottom (moved up to make room for seekbar)
     float textX = overlay.x + NP_SPACING_MD;
     float textY = overlay.y + NP_SPACING_MD;
+
+    // Draw media channel badge if available (e.g., "Spotify", "YouTube Music")
+    if (screen->playback.mediaChannel && screen->playback.mediaChannel[0] != '\0') {
+        Color channelColor = NpThemeGetColor(NP_COLOR_TEXT_SECONDARY);
+        channelColor.a = 180;  // Slightly transparent
+        NpThemeDrawTextColored(NP_TYPO_DETAIL, screen->playback.mediaChannel, (Vector2){textX, textY}, channelColor);
+        textY += NpThemeGetLineHeight(NP_TYPO_DETAIL) * NP_LINE_HEIGHT_TIGHT;
+    }
+
     NpThemeDrawText(NP_TYPO_TITLE, screen->playback.trackTitle, (Vector2){textX, textY});
     textY += NpThemeGetLineHeight(NP_TYPO_TITLE) * NP_LINE_HEIGHT_TIGHT;
     NpThemeDrawTextColored(NP_TYPO_BODY, screen->playback.trackArtist, (Vector2){textX, textY},
@@ -593,6 +602,14 @@ void NpNowPlayingDraw(const NpNowPlayingScreen *screen, const LlzInputState *inp
         float artCenterY = screen->viewport.y + (availableHeight - layout.artSize) * 0.5f + layout.artSize * 0.5f;
         infoY = (int)(artCenterY - blockHeight * 0.5f);
         if (infoY < (int)(screen->viewport.y + NP_SPACING_SM)) infoY = (int)(screen->viewport.y + NP_SPACING_SM);
+    }
+
+    // Draw media channel badge if available (e.g., "Spotify", "YouTube Music")
+    if (screen->playback.mediaChannel && screen->playback.mediaChannel[0] != '\0') {
+        Color channelColor = NpThemeGetColor(NP_COLOR_TEXT_SECONDARY);
+        channelColor.a = 180;  // Slightly transparent
+        NpThemeDrawTextColored(NP_TYPO_DETAIL, screen->playback.mediaChannel, (Vector2){infoX, infoY}, channelColor);
+        infoY += (int)(NpThemeGetLineHeight(NP_TYPO_DETAIL) * NP_LINE_HEIGHT_TIGHT);
     }
 
     // Draw track title - use standard fonts (consistent across all modes)

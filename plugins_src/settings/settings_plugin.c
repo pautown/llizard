@@ -913,22 +913,9 @@ static void PluginUpdate(const LlzInputState *hostInput, float deltaTime) {
                 g_hasChanges = true;
                 LlzLyricsSetEnabled(g_lyricsEnabled);
             } else if (g_selectedItem == 3) {
-                // Media Channels - request or show list
-                if (!g_mediaChannelsLoading) {
-                    if (!g_mediaChannelsLoaded || g_mediaChannels.count == 0) {
-                        // Request channels
-                        g_mediaChannelsLoading = true;
-                        g_mediaChannelsRequestTime = g_animTime;
-                        LlzMediaRequestChannels();
-                        printf("Settings: Requesting media channels...\n");
-                    } else {
-                        // Show channel list (for now just print)
-                        printf("Settings: Media channels (%d):\n", g_mediaChannels.count);
-                        for (int c = 0; c < g_mediaChannels.count && c < LLZ_MEDIA_CHANNEL_MAX; c++) {
-                            printf("  - %s\n", g_mediaChannels.channels[c]);
-                        }
-                    }
-                }
+                // Media Channels - open plugin
+                LlzRequestOpenPlugin("Media channels");
+                g_wantsClose = true;
             } else if (g_selectedItem == 0 || g_selectedItem == 2) {
                 // Brightness or Startup Plugin - enter edit mode
                 g_mode = MODE_EDIT;
@@ -951,20 +938,9 @@ static void PluginUpdate(const LlzInputState *hostInput, float deltaTime) {
                             g_hasChanges = true;
                             LlzLyricsSetEnabled(g_lyricsEnabled);
                         } else if (i == 3) {
-                            // Media Channels
-                            if (!g_mediaChannelsLoading) {
-                                if (!g_mediaChannelsLoaded || g_mediaChannels.count == 0) {
-                                    g_mediaChannelsLoading = true;
-                                    g_mediaChannelsRequestTime = g_animTime;
-                                    LlzMediaRequestChannels();
-                                    printf("Settings: Requesting media channels...\n");
-                                } else {
-                                    printf("Settings: Media channels (%d):\n", g_mediaChannels.count);
-                                    for (int c = 0; c < g_mediaChannels.count && c < LLZ_MEDIA_CHANNEL_MAX; c++) {
-                                        printf("  - %s\n", g_mediaChannels.channels[c]);
-                                    }
-                                }
-                            }
+                            // Media Channels - open plugin
+                            LlzRequestOpenPlugin("Media channels");
+                            g_wantsClose = true;
                         } else if (i == 4) {
                             g_restartConfirmActive = true;
                             g_restartSwipeProgress = 0.0f;

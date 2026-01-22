@@ -41,6 +41,7 @@ static NpColorPickerOverlay g_colorPicker;
 static char g_trackTitle[LLZ_MEDIA_TEXT_MAX] = "No track";
 static char g_trackArtist[LLZ_MEDIA_TEXT_MAX] = "No artist";
 static char g_trackAlbum[LLZ_MEDIA_TEXT_MAX] = "No album";
+static char g_mediaChannel[LLZ_MEDIA_TEXT_MAX] = "";
 
 // Media bridge state
 static bool g_mediaInitialized = false;
@@ -98,6 +99,7 @@ static NpPlaybackState g_playback = {
     .trackTitle = g_trackTitle,
     .trackArtist = g_trackArtist,
     .trackAlbum = g_trackAlbum,
+    .mediaChannel = g_mediaChannel,
     .shuffleEnabled = false,
     .repeatEnabled = false
 };
@@ -806,6 +808,14 @@ static void MediaApplyState(const LlzMediaState *state)
     g_playback.trackTitle = g_trackTitle;
     g_playback.trackArtist = g_trackArtist;
     g_playback.trackAlbum = g_trackAlbum;
+
+    // Get the controlled media channel (e.g., "Spotify", "YouTube Music")
+    if (LlzMediaGetControlledChannel(g_mediaChannel, sizeof(g_mediaChannel))) {
+        g_playback.mediaChannel = g_mediaChannel;
+    } else {
+        g_mediaChannel[0] = '\0';
+        g_playback.mediaChannel = g_mediaChannel;
+    }
 
     // Only update isPlaying from Redis if grace period has expired
     // This prevents "flicker" when toggling play/pause (local state is correct,

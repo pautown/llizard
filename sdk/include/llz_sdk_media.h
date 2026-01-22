@@ -311,6 +311,18 @@ bool LlzMediaGetChannels(LlzMediaChannels *outChannels);
 // Returns true if channels were retrieved successfully
 bool LlzMediaGetChannelsJson(char *outJson, size_t maxLen);
 
+// Select which media channel (app) to control
+// Sends command to Android companion to switch the controlled media session
+// channelName: the display name of the app (e.g., "Spotify", "YouTube Music")
+// Returns true if command was queued successfully
+bool LlzMediaSelectChannel(const char *channelName);
+
+// Get the currently controlled media channel name
+// outChannel: buffer to store channel name
+// maxLen: maximum buffer size
+// Returns true if controlled channel was retrieved
+bool LlzMediaGetControlledChannel(char *outChannel, size_t maxLen);
+
 #ifdef __cplusplus
 }
 #endif

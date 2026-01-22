@@ -14,6 +14,7 @@ typedef struct {
     const char *trackTitle;
     const char *trackArtist;
     const char *trackAlbum;
+    const char *mediaChannel;  // App being controlled (e.g., "Spotify", "YouTube Music")
     bool shuffleEnabled;
     bool repeatEnabled;
 } NpPlaybackState;

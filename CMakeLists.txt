@@ -315,6 +315,34 @@ add_custom_command(TARGET settings_plugin POST_BUILD
     COMMENT "Copying settings plugin to runtime plugins directory"
 )
 
+# ===== Media Channels Plugin =====
+set(MEDIA_CHANNELS_PLUGIN_SOURCES
+    plugins_src/media_channels/media_channels_plugin.c
+)
+
+add_library(media_channels_plugin SHARED ${MEDIA_CHANNELS_PLUGIN_SOURCES})
+set_target_properties(media_channels_plugin PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+target_include_directories(media_channels_plugin PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/external/raylib/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/sdk/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/plugins_src
+)
+
+target_link_libraries(media_channels_plugin llz_sdk)
+
+set_target_properties(media_channels_plugin PROPERTIES
+    PREFIX ""
+    OUTPUT_NAME "media_channels"
+)
+
+add_custom_command(TARGET media_channels_plugin POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/plugins
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:media_channels_plugin> ${CMAKE_CURRENT_SOURCE_DIR}/plugins/
+    COMMENT "Copying media_channels plugin to runtime plugins directory"
+)
+
 # ===== Lyrics Plugin =====
 set(LYRICS_PLUGIN_SOURCES
     plugins_src/lyrics/lyrics_plugin.c

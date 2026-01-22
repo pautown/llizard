@@ -1517,3 +1517,53 @@ bool LlzMediaGetChannelsJson(char *outJson, size_t maxLen)
     freeReplyObject(reply);
     return success;
 }
+
+bool LlzMediaSelectChannel(const char *channelName)
+{
+    if (!channelName || channelName[0] == '\0') return false;
+    if (!llz_media_ensure_connection()) return false;
+
+    // Build JSON command: {"action":"select_media_channel","channel":"Spotify"}
+    char cmd[512];
+    snprintf(cmd, sizeof(cmd),
+             "{\"action\":\"select_media_channel\",\"channel\":\"%s\",\"timestamp\":%lld}",
+             channelName, (long long)time(NULL));
+
+    printf("[MEDIA_CHANNELS] Selecting channel: %s\n", channelName);
+
+    redisReply *reply = llz_media_command("RPUSH %s %s",
+                                          g_activeKeys.playbackCommandQueue, cmd);
+    if (!reply) return false;
+
+    bool success = reply->type == REDIS_REPLY_INTEGER;
+    freeReplyObject(reply);
+
+    // Also store locally in Redis for quick access
+    if (success) {
+        reply = llz_media_command("SET media:controlled_channel %s", channelName);
+        if (reply) freeReplyObject(reply);
+    }
+
+    return success;
+}
+
+bool LlzMediaGetControlledChannel(char *outChannel, size_t maxLen)
+{
+    if (!outChannel || maxLen == 0) return false;
+    outChannel[0] = '\0';
+
+    redisReply *reply = llz_media_command("GET media:controlled_channel");
+    if (!reply) return false;
+
+    bool success = false;
+    if (reply->type == REDIS_REPLY_STRING && reply->str) {
+        size_t len = strlen(reply->str);
+        if (len < maxLen) {
+            strcpy(outChannel, reply->str);
+            success = true;
+        }
+    }
+
+    freeReplyObject(reply);
+    return success;
+}
