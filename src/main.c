@@ -71,6 +71,66 @@ static LlzPluginCategory g_currentFolder = LLZ_CATEGORY_MEDIA;
 static int *g_folderPlugins = NULL;
 static int g_folderPluginCount = 0;
 
+// Global registry (needed by menu item helpers)
+static PluginRegistry g_registry = {0};
+
+// ============================================================================
+// Menu Item Helpers - unified access for all view types
+// ============================================================================
+
+// Get total item count for current menu context
+static int GetMenuItemCount(void) {
+    return g_insideFolder ? g_folderPluginCount : g_menuItems.count;
+}
+
+// Get display name for item at index
+static const char* GetMenuItemName(int index) {
+    if (g_insideFolder) {
+        if (index < 0 || index >= g_folderPluginCount) return "";
+        int pluginIdx = g_folderPlugins[index];
+        if (pluginIdx < 0 || pluginIdx >= g_registry.count) return "";
+        return g_registry.items[pluginIdx].displayName;
+    } else {
+        if (index < 0 || index >= g_menuItems.count) return "";
+        return g_menuItems.items[index].displayName;
+    }
+}
+
+// Get description for item at index (folders return NULL)
+static const char* GetMenuItemDescription(int index) {
+    if (g_insideFolder) {
+        if (index < 0 || index >= g_folderPluginCount) return NULL;
+        int pluginIdx = g_folderPlugins[index];
+        if (pluginIdx < 0 || pluginIdx >= g_registry.count) return NULL;
+        if (g_registry.items[pluginIdx].api) return g_registry.items[pluginIdx].api->description;
+        return NULL;
+    } else {
+        if (index < 0 || index >= g_menuItems.count) return NULL;
+        MenuItem *item = &g_menuItems.items[index];
+        if (item->type == MENU_ITEM_FOLDER) return NULL;
+        int pluginIdx = item->plugin.pluginIndex;
+        if (pluginIdx < 0 || pluginIdx >= g_registry.count) return NULL;
+        if (g_registry.items[pluginIdx].api) return g_registry.items[pluginIdx].api->description;
+        return NULL;
+    }
+}
+
+// Check if item at index is a folder
+static bool IsMenuItemFolder(int index) {
+    if (g_insideFolder) return false;  // Inside folder = all items are plugins
+    if (index < 0 || index >= g_menuItems.count) return false;
+    return g_menuItems.items[index].type == MENU_ITEM_FOLDER;
+}
+
+// Get folder plugin count (for folder items)
+static int GetMenuItemFolderCount(int index) {
+    if (g_insideFolder) return 0;
+    if (index < 0 || index >= g_menuItems.count) return 0;
+    MenuItem *item = &g_menuItems.items[index];
+    if (item->type != MENU_ITEM_FOLDER) return 0;
+    return item->folder.pluginCount;
+}
+
 // Font
 static Font g_menuFont;
 static bool g_fontLoaded = false;
@@ -340,7 +400,10 @@ static void DrawMenuHeader(const PluginRegistry *registry, int selected, Color d
 static void DrawPluginMenuCarousel(const PluginRegistry *registry, int selected, float deltaTime,
                                    Color dynamicAccent, Color dynamicAccentDim)
 {
-    if (!registry || registry->count == 0) {
+    (void)registry;  // Now uses global helpers for menu items
+
+    int itemCount = GetMenuItemCount();
+    if (itemCount == 0) {
         DrawTextEx(g_menuFont, "No plugins found", (Vector2){MENU_PADDING_X, MENU_PADDING_TOP + 40}, 24, 1, COLOR_TEXT_SECONDARY);
         DrawTextEx(g_menuFont, "Place .so files in ./plugins", (Vector2){MENU_PADDING_X, MENU_PADDING_TOP + 70}, 18, 1, COLOR_TEXT_DIM);
         return;
@@ -354,7 +417,10 @@ static void DrawPluginMenuCarousel(const PluginRegistry *registry, int selected,
     float centerX = SCREEN_WIDTH / 2.0f;
 
     // Draw items with perspective scaling
-    for (int i = 0; i < registry->count; i++) {
+    for (int i = 0; i < itemCount; i++) {
+        const char *itemName = GetMenuItemName(i);
+        bool isFolder = IsMenuItemFolder(i);
+
         // Calculate horizontal position relative to center
         float itemCenterX = i * itemSpacing - g_carouselOffset + centerX;
         float distFromCenter = fabsf(itemCenterX - centerX);
@@ -390,8 +456,12 @@ static void DrawPluginMenuCarousel(const PluginRegistry *registry, int selected,
             DrawRectangleRounded(shadowRect, 0.12f, 8, shadowColor);
         }
 
+        // Use folder color for folders
+        Color itemAccent = isFolder ? COLOR_FOLDER : dynamicAccent;
+        Color itemAccentDim = isFolder ? ColorAlpha(COLOR_FOLDER, 0.5f) : dynamicAccentDim;
+
         Color cardBg = isSelected ? COLOR_CARD_SELECTED : COLOR_CARD_BG;
-        Color borderColor = isSelected ? dynamicAccent : COLOR_CARD_BORDER;
+        Color borderColor = isSelected ? itemAccent : COLOR_CARD_BORDER;
 
         DrawRectangleRounded(cardRect, 0.12f, 8, ColorAlpha(cardBg, alpha));
         DrawRectangleRoundedLines(cardRect, 0.12f, 8, ColorAlpha(borderColor, alpha * (isSelected ? 0.8f : 0.3f)));
@@ -399,43 +469,49 @@ static void DrawPluginMenuCarousel(const PluginRegistry *registry, int selected,
         // Selection glow ring for center item
         if (isSelected && normalizedDist < 0.1f) {
             Rectangle glowRect = {cardX - 4, cardY - 4, cardWidth + 8, cardHeight + 8};
-            DrawRectangleRoundedLines(glowRect, 0.12f, 8, ColorAlpha(dynamicAccent, 0.4f));
+            DrawRectangleRoundedLines(glowRect, 0.12f, 8, ColorAlpha(itemAccent, 0.4f));
         }
 
-        // Plugin icon placeholder (large centered circle)
+        // Plugin/folder icon placeholder (large centered circle)
         float iconRadius = cardHeight * 0.25f;
         float iconY = cardY + cardHeight * 0.35f;
-        DrawCircle((int)(cardX + cardWidth / 2), (int)iconY, iconRadius, ColorAlpha(dynamicAccentDim, alpha * 0.4f));
-        DrawCircleLines((int)(cardX + cardWidth / 2), (int)iconY, iconRadius, ColorAlpha(dynamicAccent, alpha * 0.6f));
+        DrawCircle((int)(cardX + cardWidth / 2), (int)iconY, iconRadius, ColorAlpha(itemAccentDim, alpha * 0.4f));
+        DrawCircleLines((int)(cardX + cardWidth / 2), (int)iconY, iconRadius, ColorAlpha(itemAccent, alpha * 0.6f));
 
-        // First letter as icon
-        if (registry->items[i].displayName[0]) {
-            char initial[2] = {registry->items[i].displayName[0], '\0'};
+        // First letter as icon (or folder icon)
+        if (itemName && itemName[0]) {
+            const char *iconChar = isFolder ? "F" : NULL;
+            char initial[2] = {0};
+            if (!iconChar) {
+                initial[0] = itemName[0];
+                initial[1] = '\0';
+                iconChar = initial;
+            }
             float initialSize = iconRadius * 1.2f;
-            Vector2 initialDim = MeasureTextEx(g_menuFont, initial, initialSize, 1);
-            DrawTextEx(g_menuFont, initial,
+            Vector2 initialDim = MeasureTextEx(g_menuFont, iconChar, initialSize, 1);
+            DrawTextEx(g_menuFont, iconChar,
                       (Vector2){cardX + cardWidth / 2 - initialDim.x / 2, iconY - initialDim.y / 2},
-                      initialSize, 1, ColorAlpha(COLOR_TEXT_PRIMARY, alpha));
+                      initialSize, 1, ColorAlpha(isFolder ? COLOR_FOLDER : COLOR_TEXT_PRIMARY, alpha));
         }
 
-        // Plugin name below icon (larger font, no description)
+        // Item name below icon (larger font, no description)
         float fontSize = 26 * scale;
-        if (fontSize > 14) {
-            Vector2 nameSize = MeasureTextEx(g_menuFont, registry->items[i].displayName, fontSize, 1);
+        if (fontSize > 14 && itemName) {
+            Vector2 nameSize = MeasureTextEx(g_menuFont, itemName, fontSize, 1);
             float nameX = cardX + (cardWidth - nameSize.x) / 2;
             float nameY = cardY + cardHeight * 0.75f;
             Color nameColor = isSelected ? COLOR_TEXT_PRIMARY : COLOR_TEXT_SECONDARY;
-            DrawTextEx(g_menuFont, registry->items[i].displayName,
+            DrawTextEx(g_menuFont, itemName,
                       (Vector2){nameX, nameY}, fontSize, 1, ColorAlpha(nameColor, alpha));
         }
     }
 
     // Navigation dots at bottom
     float dotY = CAROUSEL_CENTER_Y + CAROUSEL_ITEM_HEIGHT / 2 + 50;
-    float totalDotsWidth = registry->count * 16;
+    float totalDotsWidth = itemCount * 16;
     float dotStartX = (SCREEN_WIDTH - totalDotsWidth) / 2;
 
-    for (int i = 0; i < registry->count; i++) {
+    for (int i = 0; i < itemCount; i++) {
         float dotX = dotStartX + i * 16 + 4;
         Color dotColor = (i == selected) ? dynamicAccent : ColorAlpha(COLOR_TEXT_DIM, 0.4f);
         float dotRadius = (i == selected) ? 5.0f : 3.0f;
@@ -450,11 +526,22 @@ static void DrawPluginMenuCarousel(const PluginRegistry *registry, int selected,
 static void DrawPluginMenuCards(const PluginRegistry *registry, int selected,
                                 Color dynamicAccent, Color complementary)
 {
-    if (!registry || registry->count == 0) {
+    (void)registry;  // Now uses global helpers for menu items
+
+    int itemCount = GetMenuItemCount();
+    if (itemCount == 0) {
         DrawTextEx(g_menuFont, "No plugins found", (Vector2){MENU_PADDING_X, MENU_PADDING_TOP + 40}, 24, 1, COLOR_TEXT_SECONDARY);
         DrawTextEx(g_menuFont, "Place .so files in ./plugins", (Vector2){MENU_PADDING_X, MENU_PADDING_TOP + 70}, 18, 1, COLOR_TEXT_DIM);
         return;
     }
+
+    const char *selectedName = GetMenuItemName(selected);
+    const char *selectedDesc = GetMenuItemDescription(selected);
+    bool isFolder = IsMenuItemFolder(selected);
+    int folderCount = GetMenuItemFolderCount(selected);
+
+    // Use folder color for folders
+    Color itemAccent = isFolder ? COLOR_FOLDER : dynamicAccent;
 
     // Large card dimensions - fills most of the screen
     float cardWidth = SCREEN_WIDTH - 80;
@@ -466,10 +553,10 @@ static void DrawPluginMenuCards(const PluginRegistry *registry, int selected,
     Rectangle cardRect = {cardX, cardY, cardWidth, cardHeight};
 
     // Spotify-style gradient background on card
-    Color gradientTop = ColorAlpha(dynamicAccent, 0.15f);
+    Color gradientTop = ColorAlpha(itemAccent, 0.15f);
     Color gradientBottom = COLOR_CARD_BG;
     DrawRectangleGradientV((int)cardX, (int)cardY, (int)cardWidth, (int)cardHeight, gradientTop, gradientBottom);
-    DrawRectangleRoundedLines(cardRect, 0.05f, 8, ColorAlpha(dynamicAccent, 0.3f));
+    DrawRectangleRoundedLines(cardRect, 0.05f, 8, ColorAlpha(itemAccent, 0.3f));
 
     // Large plugin icon/initial on the left side
     float iconSize = 160;
@@ -477,62 +564,73 @@ static void DrawPluginMenuCards(const PluginRegistry *registry, int selected,
     float iconY = cardY + (cardHeight - iconSize) / 2;
 
     // Icon background circle
-    DrawCircle((int)(iconX + iconSize / 2), (int)(iconY + iconSize / 2), iconSize / 2 + 4, ColorAlpha(dynamicAccent, 0.2f));
+    DrawCircle((int)(iconX + iconSize / 2), (int)(iconY + iconSize / 2), iconSize / 2 + 4, ColorAlpha(itemAccent, 0.2f));
     DrawCircle((int)(iconX + iconSize / 2), (int)(iconY + iconSize / 2), iconSize / 2, COLOR_CARD_SELECTED);
 
-    // Large initial letter
-    if (registry->items[selected].displayName[0]) {
-        char initial[2] = {registry->items[selected].displayName[0], '\0'};
+    // Large initial letter (or folder icon)
+    if (selectedName && selectedName[0]) {
+        const char *iconChar = isFolder ? "F" : NULL;
+        char initial[2] = {0};
+        if (!iconChar) {
+            initial[0] = selectedName[0];
+            initial[1] = '\0';
+            iconChar = initial;
+        }
         float initialSize = iconSize * 0.6f;
-        Vector2 initialDim = MeasureTextEx(g_menuFont, initial, initialSize, 1);
-        DrawTextEx(g_menuFont, initial,
+        Vector2 initialDim = MeasureTextEx(g_menuFont, iconChar, initialSize, 1);
+        DrawTextEx(g_menuFont, iconChar,
                   (Vector2){iconX + iconSize / 2 - initialDim.x / 2, iconY + iconSize / 2 - initialDim.y / 2},
-                  initialSize, 1, dynamicAccent);
+                  initialSize, 1, itemAccent);
     }
 
     // Plugin info on the right side
     float textX = iconX + iconSize + 40;
 
-    // Large plugin name
-    DrawTextEx(g_menuFont, registry->items[selected].displayName,
-              (Vector2){textX, cardY + 50}, 42, 2, COLOR_TEXT_PRIMARY);
-
-    // Description
-    if (registry->items[selected].api && registry->items[selected].api->description) {
-        DrawTextEx(g_menuFont, registry->items[selected].api->description,
-                  (Vector2){textX, cardY + 105}, 20, 1, COLOR_TEXT_SECONDARY);
+    // Large plugin/folder name
+    if (selectedName) {
+        DrawTextEx(g_menuFont, selectedName, (Vector2){textX, cardY + 50}, 42, 2, COLOR_TEXT_PRIMARY);
     }
 
-    // Plugin index badge
+    // Description (or folder plugin count)
+    if (isFolder) {
+        char folderDesc[64];
+        snprintf(folderDesc, sizeof(folderDesc), "%d plugin%s", folderCount, folderCount == 1 ? "" : "s");
+        DrawTextEx(g_menuFont, folderDesc, (Vector2){textX, cardY + 105}, 20, 1, COLOR_TEXT_SECONDARY);
+    } else if (selectedDesc) {
+        DrawTextEx(g_menuFont, selectedDesc, (Vector2){textX, cardY + 105}, 20, 1, COLOR_TEXT_SECONDARY);
+    }
+
+    // Item index badge
     char indexStr[32];
-    snprintf(indexStr, sizeof(indexStr), "Plugin %d of %d", selected + 1, registry->count);
+    snprintf(indexStr, sizeof(indexStr), "%s %d of %d", isFolder ? "Folder" : "Plugin", selected + 1, itemCount);
     DrawTextEx(g_menuFont, indexStr, (Vector2){textX, cardY + 150}, 16, 1, COLOR_TEXT_DIM);
 
-    // "Press select to launch" hint
-    DrawTextEx(g_menuFont, "Press SELECT to launch",
-              (Vector2){textX, cardY + cardHeight - 60}, 18, 1, complementary);
+    // "Press select to launch/open" hint
+    const char *actionHint = isFolder ? "Press SELECT to open" : "Press SELECT to launch";
+    DrawTextEx(g_menuFont, actionHint, (Vector2){textX, cardY + cardHeight - 60}, 18, 1, complementary);
 
     // Previous/Next preview cards (smaller, on sides)
     float previewWidth = 140;
     float previewHeight = 100;
     float previewY = cardY + cardHeight + 30;
 
-    // Previous plugin preview (if exists)
+    // Previous item preview (if exists)
     if (selected > 0) {
-        int prevIdx = selected - 1;
+        const char *prevName = GetMenuItemName(selected - 1);
         Rectangle prevRect = {40, previewY, previewWidth, previewHeight};
         DrawRectangleRounded(prevRect, 0.1f, 6, ColorAlpha(COLOR_CARD_BG, 0.6f));
         DrawRectangleRoundedLines(prevRect, 0.1f, 6, ColorAlpha(COLOR_CARD_BORDER, 0.3f));
 
         // Arrow and name
         DrawTextEx(g_menuFont, "◀", (Vector2){50, previewY + 15}, 24, 1, COLOR_TEXT_DIM);
-        DrawTextEx(g_menuFont, registry->items[prevIdx].displayName,
-                  (Vector2){50, previewY + 50}, 16, 1, COLOR_TEXT_SECONDARY);
+        if (prevName) {
+            DrawTextEx(g_menuFont, prevName, (Vector2){50, previewY + 50}, 16, 1, COLOR_TEXT_SECONDARY);
+        }
     }
 
-    // Next plugin preview (if exists)
-    if (selected < registry->count - 1) {
-        int nextIdx = selected + 1;
+    // Next item preview (if exists)
+    if (selected < itemCount - 1) {
+        const char *nextName = GetMenuItemName(selected + 1);
         float nextX = SCREEN_WIDTH - 40 - previewWidth;
         Rectangle nextRect = {nextX, previewY, previewWidth, previewHeight};
         DrawRectangleRounded(nextRect, 0.1f, 6, ColorAlpha(COLOR_CARD_BG, 0.6f));
@@ -542,10 +640,11 @@ static void DrawPluginMenuCards(const PluginRegistry *registry, int selected,
         Vector2 arrowSize = MeasureTextEx(g_menuFont, "▶", 24, 1);
         DrawTextEx(g_menuFont, "▶", (Vector2){nextX + previewWidth - arrowSize.x - 10, previewY + 15}, 24, 1, COLOR_TEXT_DIM);
 
-        Vector2 nameSize = MeasureTextEx(g_menuFont, registry->items[nextIdx].displayName, 16, 1);
-        float nameX = nextX + previewWidth - nameSize.x - 10;
-        DrawTextEx(g_menuFont, registry->items[nextIdx].displayName,
-                  (Vector2){nameX, previewY + 50}, 16, 1, COLOR_TEXT_SECONDARY);
+        if (nextName) {
+            Vector2 nameSize = MeasureTextEx(g_menuFont, nextName, 16, 1);
+            float nameX = nextX + previewWidth - nameSize.x - 10;
+            DrawTextEx(g_menuFont, nextName, (Vector2){nameX, previewY + 50}, 16, 1, COLOR_TEXT_SECONDARY);
+        }
     }
 
     // Progress bar at bottom showing position
@@ -557,10 +656,10 @@ static void DrawPluginMenuCards(const PluginRegistry *registry, int selected,
     DrawRectangleRounded((Rectangle){barX, barY, barWidth, barHeight}, 0.5f, 4, ColorAlpha(COLOR_CARD_BORDER, 0.3f));
 
     // Progress indicator
-    float progress = (float)selected / (float)(registry->count - 1 > 0 ? registry->count - 1 : 1);
-    float indicatorWidth = barWidth / registry->count;
+    float progress = (float)selected / (float)(itemCount - 1 > 0 ? itemCount - 1 : 1);
+    float indicatorWidth = barWidth / itemCount;
     float indicatorX = barX + progress * (barWidth - indicatorWidth);
-    DrawRectangleRounded((Rectangle){indicatorX, barY, indicatorWidth, barHeight}, 0.5f, 4, dynamicAccent);
+    DrawRectangleRounded((Rectangle){indicatorX, barY, indicatorWidth, barHeight}, 0.5f, 4, itemAccent);
 }
 
 // ============================================================================
@@ -910,6 +1009,7 @@ static int g_ctLastSelected = -1;
 static void DrawPluginMenuSpotifyCT(const PluginRegistry *registry, int selected, float deltaTime,
                                     Color dynamicAccent)
 {
+    (void)registry;  // Now uses global helpers for menu items
     (void)dynamicAccent;
 
     // Lazy load fonts on first use
@@ -924,10 +1024,14 @@ static void DrawPluginMenuSpotifyCT(const PluginRegistry *registry, int selected
     Font textFont = g_tracklisterFontLoaded ? g_tracklisterFont : g_menuFont;
     Font brandFont = g_omicronFontLoaded ? g_omicronFont : g_menuFont;
 
-    if (!registry || registry->count == 0) {
+    int itemCount = GetMenuItemCount();
+    if (itemCount == 0) {
         DrawTextEx(textFont, "No plugins", (Vector2){SCREEN_WIDTH / 2 - 80, SCREEN_HEIGHT / 2 - 20}, 32, 1, COLOR_TEXT_SECONDARY);
         return;
     }
+
+    const char *itemName = GetMenuItemName(selected);
+    bool isFolder = IsMenuItemFolder(selected);
 
     // Detect selection change and trigger crossfade
     if (g_ctLastSelected != selected) {
@@ -943,15 +1047,18 @@ static void DrawPluginMenuSpotifyCT(const PluginRegistry *registry, int selected
     // Smooth easing for gentle feel
     float contentAlpha = g_ctFadeAlpha * g_ctFadeAlpha * (3.0f - 2.0f * g_ctFadeAlpha);  // smoothstep
 
-    // Aero green glass overlay effect
-    // Layer 1: Semi-transparent green tint
-    Color aeroGreen1 = {20, 180, 80, 40};
-    DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, aeroGreen1);
+    // Use folder color or Spotify green
+    Color accentColor = isFolder ? COLOR_FOLDER : COLOR_SPOTIFY_GREEN;
 
-    // Layer 2: Subtle gradient from top (lighter) to bottom (darker green)
+    // Aero glass overlay effect
+    // Layer 1: Semi-transparent tint
+    Color aeroTint = isFolder ? (Color){40, 100, 180, 40} : (Color){20, 180, 80, 40};
+    DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, aeroTint);
+
+    // Layer 2: Subtle gradient from top (lighter) to bottom (darker)
     for (int y = 0; y < SCREEN_HEIGHT; y += 4) {
         float gradientAlpha = 0.02f + (float)y / SCREEN_HEIGHT * 0.06f;
-        Color gradLine = ColorAlpha(COLOR_SPOTIFY_GREEN, gradientAlpha);
+        Color gradLine = ColorAlpha(accentColor, gradientAlpha);
         DrawRectangle(0, y, SCREEN_WIDTH, 4, gradLine);
     }
 
@@ -972,48 +1079,56 @@ static void DrawPluginMenuSpotifyCT(const PluginRegistry *registry, int selected
     float iconCenterY = SCREEN_HEIGHT / 2;
     float iconX = SCREEN_WIDTH / 2;
 
-    // Plugin name below icon
-    const char *pluginName = registry->items[selected].displayName;
+    // Item name below icon
     float mainFontSize = 64;
-    Vector2 mainSize = MeasureTextEx(textFont, pluginName, mainFontSize, 2);
+    Vector2 mainSize = itemName ? MeasureTextEx(textFont, itemName, mainFontSize, 2) : (Vector2){0, 0};
 
     // If name is too long, shrink it
-    while (mainSize.x > SCREEN_WIDTH - 80 && mainFontSize > 32) {
+    while (itemName && mainSize.x > SCREEN_WIDTH - 80 && mainFontSize > 32) {
         mainFontSize -= 4;
-        mainSize = MeasureTextEx(textFont, pluginName, mainFontSize, 2);
+        mainSize = MeasureTextEx(textFont, itemName, mainFontSize, 2);
     }
 
     float mainX = (SCREEN_WIDTH - mainSize.x) / 2;
     float mainY = iconCenterY + iconRadius + 30;
 
     // Flat circle behind letter - crossfades with content
-    DrawCircle((int)iconX, (int)iconCenterY, iconRadius, ColorAlpha((Color){15, 60, 35, 200}, contentAlpha));
+    Color circleBg = isFolder ? (Color){20, 50, 100, 200} : (Color){15, 60, 35, 200};
+    DrawCircle((int)iconX, (int)iconCenterY, iconRadius, ColorAlpha(circleBg, contentAlpha));
 
-    // Spotify green ring
-    DrawCircleLines((int)iconX, (int)iconCenterY, iconRadius, ColorAlpha(COLOR_SPOTIFY_GREEN, contentAlpha));
+    // Accent ring
+    DrawCircleLines((int)iconX, (int)iconCenterY, iconRadius, ColorAlpha(accentColor, contentAlpha));
 
     // Initial letter inside - crossfades (uses textFont for consistency)
-    if (pluginName[0]) {
-        char initial[2] = {pluginName[0], '\0'};
+    if (itemName && itemName[0]) {
+        const char *iconChar = isFolder ? "F" : NULL;
+        char initial[2] = {0};
+        if (!iconChar) {
+            initial[0] = itemName[0];
+            initial[1] = '\0';
+            iconChar = initial;
+        }
         float initialSize = 60;
-        Vector2 initialDim = MeasureTextEx(textFont, initial, initialSize, 1);
-        DrawTextEx(textFont, initial,
+        Vector2 initialDim = MeasureTextEx(textFont, iconChar, initialSize, 1);
+        DrawTextEx(textFont, iconChar,
                   (Vector2){iconX - initialDim.x / 2, iconCenterY - initialDim.y / 2},
-                  initialSize, 1, ColorAlpha(COLOR_SPOTIFY_GREEN, contentAlpha));
+                  initialSize, 1, ColorAlpha(accentColor, contentAlpha));
     }
 
-    // Main plugin name below icon - centered, crossfades (no horizontal movement)
-    DrawTextEx(textFont, pluginName, (Vector2){mainX, mainY}, mainFontSize, 2, ColorAlpha(WHITE, contentAlpha));
+    // Main item name below icon - centered, crossfades (no horizontal movement)
+    if (itemName) {
+        DrawTextEx(textFont, itemName, (Vector2){mainX, mainY}, mainFontSize, 2, ColorAlpha(WHITE, contentAlpha));
+    }
 
-    // Spotify green underline - centered, crossfades (no horizontal movement)
+    // Accent underline - centered, crossfades (no horizontal movement)
     float underlineWidth = fminf(mainSize.x + 40, SCREEN_WIDTH - 100);
     float underlineX = (SCREEN_WIDTH - underlineWidth) / 2;
     DrawRectangle((int)underlineX, (int)(mainY + mainSize.y + 12), (int)underlineWidth, 4,
-                 ColorAlpha(COLOR_SPOTIFY_GREEN, contentAlpha));
+                 ColorAlpha(accentColor, contentAlpha));
 
-    // Plugin counter below - centered, crossfades (no horizontal movement)
+    // Item counter below - centered, crossfades (no horizontal movement)
     char counterStr[32];
-    snprintf(counterStr, sizeof(counterStr), "%d / %d", selected + 1, registry->count);
+    snprintf(counterStr, sizeof(counterStr), "%d / %d", selected + 1, itemCount);
     Vector2 counterSize = MeasureTextEx(textFont, counterStr, 24, 1);
     DrawTextEx(textFont, counterStr,
               (Vector2){(SCREEN_WIDTH - counterSize.x) / 2, mainY + mainSize.y + 40},
@@ -1024,43 +1139,47 @@ static void DrawPluginMenuSpotifyCT(const PluginRegistry *registry, int selected
 
     if (selected > 0) {
         // Left arrow
-        DrawTextEx(textFont, "◀", (Vector2){40, sideY - 12}, 28, 1, ColorAlpha(COLOR_SPOTIFY_GREEN, 0.4f));
+        DrawTextEx(textFont, "◀", (Vector2){40, sideY - 12}, 28, 1, ColorAlpha(accentColor, 0.4f));
 
-        // Previous plugin name (dim)
-        const char *prevName = registry->items[selected - 1].displayName;
-        Vector2 prevSize = MeasureTextEx(textFont, prevName, 16, 1);
-        if (prevSize.x > 120) {
-            char truncName[20];
-            strncpy(truncName, prevName, 15);
-            truncName[15] = '.';
-            truncName[16] = '.';
-            truncName[17] = '.';
-            truncName[18] = '\0';
-            DrawTextEx(textFont, truncName, (Vector2){40, sideY + 24}, 16, 1, ColorAlpha(WHITE, 0.25f));
-        } else {
-            DrawTextEx(textFont, prevName, (Vector2){40, sideY + 24}, 16, 1, ColorAlpha(WHITE, 0.25f));
+        // Previous item name (dim)
+        const char *prevName = GetMenuItemName(selected - 1);
+        if (prevName) {
+            Vector2 prevSize = MeasureTextEx(textFont, prevName, 16, 1);
+            if (prevSize.x > 120) {
+                char truncName[20];
+                strncpy(truncName, prevName, 15);
+                truncName[15] = '.';
+                truncName[16] = '.';
+                truncName[17] = '.';
+                truncName[18] = '\0';
+                DrawTextEx(textFont, truncName, (Vector2){40, sideY + 24}, 16, 1, ColorAlpha(WHITE, 0.25f));
+            } else {
+                DrawTextEx(textFont, prevName, (Vector2){40, sideY + 24}, 16, 1, ColorAlpha(WHITE, 0.25f));
+            }
         }
     }
 
-    if (selected < registry->count - 1) {
+    if (selected < itemCount - 1) {
         // Right arrow
         Vector2 arrowSize = MeasureTextEx(textFont, "▶", 28, 1);
-        DrawTextEx(textFont, "▶", (Vector2){SCREEN_WIDTH - 40 - arrowSize.x, sideY - 12}, 28, 1, ColorAlpha(COLOR_SPOTIFY_GREEN, 0.4f));
+        DrawTextEx(textFont, "▶", (Vector2){SCREEN_WIDTH - 40 - arrowSize.x, sideY - 12}, 28, 1, ColorAlpha(accentColor, 0.4f));
 
-        // Next plugin name (dim)
-        const char *nextName = registry->items[selected + 1].displayName;
-        Vector2 nextSize = MeasureTextEx(textFont, nextName, 16, 1);
-        if (nextSize.x > 120) {
-            char truncName[20];
-            strncpy(truncName, nextName, 15);
-            truncName[15] = '.';
-            truncName[16] = '.';
-            truncName[17] = '.';
-            truncName[18] = '\0';
-            Vector2 truncSize = MeasureTextEx(textFont, truncName, 16, 1);
-            DrawTextEx(textFont, truncName, (Vector2){SCREEN_WIDTH - 40 - truncSize.x, sideY + 24}, 16, 1, ColorAlpha(WHITE, 0.25f));
-        } else {
-            DrawTextEx(textFont, nextName, (Vector2){SCREEN_WIDTH - 40 - nextSize.x, sideY + 24}, 16, 1, ColorAlpha(WHITE, 0.25f));
+        // Next item name (dim)
+        const char *nextName = GetMenuItemName(selected + 1);
+        if (nextName) {
+            Vector2 nextSize = MeasureTextEx(textFont, nextName, 16, 1);
+            if (nextSize.x > 120) {
+                char truncName[20];
+                strncpy(truncName, nextName, 15);
+                truncName[15] = '.';
+                truncName[16] = '.';
+                truncName[17] = '.';
+                truncName[18] = '\0';
+                Vector2 truncSize = MeasureTextEx(textFont, truncName, 16, 1);
+                DrawTextEx(textFont, truncName, (Vector2){SCREEN_WIDTH - 40 - truncSize.x, sideY + 24}, 16, 1, ColorAlpha(WHITE, 0.25f));
+            } else {
+                DrawTextEx(textFont, nextName, (Vector2){SCREEN_WIDTH - 40 - nextSize.x, sideY + 24}, 16, 1, ColorAlpha(WHITE, 0.25f));
+            }
         }
     }
 
@@ -1082,6 +1201,7 @@ static void DrawPluginMenuSpotifyCT(const PluginRegistry *registry, int selected
 static void DrawPluginMenuGrid(const PluginRegistry *registry, int selected, float deltaTime,
                                Color dynamicAccent, Color dynamicAccentDim)
 {
+    (void)registry;          // Now uses global helpers for menu items
     (void)dynamicAccent;     // Grid uses its own Apple color scheme
     (void)dynamicAccentDim;
 
@@ -1098,6 +1218,7 @@ static void DrawPluginMenuGrid(const PluginRegistry *registry, int selected, flo
     static const Color APPLE_RED = {255, 95, 86, 255};
     static const Color APPLE_YELLOW = {255, 189, 46, 255};
     static const Color APPLE_GREEN = {39, 201, 63, 255};
+    static const Color APPLE_BLUE = {0, 122, 255, 255};  // For folders
 
     // Draw white background (override animated background)
     DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, GRID_BG_WHITE);
@@ -1109,7 +1230,8 @@ static void DrawPluginMenuGrid(const PluginRegistry *registry, int selected, flo
 
     Font gridFont = g_ibrandFontLoaded ? g_ibrandFont : g_menuFont;
 
-    if (!registry || registry->count == 0) {
+    int itemCount = GetMenuItemCount();
+    if (itemCount == 0) {
         DrawTextEx(gridFont, "No plugins found", (Vector2){MENU_PADDING_X, MENU_PADDING_TOP + 40}, 24, 1, GRID_TEXT_SECONDARY);
         DrawTextEx(gridFont, "Place .so files in ./plugins", (Vector2){MENU_PADDING_X, MENU_PADDING_TOP + 70}, 18, 1, GRID_TEXT_DIM);
         return;
@@ -1123,7 +1245,13 @@ static void DrawPluginMenuGrid(const PluginRegistry *registry, int selected, flo
     DrawCircle(GRID_PADDING_X + 8 + dotSpacing, dotY, dotRadius, APPLE_YELLOW);
     DrawCircle(GRID_PADDING_X + 8 + dotSpacing * 2, dotY, dotRadius, APPLE_GREEN);
 
-    DrawTextEx(gridFont, "llizardOS", (Vector2){GRID_PADDING_X + dotSpacing * 3 + 20, 24}, 32, 2, GRID_TEXT_PRIMARY);
+    // Show folder context if inside folder
+    const char *headerText = g_insideFolder ? GetMenuItemName(0) : "llizardOS";
+    if (g_insideFolder) {
+        // Get the folder name from g_currentFolder
+        headerText = LLZ_CATEGORY_NAMES[g_currentFolder];
+    }
+    DrawTextEx(gridFont, headerText, (Vector2){GRID_PADDING_X + dotSpacing * 3 + 20, 24}, 32, 2, GRID_TEXT_PRIMARY);
 
     // Subtle divider line
     DrawRectangle(GRID_PADDING_X, 68, SCREEN_WIDTH - GRID_PADDING_X * 2, 1, GRID_BORDER);
@@ -1146,7 +1274,10 @@ static void DrawPluginMenuGrid(const PluginRegistry *registry, int selected, flo
     // Draw grid of tiles
     BeginScissorMode(0, GRID_PADDING_TOP - 10, SCREEN_WIDTH, SCREEN_HEIGHT - GRID_PADDING_TOP + 10);
 
-    for (int i = 0; i < registry->count; i++) {
+    for (int i = 0; i < itemCount; i++) {
+        const char *itemName = GetMenuItemName(i);
+        bool isFolder = IsMenuItemFolder(i);
+
         int col = i % GRID_COLS;
         int row = i / GRID_COLS;
 
@@ -1167,28 +1298,29 @@ static void DrawPluginMenuGrid(const PluginRegistry *registry, int selected, flo
         Color tileBg = isSelected ? GRID_TILE_BG : GRID_TILE_HOVER;
         DrawRectangleRounded(tileRect, 0.12f, 8, tileBg);
 
-        // Selection color - orange/yellow tint
+        // Selection color - blue for folders, orange for plugins
         static const Color APPLE_ORANGE = {255, 159, 10, 255};
+        Color selectionColor = isFolder ? APPLE_BLUE : APPLE_ORANGE;
 
-        // Border - orange when selected
-        Color borderColor = isSelected ? APPLE_ORANGE : GRID_BORDER;
+        // Border - colored when selected
+        Color borderColor = isSelected ? selectionColor : GRID_BORDER;
         DrawRectangleRoundedLines(tileRect, 0.12f, 8, borderColor);
 
         // Selection indicator - left edge colored bar
         if (isSelected) {
             Rectangle accentBar = {tileX, tileY + 10, 4, GRID_TILE_HEIGHT - 20};
-            DrawRectangleRounded(accentBar, 1.0f, 4, APPLE_ORANGE);
+            DrawRectangleRounded(accentBar, 1.0f, 4, selectionColor);
         }
 
-        // Icon circle on left side of tile - cycle through traffic light colors
+        // Icon circle on left side of tile
         // Fades out when selected
         float iconRadius = 50;
         float iconX = tileX + 70;
         float iconY = tileY + GRID_TILE_HEIGHT / 2;
 
-        // Cycle colors: red, yellow, green based on index
+        // Use blue for folders, cycle traffic light colors for plugins
         Color iconColors[] = {APPLE_RED, APPLE_YELLOW, APPLE_GREEN};
-        Color iconColor = iconColors[i % 3];
+        Color iconColor = isFolder ? APPLE_BLUE : iconColors[i % 3];
 
         // Fade out icon when selected
         float iconAlpha = isSelected ? 0.0f : 1.0f;
@@ -1197,60 +1329,66 @@ static void DrawPluginMenuGrid(const PluginRegistry *registry, int selected, flo
             DrawCircle((int)iconX, (int)iconY, iconRadius, iconBg);
             DrawCircleLines((int)iconX, (int)iconY, iconRadius, ColorAlpha(iconColor, 0.4f * iconAlpha));
 
-            // Initial letter
-            if (registry->items[i].displayName[0]) {
-                char initial[2] = {registry->items[i].displayName[0], '\0'};
+            // Initial letter (F for folders)
+            const char *iconChar = isFolder ? "F" : NULL;
+            char initial[2] = {0};
+            if (!iconChar && itemName && itemName[0]) {
+                initial[0] = itemName[0];
+                initial[1] = '\0';
+                iconChar = initial;
+            }
+            if (iconChar) {
                 float initialSize = 40;
-                Vector2 initialDim = MeasureTextEx(gridFont, initial, initialSize, 1);
+                Vector2 initialDim = MeasureTextEx(gridFont, iconChar, initialSize, 1);
                 Color initialColor = ColorAlpha(iconColor, 0.7f * iconAlpha);
-                DrawTextEx(gridFont, initial,
+                DrawTextEx(gridFont, iconChar,
                           (Vector2){iconX - initialDim.x / 2, iconY - initialDim.y / 2},
                           initialSize, 1, initialColor);
             }
         }
 
-        // Plugin name - bigger when selected, positioned differently
+        // Item name - bigger when selected, positioned differently
         float textX = isSelected ? (tileX + 30) : (iconX + iconRadius + 30);
         float maxTextWidth = isSelected ? (GRID_TILE_WIDTH - 60) : (GRID_TILE_WIDTH - (textX - tileX) - 20);
 
         Color nameColor = isSelected ? GRID_TEXT_PRIMARY : GRID_TEXT_SECONDARY;
         float nameSize = isSelected ? 36 : 28;
-        Vector2 nameDim = MeasureTextEx(gridFont, registry->items[i].displayName, nameSize, 1);
+        Vector2 nameDim = itemName ? MeasureTextEx(gridFont, itemName, nameSize, 1) : (Vector2){0, 0};
 
         // Vertically center the name in the tile
         float nameY = tileY + (GRID_TILE_HEIGHT - nameDim.y) / 2;
 
         // Truncate if too long
-        if (nameDim.x > maxTextWidth) {
+        if (itemName && nameDim.x > maxTextWidth) {
             char truncName[32];
-            int maxChars = (int)(maxTextWidth / (nameDim.x / strlen(registry->items[i].displayName)));
+            int maxChars = (int)(maxTextWidth / (nameDim.x / strlen(itemName)));
             if (maxChars > 28) maxChars = 28;
             if (maxChars > 3) {
-                strncpy(truncName, registry->items[i].displayName, maxChars - 3);
+                strncpy(truncName, itemName, maxChars - 3);
                 truncName[maxChars - 3] = '.';
                 truncName[maxChars - 2] = '.';
                 truncName[maxChars - 1] = '.';
                 truncName[maxChars] = '\0';
                 DrawTextEx(gridFont, truncName, (Vector2){textX, nameY}, nameSize, 1, nameColor);
             }
-        } else {
-            DrawTextEx(gridFont, registry->items[i].displayName, (Vector2){textX, nameY}, nameSize, 1, nameColor);
+        } else if (itemName) {
+            DrawTextEx(gridFont, itemName, (Vector2){textX, nameY}, nameSize, 1, nameColor);
         }
 
         // Index badge in corner - subtle
         char indexStr[16];
         snprintf(indexStr, sizeof(indexStr), "%d", i + 1);
         Vector2 indexSize = MeasureTextEx(gridFont, indexStr, 14, 1);
-        float indexX = tileX + GRID_TILE_WIDTH - indexSize.x - 12;
-        float indexY = tileY + GRID_TILE_HEIGHT - 24;
-        DrawTextEx(gridFont, indexStr, (Vector2){indexX, indexY}, 14, 1, GRID_TEXT_DIM);
+        float indexXPos = tileX + GRID_TILE_WIDTH - indexSize.x - 12;
+        float indexYPos = tileY + GRID_TILE_HEIGHT - 24;
+        DrawTextEx(gridFont, indexStr, (Vector2){indexXPos, indexYPos}, 14, 1, GRID_TEXT_DIM);
     }
 
     EndScissorMode();
 
     // Page indicator at bottom
     char pageStr[32];
-    snprintf(pageStr, sizeof(pageStr), "%d of %d", selected + 1, registry->count);
+    snprintf(pageStr, sizeof(pageStr), "%d of %d", selected + 1, itemCount);
     Vector2 pageSize = MeasureTextEx(gridFont, pageStr, 16, 1);
     DrawTextEx(gridFont, pageStr, (Vector2){(SCREEN_WIDTH - pageSize.x) / 2, SCREEN_HEIGHT - 30}, 16, 1, GRID_TEXT_SECONDARY);
 }
@@ -1351,51 +1489,52 @@ int main(void)
     const char *working = GetWorkingDirectory();
     snprintf(pluginDir, sizeof(pluginDir), "%s/plugins", working ? working : ".");
 
-    PluginRegistry registry = {0};
-    LoadPlugins(pluginDir, &registry);
+    // Use global registry so helper functions can access it
+    memset(&g_registry, 0, sizeof(g_registry));
+    LoadPlugins(pluginDir, &g_registry);
 
     // Load visibility configuration and build menu items
-    LoadPluginVisibility(&registry);
-    BuildMenuItems(&registry, &g_menuItems);
+    LoadPluginVisibility(&g_registry);
+    BuildMenuItems(&g_registry, &g_menuItems);
     printf("Menu built: %d items (%d folders + home plugins)\n", g_menuItems.count,
            g_menuItems.count > 0 ? (int)(g_menuItems.count -
-               (registry.count > 0 ? registry.count : 0)) : 0);
+               (g_registry.count > 0 ? g_registry.count : 0)) : 0);
 
     // Create initial snapshot for change detection
     g_pluginSnapshot = CreatePluginSnapshot(pluginDir);
 
     int selectedIndex = 0;
-    if (selectedIndex >= registry.count) selectedIndex = registry.count - 1;
+    if (selectedIndex >= g_registry.count) selectedIndex = g_registry.count - 1;
     bool runningPlugin = false;
     LoadedPlugin *active = NULL;
     int lastPluginIndex = -1;  // Track last opened plugin for quick reopen
 
     // Check for startup plugin configuration
-    if (LlzConfigHasStartupPlugin() && registry.count > 0) {
+    if (LlzConfigHasStartupPlugin() && g_registry.count > 0) {
         const char *startupName = LlzConfigGetStartupPlugin();
         int startupIndex = -1;
 
         // Find the plugin by name (check displayName, api->name, and filename)
-        for (int i = 0; i < registry.count; i++) {
+        for (int i = 0; i < g_registry.count; i++) {
             // Check exact match on displayName or api->name
-            if (strcmp(registry.items[i].displayName, startupName) == 0 ||
-                (registry.items[i].api && registry.items[i].api->name &&
-                 strcmp(registry.items[i].api->name, startupName) == 0)) {
+            if (strcmp(g_registry.items[i].displayName, startupName) == 0 ||
+                (g_registry.items[i].api && g_registry.items[i].api->name &&
+                 strcmp(g_registry.items[i].api->name, startupName) == 0)) {
                 startupIndex = i;
                 break;
             }
 
             // Also check case-insensitive match (settings plugin may capitalize differently)
-            if (strcasecmp(registry.items[i].displayName, startupName) == 0 ||
-                (registry.items[i].api && registry.items[i].api->name &&
-                 strcasecmp(registry.items[i].api->name, startupName) == 0)) {
+            if (strcasecmp(g_registry.items[i].displayName, startupName) == 0 ||
+                (g_registry.items[i].api && g_registry.items[i].api->name &&
+                 strcasecmp(g_registry.items[i].api->name, startupName) == 0)) {
                 startupIndex = i;
                 break;
             }
 
             // Check against filename (e.g., "nowplaying.so" -> "nowplaying")
             // Settings plugin generates names from filenames, so this helps match
-            const char *path = registry.items[i].path;
+            const char *path = g_registry.items[i].path;
             const char *filename = strrchr(path, '/');
             filename = filename ? filename + 1 : path;
             char baseName[64] = {0};
@@ -1418,7 +1557,7 @@ int main(void)
             printf("Launching startup plugin: %s\n", startupName);
             selectedIndex = startupIndex;
             lastPluginIndex = startupIndex;
-            active = &registry.items[startupIndex];
+            active = &g_registry.items[startupIndex];
             if (active->api && active->api->init) {
                 active->api->init(SCREEN_WIDTH, SCREEN_HEIGHT);
             }
@@ -1445,7 +1584,7 @@ int main(void)
 
                 if (HasPluginDirectoryChanged(pluginDir, &g_pluginSnapshot)) {
                     // Refresh plugins
-                    int changes = RefreshPlugins(pluginDir, &registry);
+                    int changes = RefreshPlugins(pluginDir, &g_registry);
                     if (changes > 0) {
                         printf("Plugins refreshed: %d change(s)\n", changes);
 
@@ -1454,9 +1593,9 @@ int main(void)
                         g_pluginSnapshot = CreatePluginSnapshot(pluginDir);
 
                         // Reload visibility config and rebuild menu items
-                        LoadPluginVisibility(&registry);
+                        LoadPluginVisibility(&g_registry);
                         FreeMenuItems(&g_menuItems);
-                        BuildMenuItems(&registry, &g_menuItems);
+                        BuildMenuItems(&g_registry, &g_menuItems);
 
                         // Exit folder view if we were inside (plugins may have changed)
                         if (g_insideFolder) {
@@ -1472,7 +1611,7 @@ int main(void)
                         g_targetScrollOffset = 0;
 
                         // Reset last plugin index if that plugin was removed
-                        if (lastPluginIndex >= registry.count) {
+                        if (lastPluginIndex >= g_registry.count) {
                             lastPluginIndex = -1;
                         }
                     }
@@ -1515,9 +1654,9 @@ int main(void)
                     selectedIndex = 0;  // Reset to top of menu
                     g_scrollOffset = 0;
                     g_targetScrollOffset = 0;
-                } else if (lastPluginIndex >= 0 && lastPluginIndex < registry.count) {
+                } else if (lastPluginIndex >= 0 && lastPluginIndex < g_registry.count) {
                     // Reopen last plugin
-                    active = &registry.items[lastPluginIndex];
+                    active = &g_registry.items[lastPluginIndex];
                     if (active && active->api && active->api->init) {
                         active->api->init(SCREEN_WIDTH, SCREEN_HEIGHT);
                     }
@@ -1532,7 +1671,7 @@ int main(void)
                     // Launch plugin from folder
                     int pluginIdx = g_folderPlugins[selectedIndex];
                     lastPluginIndex = pluginIdx;
-                    active = &registry.items[pluginIdx];
+                    active = &g_registry.items[pluginIdx];
                     if (active && active->api && active->api->init) {
                         active->api->init(SCREEN_WIDTH, SCREEN_HEIGHT);
                     }
@@ -1544,7 +1683,7 @@ int main(void)
                     if (item->type == MENU_ITEM_FOLDER) {
                         // Enter folder
                         g_currentFolder = item->folder.category;
-                        g_folderPlugins = GetFolderPlugins(&registry, g_currentFolder, &g_folderPluginCount);
+                        g_folderPlugins = GetFolderPlugins(&g_registry, g_currentFolder, &g_folderPluginCount);
                         g_insideFolder = true;
                         selectedIndex = 0;
                         g_scrollOffset = 0;
@@ -1553,7 +1692,7 @@ int main(void)
                         // Launch plugin
                         int pluginIdx = item->plugin.pluginIndex;
                         lastPluginIndex = pluginIdx;
-                        active = &registry.items[pluginIdx];
+                        active = &g_registry.items[pluginIdx];
                         if (active && active->api && active->api->init) {
                             active->api->init(SCREEN_WIDTH, SCREEN_HEIGHT);
                         }
@@ -1564,7 +1703,7 @@ int main(void)
             }
 
             LlzDisplayBegin();
-            DrawPluginMenu(&registry, selectedIndex, delta);
+            DrawPluginMenu(&g_registry, selectedIndex, delta);
             LlzBackgroundDrawIndicator();
             LlzDisplayEnd();
         } else if (active && active->api) {
@@ -1587,16 +1726,19 @@ int main(void)
             }
 
             if (exitRequest) {
-                // Check if plugin wants host to refresh before shutdown
-                bool needsRefresh = active->api->wants_refresh && active->api->wants_refresh();
+                // Store API pointer before shutdown (plugin may clear its state)
+                const LlzPluginAPI *closingApi = active->api;
 
-                if (active->api->shutdown) active->api->shutdown();
+                if (closingApi->shutdown) closingApi->shutdown();
+
+                // Check wants_refresh AFTER shutdown so saved config is used
+                bool needsRefresh = closingApi->wants_refresh && closingApi->wants_refresh();
 
                 // Refresh menu if plugin requested it (e.g., plugin manager, menu sorter)
                 if (needsRefresh) {
-                    LoadPluginVisibility(&registry);
+                    LoadPluginVisibility(&g_registry);
                     FreeMenuItems(&g_menuItems);
-                    BuildMenuItems(&registry, &g_menuItems);
+                    BuildMenuItems(&g_registry, &g_menuItems);
 
                     // Exit folder view since menu structure may have changed
                     if (g_insideFolder) {
@@ -1605,6 +1747,9 @@ int main(void)
                         g_folderPlugins = NULL;
                         g_folderPluginCount = 0;
                     }
+
+                    // Reset selection to top of list after refresh
+                    selectedIndex = 0;
                 }
 
                 // Check if the plugin requested opening another plugin
@@ -1613,10 +1758,10 @@ int main(void)
                     if (requestedName) {
                         // Find the requested plugin by name
                         int foundIndex = -1;
-                        for (int i = 0; i < registry.count; i++) {
-                            if (strcmp(registry.items[i].displayName, requestedName) == 0 ||
-                                (registry.items[i].api && registry.items[i].api->name &&
-                                 strcmp(registry.items[i].api->name, requestedName) == 0)) {
+                        for (int i = 0; i < g_registry.count; i++) {
+                            if (strcmp(g_registry.items[i].displayName, requestedName) == 0 ||
+                                (g_registry.items[i].api && g_registry.items[i].api->name &&
+                                 strcmp(g_registry.items[i].api->name, requestedName) == 0)) {
                                 foundIndex = i;
                                 break;
                             }
@@ -1628,7 +1773,7 @@ int main(void)
                             // Open the requested plugin directly
                             selectedIndex = foundIndex;
                             lastPluginIndex = foundIndex;
-                            active = &registry.items[foundIndex];
+                            active = &g_registry.items[foundIndex];
                             if (active->api && active->api->init) {
                                 active->api->init(SCREEN_WIDTH, SCREEN_HEIGHT);
                             }
@@ -1653,7 +1798,7 @@ int main(void)
     FreeFolderPlugins(g_folderPlugins);
     FreeMenuItems(&g_menuItems);
     FreePluginSnapshot(&g_pluginSnapshot);
-    UnloadPlugins(&registry);
+    UnloadPlugins(&g_registry);
     UnloadIBrandFont();
     UnloadTracklisterFont();
     UnloadOmicronFont();
