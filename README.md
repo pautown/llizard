@@ -68,17 +68,19 @@ llizardgui-host/
 │   └── llz_sdk/            # Implementation
 ├── shared/                 # Shared libraries
 │   └── notifications/      # Popup notification system (opt-in)
-├── plugins_src/            # Plugin source code (13 plugins)
+├── plugins_src/            # Plugin source code (15 plugins)
 │   ├── nowplaying/         # Music player UI with themes
 │   ├── lyrics/             # Synced lyrics display
 │   ├── podcast/            # Podcast browser
 │   ├── album_art_viewer/   # Album art browser
+│   ├── media_channels/     # Media channel browser/switcher
 │   ├── clock/              # Multi-style clock
 │   ├── settings/           # System settings
 │   ├── redis_status/       # Redis/BLE status display
 │   ├── swipe_2048/         # 2048 puzzle game
 │   ├── llzblocks/          # Tetris-style block game
 │   ├── llzsolipskier/      # Line-drawing ski game
+│   ├── bejeweled/          # Match-3 puzzle game
 │   ├── millionaire/        # Trivia game
 │   ├── flashcards/         # Quiz/flashcard system
 │   └── alchemy/            # Cauldron Cascade game
@@ -124,12 +126,14 @@ supporting_projects/salamanders/
 | **Lyrics** | Display synced lyrics for current track |
 | **Podcasts** | Browse podcasts and episodes |
 | **Album Art Viewer** | Browse cached album art |
+| **Media Channels** | Browse and switch between media channels |
 | **Clock** | Modern clock with multiple styles |
 | **Settings** | System settings - brightness, lyrics |
 | **Redis Status** | Displays Redis/MediaDash state |
 | **Swipe 2048** | Touch-friendly 2048 clone with swipe + hardware input |
 | **LLZ Blocks** | Block-stacking puzzle with Marathon, Sprint, Ultra & Zen modes |
 | **LLZ Solipskier** | Draw snow lines for a skier to ride! |
+| **Bejeweled** | Match-3 puzzle game with particle effects and animations |
 | **Millionaire** | Who Wants to Be a Millionaire trivia game |
 | **Flashcards** | Multiple choice quiz tester |
 | **Cauldron Cascade** | Gold becoming aware of itself becoming gold |

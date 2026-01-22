@@ -5,10 +5,10 @@ This SDK packages the pieces every DRM plugin or host needs so you don't have to
 1. **Display (llz_sdk_display.h)** - wraps raylib window/texture setup so both the host and plugins target a logical 800x480 canvas while the SDK handles DRM rotation and render textures under the hood.
 2. **Input (llz_sdk_input.h)** - unified CarThing/desktop input module with full gesture recognition and button hold detection. See [Input System](#input-system) below.
 3. **Layout helpers (llz_sdk_layout.h)** - a tiny set of functions to carve up the logical canvas without rewriting rectangle math each time. Useful for plugins trying to match the llizardgui look.
-4. **Media helpers (llz_sdk_media.h)** - Redis-backed accessors for track metadata, playback progress, BLE connection status, playback commands, podcasts, and lyrics routed through the MediaDash Go client.
+4. **Media helpers (llz_sdk_media.h)** - Redis-backed accessors for track metadata, playback progress, BLE connection status, playback commands, podcasts, lyrics, and media channels routed through the MediaDash Go client.
 5. **Image utilities (llz_sdk_image.h)** - blur effects, CSS-like cover/contain image scaling, and rounded corner texture rendering for album art and UI elements.
-6. **Configuration (llz_sdk_config.h)** - global system config (brightness, auto-brightness, orientation) and per-plugin configuration with automatic file creation and INI persistence.
-7. **Background system (llz_sdk_background.h)** - 9 animated background styles (Pulse, Aurora, Wave, Constellation, Bokeh, etc.) with color palettes and playback-responsive energy levels.
+6. **Configuration (llz_sdk_config.h)** - global system config (brightness, auto-brightness, orientation, startup plugin, menu style, background style) and per-plugin configuration with automatic file creation and INI persistence.
+7. **Background system (llz_sdk_background.h)** - 9 animated background styles (Pulse, Aurora, Wave, Constellation, Bokeh, etc.) with color palettes, playback-responsive energy levels, and automatic album art blur tracking.
 8. **Subscription system (llz_sdk_subscribe.h)** - event-driven callbacks for media changes (track, playstate, volume, position, connection, album art) without polling.
 9. **Navigation system (llz_sdk_navigation.h)** - inter-plugin navigation requests allowing plugins to request opening other plugins.
 10. **Font system (llz_sdk_font.h)** - centralized font loading with automatic path resolution across CarThing and desktop, plus text drawing helpers.
@@ -23,8 +23,12 @@ The input module (`llz_sdk_input.h`) provides a unified `LlzInputState` struct t
 
 | Field | CarThing Button | Desktop Key | Description |
 |-------|-----------------|-------------|-------------|
-| `backPressed` | Back (preset 4) | ESC | Exit/back navigation (pressed this frame) |
+| `backPressed` | Back (preset 4) | ESC | Back button pressed this frame |
 | `backReleased` | Back (preset 4) | ESC | Back button just released |
+| `backDown` | Back (preset 4) | ESC | Back button currently held |
+| `backHold` | Back (preset 4) | ESC | Back held past threshold (0.5s, edge-triggered) |
+| `backHoldTime` | - | - | Duration back has been held (seconds) |
+| `backClick` | Back (preset 4) | ESC | Back quick click (released before hold threshold) |
 | `selectPressed` | Front dial click | ENTER | Confirm/select action (quick click) |
 | `selectDown` | Front dial click | ENTER | Select button currently held |
 | `selectHold` | Front dial click | ENTER | Select held past threshold (0.5s, edge-triggered) |
@@ -38,7 +42,7 @@ The input module (`llz_sdk_input.h`) provides a unified `LlzInputState` struct t
 
 ### Generic Button States
 
-Each hardware button has three state fields for flexible handling:
+Each hardware button has four state fields for flexible handling:
 
 | Field Pattern | Type | Description |
 |---------------|------|-------------|
@@ -47,7 +51,32 @@ Each hardware button has three state fields for flexible handling:
 | `buttonNHold` | `bool` | Button held past 0.5s threshold (edge-triggered, fires once) |
 | `buttonNHoldTime` | `float` | Duration button has been held (seconds) |
 
-Buttons 1-5 map to Preset 1-4 + Screenshot. Button 6 maps to the screenshot button and includes special brightness toggle behavior on quick press.
+Buttons 1-4 map to Preset 1-4. Button 5 is unused. Button 6 maps to the screenshot button and includes special brightness toggle behavior on quick press.
+
+### Back Button Hold Detection
+
+The back button has comprehensive hold detection for implementing long-press actions:
+
+```c
+void PluginUpdate(const LlzInputState *input, float dt) {
+    // Quick press - return to menu
+    if (input->backClick) {
+        g_wantsClose = true;
+    }
+
+    // Long press (0.5s) - trigger alternate action
+    if (input->backHold) {
+        // This fires once when threshold is crossed
+        ShowExitConfirmation();
+    }
+
+    // Check if back is being held (for progress indicators)
+    if (input->backDown) {
+        float progress = input->backHoldTime / 0.5f;  // 0.0 to 1.0+
+        DrawHoldProgress(progress);
+    }
+}
+```
 
 ### Rotary Encoder / Scroll
 
@@ -123,10 +152,26 @@ The SDK automatically detects common gestures from touch/mouse input:
 
 ```c
 void PluginUpdate(const LlzInputState *input, float deltaTime) {
-    // Button navigation
-    if (input->backPressed) { /* go back */ }
-    if (input->selectPressed) { /* confirm (quick click) */ }
-    if (input->selectHold) { /* long press action */ }
+    // Back button with hold detection
+    if (input->backClick) {
+        // Quick press - go back
+        g_wantsClose = true;
+    }
+    if (input->backHold) {
+        // Long press - alternate action (e.g., exit to menu)
+        LlzRequestOpenPlugin("Settings");
+        g_wantsClose = true;
+    }
+
+    // Select with hold detection
+    if (input->selectPressed) {
+        // Quick click - confirm/select
+        ConfirmSelection();
+    }
+    if (input->selectHold) {
+        // Long press - context menu or alternate action
+        ShowContextMenu();
+    }
 
     // Rotary/scroll for volume or list navigation
     if (input->scrollDelta != 0) {
@@ -145,7 +190,7 @@ void PluginUpdate(const LlzInputState *input, float deltaTime) {
         UpdateScrubPosition(input->dragCurrent.x);
     }
 
-    // Button hold detection
+    // Generic button hold detection
     if (input->button1Hold) {
         // Button 1 held for 0.5s - trigger alternate action
     }
@@ -281,7 +326,7 @@ void DrawUI(void) {
 
 ## Media System
 
-The media module (`llz_sdk_media.h`) provides Redis-backed access to media metadata, playback state, BLE connection status, playback command dispatch, podcast support, and lyrics. It integrates with the `golang_ble_client` daemon running on CarThing.
+The media module (`llz_sdk_media.h`) provides Redis-backed access to media metadata, playback state, BLE connection status, playback command dispatch, podcast support, lyrics, and media channel switching. It integrates with the `golang_ble_client` daemon running on CarThing.
 
 ### Constants
 
@@ -291,6 +336,8 @@ The media module (`llz_sdk_media.h`) provides Redis-backed access to media metad
 | `LLZ_MEDIA_PATH_MAX` | 256 | Maximum length for file paths (album art) |
 | `LLZ_LYRICS_LINE_MAX` | 256 | Maximum length for a lyrics line |
 | `LLZ_LYRICS_MAX_LINES` | 500 | Maximum number of lyrics lines |
+| `LLZ_MEDIA_CHANNEL_MAX` | 32 | Maximum number of media channels |
+| `LLZ_MEDIA_CHANNEL_NAME_MAX` | 64 | Maximum length for channel names |
 
 ### Types
 
@@ -351,6 +398,15 @@ Complete lyrics data:
 | `lineCount` | `int` | Number of lines |
 | `lines` | `LlzLyricsLine*` | Dynamically allocated array (caller must free) |
 
+#### LlzMediaChannels
+Media channels response:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `channels` | `char[32][64]` | Array of channel names |
+| `count` | `int` | Number of channels |
+| `timestamp` | `int64_t` | Unix timestamp of response |
+
 #### LlzPlaybackCommand
 Commands to send to the media daemon:
 
@@ -392,6 +448,20 @@ Optional custom Redis key mapping for non-standard setups. All fields are `const
 | Function | Returns | Description |
 |----------|---------|-------------|
 | `LlzMediaRequestBLEReconnect()` | `bool` | Signal golang_ble_client to attempt BLE reconnection. |
+| `LlzMediaIsBLEServiceRunning()` | `bool` | Check if BLE service (mercury) is running via runit. |
+| `LlzMediaRestartBLEService()` | `bool` | Restart BLE service (mercury) via runit. |
+
+### Media Channels Functions
+
+These functions allow switching between different media apps (e.g., Spotify, YouTube Music):
+
+| Function | Returns | Description |
+|----------|---------|-------------|
+| `LlzMediaRequestChannels()` | `bool` | Request media channel list from Android companion. |
+| `LlzMediaGetChannels(outChannels)` | `bool` | Get cached media channels from Redis. |
+| `LlzMediaGetChannelsJson(outJson, maxLen)` | `bool` | Get raw channels JSON string. |
+| `LlzMediaSelectChannel(channelName)` | `bool` | Select which media app to control. |
+| `LlzMediaGetControlledChannel(outChannel, maxLen)` | `bool` | Get currently controlled channel name. |
 
 ### Podcast Functions
 
@@ -456,6 +526,10 @@ system:ble_name      -> "iPhone 15 Pro"
 # Command queue (write-only, consumed by golang_ble_client)
 system:playback_cmd_q -> LPUSH '{"action":"play","value":0,"timestamp":1234567890}'
 
+# Media channels
+media:channels          -> JSON with {"channels":["Spotify","YouTube"],"count":2}
+media:controlled_channel -> "Spotify"
+
 # Podcast state
 podcast:show_name, podcast:episode_title, podcast:author, podcast:art_path, etc.
 podcast:list, podcast:recent_episodes, podcast:episodes:<podcastId>
@@ -516,6 +590,19 @@ if (LlzLyricsIsEnabled()) {
         }
         LlzLyricsFree(&lyrics);
     }
+}
+
+// Media channel switching example
+LlzMediaChannels channels;
+if (LlzMediaGetChannels(&channels)) {
+    printf("Available apps: ");
+    for (int i = 0; i < channels.count; i++) {
+        printf("%s ", channels.channels[i]);
+    }
+    printf("\n");
+
+    // Switch to Spotify
+    LlzMediaSelectChannel("Spotify");
 }
 
 // Shutdown
@@ -651,7 +738,7 @@ void DrawAlbumArt(Texture2D art, Rectangle bounds) {
 ## Configuration System
 
 The config module (`llz_sdk_config.h`) provides two configuration systems:
-1. **Global Config** - System-wide settings (brightness, orientation) shared across all plugins
+1. **Global Config** - System-wide settings (brightness, orientation, startup plugin, menu style, background style) shared across all plugins
 2. **Plugin Config** - Per-plugin settings with automatic file creation
 
 ### Global Configuration
@@ -664,6 +751,9 @@ The host application initializes the global config on startup. Plugins can read 
 |---------|------|-------|-------------|
 | `brightness` | `int` | 0-100 or `LLZ_BRIGHTNESS_AUTO` | Screen brightness percentage. Applied to backlight on CarThing. |
 | `rotation` | `LlzRotation` | 0, 90, 180, 270 | Screen orientation. |
+| `startup_plugin` | `char[64]` | plugin name or empty | Plugin to launch on boot (empty = show menu). |
+| `menu_style` | `LlzMenuStyle` | 0-4 | Menu navigation style. |
+| `background_style` | `LlzConfigBackgroundStyle` | 0-8 | Animated background style. |
 
 #### Constants
 
@@ -672,6 +762,8 @@ The host application initializes the global config on startup. Plugins can read 
 | `LLZ_BRIGHTNESS_AUTO` | -1 | Special value for automatic brightness mode |
 | `LLZ_CONFIG_PATH_CARTHING` | `/var/llizard/config.ini` | Config path on CarThing |
 | `LLZ_CONFIG_PATH_DESKTOP` | `./llizard_config.ini` | Config path on desktop |
+| `LLZ_STARTUP_MENU` | `""` | Empty string to show menu on startup |
+| `LLZ_STARTUP_PLUGIN_MAX_LEN` | 64 | Maximum length for startup plugin name |
 
 #### LlzRotation Values
 
@@ -681,6 +773,30 @@ The host application initializes the global config on startup. Plugins can read 
 | 90 | `LLZ_ROTATION_90` | Portrait |
 | 180 | `LLZ_ROTATION_180` | Landscape (inverted) |
 | 270 | `LLZ_ROTATION_270` | Portrait (inverted) |
+
+#### LlzMenuStyle Values
+
+| Value | Constant | Description |
+|-------|----------|-------------|
+| 0 | `LLZ_MENU_STYLE_LIST` | Classic vertical list |
+| 1 | `LLZ_MENU_STYLE_CAROUSEL` | Horizontal carousel |
+| 2 | `LLZ_MENU_STYLE_CARDS` | Large single card |
+| 3 | `LLZ_MENU_STYLE_CARTHING` | Spotify CarThing minimal style |
+| 4 | `LLZ_MENU_STYLE_GRID` | Apple Music grid |
+
+#### LlzConfigBackgroundStyle Values
+
+| Value | Constant | Description |
+|-------|----------|-------------|
+| 0 | `LLZ_CONFIG_BG_STYLE_PULSE` | Pulse Glow |
+| 1 | `LLZ_CONFIG_BG_STYLE_AURORA` | Aurora Sweep |
+| 2 | `LLZ_CONFIG_BG_STYLE_RADIAL` | Radial Echo |
+| 3 | `LLZ_CONFIG_BG_STYLE_WAVE` | Neon Strands |
+| 4 | `LLZ_CONFIG_BG_STYLE_GRID` | Grid Spark |
+| 5 | `LLZ_CONFIG_BG_STYLE_BLUR` | Blurred Album |
+| 6 | `LLZ_CONFIG_BG_STYLE_CONSTELLATION` | Constellation |
+| 7 | `LLZ_CONFIG_BG_STYLE_LIQUID` | Liquid Gradient |
+| 8 | `LLZ_CONFIG_BG_STYLE_BOKEH` | Bokeh Lights |
 
 #### Global Config API
 
@@ -697,6 +813,13 @@ The host application initializes the global config on startup. Plugins can read 
 | `LlzConfigToggleBrightness()` | `bool` | Toggle screen on/off. Returns true if screen is now on. |
 | `LlzConfigGetRotation()` | `LlzRotation` | Get current rotation |
 | `LlzConfigSetRotation(value)` | `bool` | Set rotation |
+| `LlzConfigGetStartupPlugin()` | `const char*` | Get startup plugin name (empty = show menu) |
+| `LlzConfigSetStartupPlugin(name)` | `bool` | Set startup plugin (NULL or empty = show menu) |
+| `LlzConfigHasStartupPlugin()` | `bool` | Check if a startup plugin is configured |
+| `LlzConfigGetMenuStyle()` | `LlzMenuStyle` | Get current menu style |
+| `LlzConfigSetMenuStyle(style)` | `bool` | Set menu style |
+| `LlzConfigGetBackgroundStyle()` | `LlzConfigBackgroundStyle` | Get current background style |
+| `LlzConfigSetBackgroundStyle(style)` | `bool` | Set background style |
 | `LlzConfigGetPath()` | `const char*` | Get path to global config file |
 | `LlzConfigGetDirectory()` | `const char*` | Get config directory path |
 | `LlzConfigSave()` | `bool` | Force save config to disk |
@@ -716,6 +839,7 @@ The host application initializes the global config on startup. Plugins can read 
 // Read settings
 const LlzConfig *cfg = LlzConfigGet();
 printf("Brightness: %d%%\n", cfg->brightness);
+printf("Menu Style: %d\n", cfg->menu_style);
 
 // Modify brightness (auto-saves and applies to hardware)
 LlzConfigSetBrightness(75);
@@ -737,10 +861,15 @@ if (lux >= 0) {
 // Toggle screen on/off (for hardware button)
 bool screenOn = LlzConfigToggleBrightness();
 
-// Check orientation
-if (LlzConfigGetRotation() == LLZ_ROTATION_90) {
-    printf("Portrait mode\n");
-}
+// Set startup plugin
+LlzConfigSetStartupPlugin("Now Playing");  // Boot directly to Now Playing
+LlzConfigSetStartupPlugin(NULL);           // Boot to menu
+
+// Change menu style
+LlzConfigSetMenuStyle(LLZ_MENU_STYLE_CAROUSEL);
+
+// Change background style
+LlzConfigSetBackgroundStyle(LLZ_CONFIG_BG_STYLE_AURORA);
 ```
 
 ### Plugin Configuration
@@ -838,7 +967,7 @@ The config system recognizes these boolean values:
 
 ## Background System
 
-The background module (`llz_sdk_background.h`) provides 9 animated background styles that can be used by plugins to create visually engaging UIs. Backgrounds respond to playback state and can use custom color palettes.
+The background module (`llz_sdk_background.h`) provides 9 animated background styles that can be used by plugins to create visually engaging UIs. Backgrounds respond to playback state, can use custom color palettes, and support automatic album art blur tracking.
 
 ### Background Styles
 
@@ -879,7 +1008,9 @@ typedef struct {
 | `LlzBackgroundSetEnabled(enabled)` | `void` | Enable/disable background rendering. |
 | `LlzBackgroundSetColors(primary, accent)` | `void` | Set custom palette colors. Generates 6-color palette. |
 | `LlzBackgroundClearColors()` | `void` | Revert to default theme colors. |
-| `LlzBackgroundSetBlurTexture(tex, prev, alpha, prevAlpha)` | `void` | Set blurred texture for BLUR style with crossfade. |
+| `LlzBackgroundSetBlurTexture(tex, prev, alpha, prevAlpha)` | `void` | Set blurred texture for BLUR style with crossfade. Enables manual blur mode. |
+| `LlzBackgroundClearManualBlur()` | `void` | Clear manual blur textures and revert to auto-tracking. |
+| `LlzBackgroundSetAutoBlurEnabled(enabled)` | `void` | Enable/disable automatic album art blur tracking from Redis. |
 | `LlzBackgroundSetEnergy(energy)` | `void` | Set energy level (0.0-1.0) for responsive styles. |
 | `LlzBackgroundGetStyleName(style)` | `const char*` | Get human-readable name of style. |
 | `LlzBackgroundGetStyleCount()` | `int` | Get total number of styles (9). |
@@ -934,9 +1065,24 @@ LlzBackgroundClearColors();
 Texture2D albumArt = LoadTexture("album.png");
 Texture2D blurred = LlzTextureBlur(albumArt, 20, 0.3f);
 
-// Set blur texture with crossfade support
+// Set blur texture with crossfade support (manual mode)
 LlzBackgroundSetStyle(LLZ_BG_STYLE_BLUR, true);
 LlzBackgroundSetBlurTexture(blurred, prevBlurred, 1.0f, 0.0f);
+
+// When returning to menu, clear manual blur
+LlzBackgroundClearManualBlur();
+```
+
+### Auto Blur Tracking
+
+By default, the background system automatically tracks album art from Redis and blurs it for the BLUR style:
+
+```c
+// Disable auto-tracking (when plugin manages its own blur)
+LlzBackgroundSetAutoBlurEnabled(false);
+
+// Re-enable auto-tracking (when returning to menu)
+LlzBackgroundSetAutoBlurEnabled(true);
 ```
 
 ---
@@ -1436,12 +1582,12 @@ static void PluginShutdown(void) {
 
 ```
 shared/notifications/
-├── include/
-│   ├── llz_notification.h         # Main API header
-│   └── llz_notification_types.h   # Type definitions
-└── llz_notification/
-    ├── notification.c             # Core logic + queue
-    └── notification_render.c      # Drawing implementation
+    include/
+        llz_notification.h         # Main API header
+        llz_notification_types.h   # Type definitions
+    llz_notification/
+        notification.c             # Core logic + queue
+        notification_render.c      # Drawing implementation
 ```
 
 ---
@@ -1450,13 +1596,13 @@ shared/notifications/
 
 **Implemented:**
 - Display abstraction with DRM rotation handling (`llz_sdk_display.h`)
-- Gesture classification (tap, double-tap, hold, swipe, drag) with button hold detection - built into `LlzInputState`
+- Gesture classification (tap, double-tap, hold, swipe, drag) with button hold detection including back button hold - built into `LlzInputState`
 - Layout helpers for rectangle subdivision (`llz_sdk_layout.h`)
-- Media state access via Redis with podcast and lyrics support (`llz_sdk_media.h`)
+- Media state access via Redis with podcast, lyrics, and media channel support (`llz_sdk_media.h`)
 - Image utilities with blur effects, cover/contain scaling, and rounded corner textures (`llz_sdk_image.h`)
-- Global configuration system with brightness/auto-brightness/orientation (`llz_sdk_config.h`)
+- Global configuration system with brightness/auto-brightness/orientation/startup plugin/menu style/background style (`llz_sdk_config.h`)
 - Per-plugin configuration with automatic file creation (`llz_sdk_config.h`)
-- Animated background system with 9 styles (`llz_sdk_background.h`)
+- Animated background system with 9 styles and auto album art blur tracking (`llz_sdk_background.h`)
 - Event subscription system for media changes (`llz_sdk_subscribe.h`)
 - Inter-plugin navigation system (`llz_sdk_navigation.h`)
 - Font loading with path resolution and text drawing helpers (`llz_sdk_font.h`)
@@ -1481,9 +1627,15 @@ static void PluginInit(int width, int height) {
 }
 
 static void PluginUpdate(const LlzInputState *input, float dt) {
-    if (input->backPressed) {
-        // Request return to menu
+    // Back button with hold detection
+    if (input->backClick) {
+        // Quick press - return to menu
+        g_wantsClose = true;
     }
+    if (input->backHold) {
+        // Long press - alternate action
+    }
+
     if (input->tap) {
         // Handle tap at input->tapPosition
     }
@@ -1491,11 +1643,15 @@ static void PluginUpdate(const LlzInputState *input, float dt) {
 
 static void PluginDraw(void) {
     DrawRectangle(0, 0, LLZ_LOGICAL_WIDTH, LLZ_LOGICAL_HEIGHT, DARKGRAY);
-    DrawText("My Plugin", 100, 200, 40, WHITE);
+    LlzDrawText("My Plugin", 100, 200, 40, WHITE);
 }
 
 static void PluginShutdown(void) {
     // Cleanup
+}
+
+static bool PluginWantsClose(void) {
+    return g_wantsClose;
 }
 
 static LlzPluginAPI api = {
@@ -1505,7 +1661,7 @@ static LlzPluginAPI api = {
     .update = PluginUpdate,
     .draw = PluginDraw,
     .shutdown = PluginShutdown,
-    .wants_close = NULL
+    .wants_close = PluginWantsClose
 };
 
 LlzPluginAPI *LlzGetPlugin(void) { return &api; }
@@ -1517,12 +1673,64 @@ LlzPluginAPI *LlzGetPlugin(void) { return &api; }
 |--------|---------|
 | `llz_sdk.h` | Master include - includes all SDK headers |
 | `llz_sdk_display.h` | Display init, begin/end frame, constants |
-| `llz_sdk_input.h` | Input state, gestures, button hold detection |
+| `llz_sdk_input.h` | Input state, gestures, button hold detection (including back button) |
 | `llz_sdk_layout.h` | Layout helpers for UI composition |
-| `llz_sdk_media.h` | Redis media state, commands, podcasts, lyrics |
+| `llz_sdk_media.h` | Redis media state, commands, podcasts, lyrics, media channels |
 | `llz_sdk_image.h` | Blur effects, cover/contain scaling, rounded corners |
-| `llz_sdk_config.h` | Global and plugin configuration |
-| `llz_sdk_background.h` | Animated background system |
+| `llz_sdk_config.h` | Global config (brightness, rotation, startup plugin, menu/background style) and per-plugin config |
+| `llz_sdk_background.h` | Animated background system with auto album art blur |
 | `llz_sdk_subscribe.h` | Event subscription callbacks |
 | `llz_sdk_navigation.h` | Inter-plugin navigation |
 | `llz_sdk_font.h` | Font loading and text helpers |
+
+### Complete LlzInputState Structure
+
+```c
+typedef struct {
+    // Back button (with full hold detection)
+    bool backPressed;       // Pressed this frame
+    bool backReleased;      // Released this frame
+    bool backDown;          // Currently held
+    bool backHold;          // Held past 0.5s threshold (edge-triggered)
+    float backHoldTime;     // Duration held (seconds)
+    bool backClick;         // Quick click (released before threshold)
+
+    // Select button (with hold detection)
+    bool selectPressed;     // Quick click detected
+    bool selectDown;        // Currently held
+    bool selectHold;        // Held past threshold (edge-triggered)
+    float selectHoldTime;   // Duration held (seconds)
+
+    // Navigation buttons
+    bool upPressed;         // Preset 1 / Key 1
+    bool downPressed;       // Preset 2 / Key 2
+    bool displayModeNext;   // Preset 3 / Key 3 / M
+    bool styleCyclePressed; // Preset 4 / Key 4 / B
+    bool screenshotPressed; // Screenshot / Key 5 / F1
+    bool playPausePressed;  // Alias for selectPressed
+
+    // Generic button states (1-6)
+    bool buttonNPressed, buttonNDown, buttonNHold;
+    float buttonNHoldTime;  // For N = 1 to 6
+
+    // Scroll
+    float scrollDelta;      // Rotary encoder / mouse wheel
+
+    // Touch/Mouse
+    Vector2 mousePos;
+    bool mousePressed, mouseJustPressed, mouseJustReleased;
+
+    // Gestures
+    bool tap, doubleTap, doubleClick;
+    bool hold, longPress;
+    Vector2 tapPosition, holdPosition;
+
+    // Drag
+    bool dragActive;
+    Vector2 dragStart, dragCurrent, dragDelta;
+
+    // Swipe
+    bool swipeLeft, swipeRight, swipeUp, swipeDown;
+    Vector2 swipeDelta, swipeStart, swipeEnd;
+} LlzInputState;
+```
