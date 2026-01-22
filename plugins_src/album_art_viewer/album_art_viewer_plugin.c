@@ -293,8 +293,7 @@ static void PluginInit(int width, int height)
     // Load custom font
     LoadCustomFont();
 
-    // Initialize background system with blur style
-    LlzBackgroundInit(width, height);
+    // Configure background system for blur style (host manages init/shutdown)
     LlzBackgroundSetStyle(LLZ_BG_STYLE_BLUR, false);
     LlzBackgroundSetEnabled(true);
 
@@ -332,7 +331,7 @@ static void PluginShutdown(void)
         UnloadTexture(g_state.prevBlurTexture);
     }
 
-    LlzBackgroundShutdown();
+    // Note: Don't call LlzBackgroundShutdown() - host manages the lifecycle
     UnloadCustomFont();
     if (g_state.mediaInitDone) {
         LlzMediaShutdown();

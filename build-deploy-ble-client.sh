@@ -58,13 +58,32 @@ CARTHING_IP="172.16.42.2"
 CARTHING_USER="root"
 CARTHING_PASS="llizardos"
 
-# Deploy main executable
-echo -e "${YELLOW}Copying mediadash-client to CarThing...${NC}"
+# Mount filesystem as read-write
+echo -e "${YELLOW}Mounting filesystem as read-write...${NC}"
+sshpass -p "$CARTHING_PASS" ssh -o StrictHostKeyChecking=no "$CARTHING_USER@$CARTHING_IP" "mount -o remount,rw /" || echo -e "${YELLOW}(may already be rw)${NC}"
+
+# Stop mercury service before copying
+echo -e "${YELLOW}Stopping mercury service...${NC}"
+MERCURY_STATUS=$(sshpass -p "$CARTHING_PASS" ssh -o StrictHostKeyChecking=no "$CARTHING_USER@$CARTHING_IP" "sv status mercury 2>&1" || true)
+if [[ $MERCURY_STATUS == *"run:"* ]]; then
+    sshpass -p "$CARTHING_PASS" ssh -o StrictHostKeyChecking=no "$CARTHING_USER@$CARTHING_IP" "sv stop mercury"
+    echo -e "${GREEN}Mercury service stopped${NC}"
+else
+    echo -e "${YELLOW}Mercury service not running${NC}"
+fi
+
+# Deploy main executable to /tmp
+echo -e "${YELLOW}Copying mediadash-client to /tmp...${NC}"
 sshpass -p "$CARTHING_PASS" scp -o StrictHostKeyChecking=no bin/mediadash-client "$CARTHING_USER@$CARTHING_IP:/tmp/"
 
 # Set executable permissions
 echo -e "${YELLOW}Setting executable permissions...${NC}"
 sshpass -p "$CARTHING_PASS" ssh -o StrictHostKeyChecking=no "$CARTHING_USER@$CARTHING_IP" "chmod +x /tmp/mediadash-client"
+
+# Copy to /usr/bin/mercury (the service binary location)
+echo -e "${YELLOW}Copying to /usr/bin/mercury...${NC}"
+sshpass -p "$CARTHING_PASS" ssh -o StrictHostKeyChecking=no "$CARTHING_USER@$CARTHING_IP" "cp /tmp/mediadash-client /usr/bin/mercury && chmod +x /usr/bin/mercury"
+echo -e "${GREEN}Binary deployed to /usr/bin/mercury${NC}"
 
 # Deploy config.json if it exists
 if [ -f "config.json" ]; then
@@ -82,7 +101,13 @@ else
     sshpass -p "$CARTHING_PASS" ssh -o StrictHostKeyChecking=no "$CARTHING_USER@$CARTHING_IP" "sv start redis"
 fi
 
+# Start mercury service
+echo -e "${YELLOW}Starting mercury service...${NC}"
+sshpass -p "$CARTHING_PASS" ssh -o StrictHostKeyChecking=no "$CARTHING_USER@$CARTHING_IP" "sv start mercury"
+echo -e "${GREEN}Mercury service started${NC}"
+
 echo -e "${GREEN}=== Deployment complete! ===${NC}"
-echo -e "${GREEN}To run on CarThing:${NC}"
+echo -e "${GREEN}Mercury service is now running with the new binary${NC}"
+echo -e "${YELLOW}To check status:${NC}"
 echo "  ssh root@$CARTHING_IP"
-echo "  cd /tmp && ./mediadash-client"
+echo "  sv status mercury"

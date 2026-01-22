@@ -1545,8 +1545,7 @@ static void PluginInit(int width, int height) {
     bool mediaOk = LlzMediaInit(NULL);
     printf("[LYRICS] LlzMediaInit: %s\n", mediaOk ? "OK" : "FAILED");
 
-    // Initialize background system
-    LlzBackgroundInit(width, height);
+    // Configure background system (host manages init/shutdown)
     LlzBackgroundSetEnabled(false);
 
     // Load font
@@ -1987,7 +1986,7 @@ static void PluginShutdown(void) {
     if (g_albumArt.blurred.id != 0) UnloadTexture(g_albumArt.blurred);
     CleanupPrevAlbumArt();
 
-    LlzBackgroundShutdown();
+    // Note: Don't call LlzBackgroundShutdown() - host manages the lifecycle
 
     // Free plugin config (saves any pending changes)
     if (g_pluginConfigInitialized) {

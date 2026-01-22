@@ -133,6 +133,8 @@ void LlzBackgroundClearColors(void);
 /**
  * Set the blurred texture for BG_STYLE_BLUR.
  * The texture should be pre-blurred album art or similar.
+ * This enables manual blur mode - the SDK will use these textures
+ * instead of auto-tracking from Redis.
  *
  * @param texture      Current blurred texture (or empty texture if none)
  * @param prevTexture  Previous texture for crossfade (or empty if none)
@@ -141,6 +143,22 @@ void LlzBackgroundClearColors(void);
  */
 void LlzBackgroundSetBlurTexture(Texture2D texture, Texture2D prevTexture,
                                   float currentAlpha, float prevAlpha);
+
+/**
+ * Clear manual blur textures and revert to auto-tracking from Redis.
+ * Call this when returning to the main menu from a plugin that
+ * was managing its own blur textures.
+ */
+void LlzBackgroundClearManualBlur(void);
+
+/**
+ * Enable or disable automatic album art blur tracking from Redis.
+ * When enabled (default), the SDK automatically loads and blurs
+ * album art from Redis media state for BG_STYLE_BLUR.
+ *
+ * @param enabled  true to enable auto-blur tracking, false to disable
+ */
+void LlzBackgroundSetAutoBlurEnabled(bool enabled);
 
 /**
  * Set the "energy" level for responsive backgrounds (like Wave).

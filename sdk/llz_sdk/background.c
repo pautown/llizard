@@ -6,9 +6,16 @@
 
 #include "llz_sdk_background.h"
 #include "llz_sdk_image.h"
+#include "llz_sdk_media.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <sys/stat.h>
+#include <webp/decode.h>
+
+// Album art crossfade speed (alpha change per second)
+#define AUTO_BLUR_FADE_SPEED 3.0f
 
 // Style info for each background type
 static const char* kStyleNames[LLZ_BG_STYLE_COUNT] = {
@@ -51,11 +58,23 @@ typedef struct {
 
     float energy;               // For responsive effects (0.0-1.0)
 
-    // Blur texture state (for BG_STYLE_BLUR)
+    // Blur texture state (for BG_STYLE_BLUR) - manually set by plugins
     Texture2D blurTexture;
     Texture2D blurPrevTexture;
     float blurCurrentAlpha;
     float blurPrevAlpha;
+
+    // Auto-managed album art blur state (from Redis media state)
+    char autoAlbumArtPath[256];          // Currently successfully loaded album art path
+    char autoDesiredArtPath[256];        // Path we want to load (may not exist yet)
+    Texture2D autoBlurTexture;           // Current blurred album art
+    Texture2D autoPrevBlurTexture;       // Previous texture for crossfade
+    float autoBlurCurrentAlpha;          // Current texture alpha (0-1)
+    float autoBlurPrevAlpha;             // Previous texture alpha (0-1)
+    bool autoBlurInTransition;           // Currently transitioning
+    bool autoBlurEnabled;                // Auto-blur tracking enabled
+    bool manualBlurOverride;             // Plugin has set manual blur texture
+    float autoBlurPollTimer;             // Timer for Redis polling
 } BackgroundState;
 
 static BackgroundState g_bg = {0};
@@ -257,19 +276,37 @@ static void DrawBlur(float alpha)
     if (alpha <= 0.01f) return;
     Rectangle screen = {0, 0, (float)g_bg.screenWidth, (float)g_bg.screenHeight};
 
-    bool hasPrev = g_bg.blurPrevTexture.id != 0 && g_bg.blurPrevAlpha > 0.01f;
-    bool hasCurrent = g_bg.blurTexture.id != 0 && g_bg.blurCurrentAlpha > 0.01f;
+    // Determine which textures to use: manual (plugin-set) or auto (Redis-tracked)
+    Texture2D currentTex, prevTex;
+    float currentAlpha, prevAlpha;
+
+    if (g_bg.manualBlurOverride && (g_bg.blurTexture.id != 0 || g_bg.blurPrevTexture.id != 0)) {
+        // Use manually set textures from plugin
+        currentTex = g_bg.blurTexture;
+        prevTex = g_bg.blurPrevTexture;
+        currentAlpha = g_bg.blurCurrentAlpha;
+        prevAlpha = g_bg.blurPrevAlpha;
+    } else {
+        // Use auto-managed textures from Redis album art
+        currentTex = g_bg.autoBlurTexture;
+        prevTex = g_bg.autoPrevBlurTexture;
+        currentAlpha = g_bg.autoBlurCurrentAlpha;
+        prevAlpha = g_bg.autoBlurPrevAlpha;
+    }
+
+    bool hasPrev = prevTex.id != 0 && prevAlpha > 0.01f;
+    bool hasCurrent = currentTex.id != 0 && currentAlpha > 0.01f;
 
     if (hasPrev) {
-        float prevA = alpha * g_bg.blurPrevAlpha;
+        float prevA = alpha * prevAlpha;
         Color tint = ColorAlpha(WHITE, prevA);
-        LlzDrawTextureCover(g_bg.blurPrevTexture, screen, tint);
+        LlzDrawTextureCover(prevTex, screen, tint);
     }
 
     if (hasCurrent) {
-        float currA = alpha * g_bg.blurCurrentAlpha;
+        float currA = alpha * currentAlpha;
         Color tint = ColorAlpha(WHITE, currA);
-        LlzDrawTextureCover(g_bg.blurTexture, screen, tint);
+        LlzDrawTextureCover(currentTex, screen, tint);
     }
 
     if (!hasPrev && !hasCurrent) {
@@ -444,6 +481,10 @@ void LlzBackgroundInit(int screenWidth, int screenHeight)
     g_bg.energy = 1.0f;
     g_bg.initialized = true;
 
+    // Enable auto-blur tracking by default
+    g_bg.autoBlurEnabled = true;
+    g_bg.autoBlurCurrentAlpha = 1.0f;
+
     GeneratePalette();
 
     printf("[SDK] Background system initialized (%dx%d)\n", screenWidth, screenHeight);
@@ -451,8 +492,271 @@ void LlzBackgroundInit(int screenWidth, int screenHeight)
 
 void LlzBackgroundShutdown(void)
 {
+    // Cleanup auto-managed textures
+    if (g_bg.autoBlurTexture.id != 0) {
+        UnloadTexture(g_bg.autoBlurTexture);
+    }
+    if (g_bg.autoPrevBlurTexture.id != 0) {
+        UnloadTexture(g_bg.autoPrevBlurTexture);
+    }
+
     memset(&g_bg, 0, sizeof(g_bg));
     printf("[SDK] Background system shutdown\n");
+}
+
+// Internal: Check if file exists
+static bool FileExistsInternal(const char *path)
+{
+    struct stat st;
+    return stat(path, &st) == 0;
+}
+
+// Internal: Check if file path has WebP extension
+static bool IsWebPFile(const char *path)
+{
+    if (!path) return false;
+    size_t len = strlen(path);
+    if (len < 5) return false;
+    const char *ext = path + len - 5;
+    return (strcmp(ext, ".webp") == 0 || strcmp(ext, ".WEBP") == 0);
+}
+
+// Internal: Load WebP image file and convert to raylib Image format
+// (raylib doesn't support WebP natively, so we use libwebp)
+static Image LoadImageWebP(const char *path)
+{
+    Image image = {0};
+
+    FILE *file = fopen(path, "rb");
+    if (!file) {
+        printf("[SDK_BG] LoadImageWebP: failed to open file '%s'\n", path);
+        return image;
+    }
+
+    // Get file size
+    fseek(file, 0, SEEK_END);
+    long fileSize = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    // Read file data
+    uint8_t *fileData = (uint8_t *)malloc(fileSize);
+    if (!fileData) {
+        printf("[SDK_BG] LoadImageWebP: failed to allocate %ld bytes\n", fileSize);
+        fclose(file);
+        return image;
+    }
+
+    size_t bytesRead = fread(fileData, 1, fileSize, file);
+    fclose(file);
+
+    if (bytesRead != (size_t)fileSize) {
+        printf("[SDK_BG] LoadImageWebP: read %zu bytes, expected %ld\n", bytesRead, fileSize);
+        free(fileData);
+        return image;
+    }
+
+    // Decode WebP
+    int width = 0, height = 0;
+    uint8_t *rgbaData = WebPDecodeRGBA(fileData, fileSize, &width, &height);
+    free(fileData);
+
+    if (!rgbaData) {
+        printf("[SDK_BG] LoadImageWebP: WebPDecodeRGBA failed\n");
+        return image;
+    }
+
+    // Create raylib Image from RGBA data
+    // We need to copy the data because WebP uses its own allocator
+    size_t dataSize = width * height * 4;
+    void *imageCopy = RL_MALLOC(dataSize);
+    if (!imageCopy) {
+        printf("[SDK_BG] LoadImageWebP: failed to allocate image data\n");
+        WebPFree(rgbaData);
+        return image;
+    }
+    memcpy(imageCopy, rgbaData, dataSize);
+    WebPFree(rgbaData);
+
+    image.data = imageCopy;
+    image.width = width;
+    image.height = height;
+    image.mipmaps = 1;
+    image.format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;
+
+    printf("[SDK_BG] LoadImageWebP: decoded %dx%d image\n", width, height);
+    return image;
+}
+
+// Internal: Load album art from path and create blurred texture
+static bool LoadAutoBlurTexture(const char *path)
+{
+    if (!path || path[0] == '\0') return false;
+    if (!FileExistsInternal(path)) {
+        printf("[SDK_BG] Album art file not found: %s\n", path);
+        return false;
+    }
+
+    printf("[SDK_BG] Loading album art: %s\n", path);
+
+    // Load the image - use WebP decoder for .webp files
+    Image img;
+    if (IsWebPFile(path)) {
+        printf("[SDK_BG] Using WebP decoder for: %s\n", path);
+        img = LoadImageWebP(path);
+    } else {
+        img = LoadImage(path);
+    }
+
+    if (img.data == NULL) {
+        printf("[SDK_BG] Failed to load album art image: %s\n", path);
+        return false;
+    }
+
+    // Validate image dimensions
+    if (img.width <= 0 || img.height <= 0) {
+        printf("[SDK_BG] Invalid image dimensions: %dx%d\n", img.width, img.height);
+        UnloadImage(img);
+        return false;
+    }
+
+    // Create texture from image
+    Texture2D tex = LoadTextureFromImage(img);
+    UnloadImage(img);
+
+    if (tex.id == 0) {
+        printf("[SDK_BG] Failed to create texture from album art: %s\n", path);
+        return false;
+    }
+
+    // Create blurred version
+    Texture2D blurred = LlzTextureBlur(tex, 15, 0.4f);
+    UnloadTexture(tex);
+
+    if (blurred.id == 0) {
+        printf("[SDK_BG] Failed to create blurred texture from album art: %s\n", path);
+        return false;
+    }
+
+    // Move current to previous for crossfade
+    if (g_bg.autoPrevBlurTexture.id != 0) {
+        UnloadTexture(g_bg.autoPrevBlurTexture);
+    }
+    g_bg.autoPrevBlurTexture = g_bg.autoBlurTexture;
+    g_bg.autoBlurPrevAlpha = g_bg.autoBlurCurrentAlpha;
+
+    // Set new current texture
+    g_bg.autoBlurTexture = blurred;
+    g_bg.autoBlurCurrentAlpha = 0.0f;  // Start faded out, will fade in
+    g_bg.autoBlurInTransition = true;
+
+    printf("[SDK_BG] Loaded and blurred album art: %s\n", path);
+    return true;
+}
+
+// Internal: Update auto-blur album art tracking from Redis
+static void UpdateAutoBlurFromRedis(float deltaTime)
+{
+    if (!g_bg.autoBlurEnabled) return;
+    if (g_bg.manualBlurOverride) return;  // Plugin is managing blur
+
+    // Only poll if blur style is active (saves resources)
+    if (g_bg.currentStyle != LLZ_BG_STYLE_BLUR && g_bg.targetStyle != LLZ_BG_STYLE_BLUR) {
+        return;
+    }
+
+    // Poll Redis every 0.5 seconds to check for album art changes
+    g_bg.autoBlurPollTimer += deltaTime;
+    if (g_bg.autoBlurPollTimer < 0.5f) {
+        // Still update crossfade transition even when not polling
+        goto update_transition;
+    }
+    g_bg.autoBlurPollTimer = 0.0f;
+
+    // Get current media state from Redis (safe even if not initialized)
+    LlzMediaState media;
+    memset(&media, 0, sizeof(media));
+    if (!LlzMediaGetState(&media)) {
+        // Redis not available or error - keep current state
+        goto update_transition;
+    }
+
+    // Determine album art path - use albumArtPath if available, otherwise generate from artist/album
+    char effectivePath[512] = {0};
+    if (media.albumArtPath[0] != '\0') {
+        strncpy(effectivePath, media.albumArtPath, sizeof(effectivePath) - 1);
+    } else if (media.artist[0] != '\0' || media.album[0] != '\0') {
+        // Generate path from artist/album hash (same as nowplaying plugin)
+        const char *hash = LlzMediaGenerateArtHash(media.artist, media.album);
+        if (hash && hash[0] != '\0') {
+            snprintf(effectivePath, sizeof(effectivePath),
+                     "/var/mediadash/album_art_cache/%s.webp", hash);
+        }
+    }
+
+    // Update desired path
+    strncpy(g_bg.autoDesiredArtPath, effectivePath, sizeof(g_bg.autoDesiredArtPath) - 1);
+    g_bg.autoDesiredArtPath[sizeof(g_bg.autoDesiredArtPath) - 1] = '\0';
+
+    // Check if we need to load new album art
+    // Load if: desired path changed from what we have loaded, OR desired path exists but we haven't loaded it yet
+    bool needsLoad = (strcmp(effectivePath, g_bg.autoAlbumArtPath) != 0);
+
+    if (needsLoad) {
+        if (effectivePath[0] != '\0') {
+            // Try to load new album art
+            if (LoadAutoBlurTexture(effectivePath)) {
+                // Success - update the loaded path
+                strncpy(g_bg.autoAlbumArtPath, effectivePath, sizeof(g_bg.autoAlbumArtPath) - 1);
+                g_bg.autoAlbumArtPath[sizeof(g_bg.autoAlbumArtPath) - 1] = '\0';
+            }
+            // If load fails, we'll retry on next poll (autoAlbumArtPath stays unchanged)
+        } else {
+            // Album art removed - fade out current
+            g_bg.autoAlbumArtPath[0] = '\0';  // Clear loaded path
+            if (g_bg.autoBlurTexture.id != 0) {
+                if (g_bg.autoPrevBlurTexture.id != 0) {
+                    UnloadTexture(g_bg.autoPrevBlurTexture);
+                }
+                g_bg.autoPrevBlurTexture = g_bg.autoBlurTexture;
+                g_bg.autoBlurPrevAlpha = g_bg.autoBlurCurrentAlpha;
+                g_bg.autoBlurTexture = (Texture2D){0};
+                g_bg.autoBlurCurrentAlpha = 0.0f;
+                g_bg.autoBlurInTransition = true;
+            }
+        }
+    }
+
+update_transition:
+    // Update crossfade transition
+    if (g_bg.autoBlurInTransition) {
+        // Fade in current
+        if (g_bg.autoBlurTexture.id != 0 && g_bg.autoBlurCurrentAlpha < 1.0f) {
+            g_bg.autoBlurCurrentAlpha += deltaTime * AUTO_BLUR_FADE_SPEED;
+            if (g_bg.autoBlurCurrentAlpha > 1.0f) {
+                g_bg.autoBlurCurrentAlpha = 1.0f;
+            }
+        }
+
+        // Fade out previous
+        if (g_bg.autoBlurPrevAlpha > 0.0f) {
+            g_bg.autoBlurPrevAlpha -= deltaTime * AUTO_BLUR_FADE_SPEED;
+            if (g_bg.autoBlurPrevAlpha <= 0.0f) {
+                g_bg.autoBlurPrevAlpha = 0.0f;
+                // Cleanup previous texture when fully faded
+                if (g_bg.autoPrevBlurTexture.id != 0) {
+                    UnloadTexture(g_bg.autoPrevBlurTexture);
+                    g_bg.autoPrevBlurTexture = (Texture2D){0};
+                }
+            }
+        }
+
+        // Check if transition complete
+        bool currentDone = (g_bg.autoBlurTexture.id == 0) || (g_bg.autoBlurCurrentAlpha >= 1.0f);
+        bool prevDone = (g_bg.autoPrevBlurTexture.id == 0) || (g_bg.autoBlurPrevAlpha <= 0.0f);
+        if (currentDone && prevDone) {
+            g_bg.autoBlurInTransition = false;
+        }
+    }
 }
 
 void LlzBackgroundUpdate(float deltaTime)
@@ -460,6 +764,9 @@ void LlzBackgroundUpdate(float deltaTime)
     if (!g_bg.initialized) return;
 
     g_bg.time += deltaTime;
+
+    // Update auto-blur album art tracking
+    UpdateAutoBlurFromRedis(deltaTime);
 
     // Handle transitions
     if (g_bg.inTransition) {
@@ -633,6 +940,22 @@ void LlzBackgroundSetBlurTexture(Texture2D texture, Texture2D prevTexture,
     g_bg.blurPrevTexture = prevTexture;
     g_bg.blurCurrentAlpha = currentAlpha;
     g_bg.blurPrevAlpha = prevAlpha;
+    g_bg.manualBlurOverride = true;  // Plugin is managing blur textures
+}
+
+void LlzBackgroundClearManualBlur(void)
+{
+    // Clear manual override to allow auto-blur from Redis
+    g_bg.blurTexture = (Texture2D){0};
+    g_bg.blurPrevTexture = (Texture2D){0};
+    g_bg.blurCurrentAlpha = 0.0f;
+    g_bg.blurPrevAlpha = 0.0f;
+    g_bg.manualBlurOverride = false;
+}
+
+void LlzBackgroundSetAutoBlurEnabled(bool enabled)
+{
+    g_bg.autoBlurEnabled = enabled;
 }
 
 void LlzBackgroundSetEnergy(float energy)

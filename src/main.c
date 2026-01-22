@@ -1249,9 +1249,18 @@ int main(void)
     LlzInputInit();
     LoadMenuFont();
 
+    // Initialize SDK media system for Redis access (needed by auto-blur background)
+    LlzMediaInit(NULL);
+
     // Initialize SDK background system for animated menu backgrounds
     LlzBackgroundInit(SCREEN_WIDTH, SCREEN_HEIGHT);
     LlzBackgroundSetColors(COLOR_ACCENT, COLOR_ACCENT_DIM);
+    LlzBackgroundSetEnabled(true);  // Enable background by default for main menu
+
+    // Load saved background style from config
+    LlzConfigBackgroundStyle savedBgStyle = LlzConfigGetBackgroundStyle();
+    LlzBackgroundSetStyle((LlzBackgroundStyle)savedBgStyle, false);
+    printf("Loaded background style: %d\n", savedBgStyle);
 
     char pluginDir[512];
     const char *working = GetWorkingDirectory();
@@ -1403,6 +1412,8 @@ int main(void)
             // Cycle background style with screenshot button (or button4)
             if (inputState.screenshotPressed || inputState.button4Pressed) {
                 LlzBackgroundCycleNext();
+                // Save to config for persistence across reboots
+                LlzConfigSetBackgroundStyle((LlzConfigBackgroundStyle)LlzBackgroundGetStyle());
             }
 
             // Cycle menu navigation style with button3 release (display mode button)
@@ -1491,6 +1502,9 @@ int main(void)
 
                 runningPlugin = false;
                 active = NULL;
+
+                // Clear manual blur override so auto-blur from Redis takes over
+                LlzBackgroundClearManualBlur();
             }
         }
     }
@@ -1505,6 +1519,7 @@ int main(void)
     UnloadOmicronFont();
     UnloadMenuFont();
     LlzBackgroundShutdown();
+    LlzMediaShutdown();
     LlzInputShutdown();
     LlzDisplayShutdown();
     LlzConfigShutdown();

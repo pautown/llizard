@@ -1177,8 +1177,7 @@ static void PluginInit(int width, int height) {
     // Initialize media for album art
     LlzMediaInit(NULL);
 
-    // Initialize background system
-    LlzBackgroundInit(width, height);
+    // Configure background system (host manages init/shutdown)
     if (g_bgMode >= BG_MODE_ANIMATED_START) {
         LlzBackgroundSetEnabled(true);
         LlzBackgroundSetStyle((LlzBackgroundStyle)(g_bgMode - BG_MODE_ANIMATED_START), false);
@@ -1504,7 +1503,7 @@ static void PluginShutdown(void) {
     UnloadArt(&g_albumArt);
     UnloadArt(&g_prevAlbumArt);
 
-    LlzBackgroundShutdown();
+    // Note: Don't call LlzBackgroundShutdown() - host manages the lifecycle
 
     if (g_configInit) {
         LlzPluginConfigFree(&g_config);

@@ -51,9 +51,10 @@ target_include_directories(llz_sdk PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/sdk/include
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/external/raylib/src
+    ${WEBP_INCLUDE_DIRS}
 )
 
-target_link_libraries(llz_sdk PUBLIC hiredis_static)
+target_link_libraries(llz_sdk PUBLIC hiredis_static ${WEBP_LIBRARIES})
 
 if(PLATFORM STREQUAL "DRM")
     target_compile_definitions(llz_sdk PUBLIC PLATFORM_DRM GRAPHICS_API_OPENGL_ES2)
@@ -491,4 +492,35 @@ add_custom_command(TARGET clock_plugin POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/plugins
     COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:clock_plugin> ${CMAKE_CURRENT_SOURCE_DIR}/plugins/
     COMMENT "Copying clock plugin to runtime plugins directory"
+)
+
+# ===== Bejeweled (Match-3) Plugin =====
+set(BEJEWELED_PLUGIN_SOURCES
+    plugins_src/bejeweled/bejeweled_plugin.c
+    plugins_src/bejeweled/bejeweled_logic.c
+)
+
+add_library(bejeweled_plugin SHARED ${BEJEWELED_PLUGIN_SOURCES})
+set_target_properties(bejeweled_plugin PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+target_include_directories(bejeweled_plugin PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/external/raylib/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/sdk/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/plugins_src
+    ${CMAKE_CURRENT_SOURCE_DIR}/plugins_src/bejeweled
+    ${CMAKE_CURRENT_SOURCE_DIR}/shared/notifications/include
+)
+
+target_link_libraries(bejeweled_plugin llz_sdk llz_notifications)
+
+set_target_properties(bejeweled_plugin PROPERTIES
+    PREFIX ""
+    OUTPUT_NAME "bejeweled"
+)
+
+add_custom_command(TARGET bejeweled_plugin POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/plugins
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:bejeweled_plugin> ${CMAKE_CURRENT_SOURCE_DIR}/plugins/
+    COMMENT "Copying bejeweled plugin to runtime plugins directory"
 )

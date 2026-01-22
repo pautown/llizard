@@ -45,6 +45,22 @@ typedef enum {
 } LlzMenuStyle;
 
 /**
+ * Background style values (matches LlzBackgroundStyle in llz_sdk_background.h)
+ */
+typedef enum {
+    LLZ_CONFIG_BG_STYLE_PULSE = 0,
+    LLZ_CONFIG_BG_STYLE_AURORA,
+    LLZ_CONFIG_BG_STYLE_RADIAL,
+    LLZ_CONFIG_BG_STYLE_WAVE,
+    LLZ_CONFIG_BG_STYLE_GRID,
+    LLZ_CONFIG_BG_STYLE_BLUR,
+    LLZ_CONFIG_BG_STYLE_CONSTELLATION,
+    LLZ_CONFIG_BG_STYLE_LIQUID,
+    LLZ_CONFIG_BG_STYLE_BOKEH,
+    LLZ_CONFIG_BG_STYLE_COUNT
+} LlzConfigBackgroundStyle;
+
+/**
  * Global configuration structure accessible to all plugins.
  * Changes are automatically persisted to the config file.
  */
@@ -53,6 +69,7 @@ typedef struct {
     LlzRotation rotation;                        // Screen rotation
     char startup_plugin[LLZ_STARTUP_PLUGIN_MAX_LEN];  // Plugin to launch on boot (empty = show menu)
     LlzMenuStyle menu_style;                     // Menu navigation style
+    LlzConfigBackgroundStyle background_style;   // Animated background style
 } LlzConfig;
 
 /**
@@ -169,6 +186,19 @@ LlzMenuStyle LlzConfigGetMenuStyle(void);
  * @return true if saved successfully
  */
 bool LlzConfigSetMenuStyle(LlzMenuStyle style);
+
+/**
+ * Get the current background style.
+ * @return Background style value
+ */
+LlzConfigBackgroundStyle LlzConfigGetBackgroundStyle(void);
+
+/**
+ * Set the background style and save to config file.
+ * @param style Background style value (clamped to valid range)
+ * @return true if saved successfully
+ */
+bool LlzConfigSetBackgroundStyle(LlzConfigBackgroundStyle style);
 
 /**
  * Force reload configuration from file.

@@ -342,8 +342,7 @@ static void PluginInit(int width, int height)
     // Initialize color picker
     NpColorPickerOverlayInit(&g_colorPicker);
 
-    // Initialize SDK background system
-    LlzBackgroundInit(width, height);
+    // Note: Don't call LlzBackgroundInit() - host manages the lifecycle
 
     // Load saved settings (after theme and screen init)
     LoadPluginSettings();
