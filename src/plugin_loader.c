@@ -71,7 +71,10 @@ bool LoadPlugins(const char *directory, PluginRegistry *registry)
         slot->handle = handle;
         slot->api = api;
         strncpy(slot->path, fullPath, sizeof(slot->path) - 1);
+        strncpy(slot->filename, entry->d_name, sizeof(slot->filename) - 1);
         strncpy(slot->displayName, api->name, sizeof(slot->displayName) - 1);
+        slot->category = api->category;
+        slot->visibility = PLUGIN_VIS_FOLDER;  // Default to folder visibility
         registry->count++;
     }
 
@@ -332,7 +335,10 @@ int RefreshPlugins(const char *directory, PluginRegistry *registry)
             slot->handle = handle;
             slot->api = api;
             strncpy(slot->path, fullPath, sizeof(slot->path) - 1);
+            strncpy(slot->filename, current.filenames[i], sizeof(slot->filename) - 1);
             strncpy(slot->displayName, api->name, sizeof(slot->displayName) - 1);
+            slot->category = api->category;
+            slot->visibility = PLUGIN_VIS_FOLDER;  // Default to folder visibility
             idx++;
             printf("Plugin added: %s\n", api->name);
         } else {
@@ -354,4 +360,206 @@ int RefreshPlugins(const char *directory, PluginRegistry *registry)
     free(keep);
 
     return changes;
+}
+
+// ============================================================================
+// Visibility Configuration
+// ============================================================================
+
+static const char *GetVisibilityConfigPath(void)
+{
+#ifdef PLATFORM_DRM
+    return "/var/llizard/plugin_visibility.ini";
+#else
+    return "./plugin_visibility.ini";
+#endif
+}
+
+void LoadPluginVisibility(PluginRegistry *registry)
+{
+    if (!registry || !registry->items) return;
+
+    FILE *f = fopen(GetVisibilityConfigPath(), "r");
+    if (!f) {
+        printf("No visibility config found, using defaults\n");
+        return;
+    }
+
+    char line[512];
+    while (fgets(line, sizeof(line), f)) {
+        // Skip comments and empty lines
+        if (line[0] == '#' || line[0] == '\n' || line[0] == '\0') continue;
+
+        // Parse "filename=visibility"
+        char *eq = strchr(line, '=');
+        if (!eq) continue;
+
+        *eq = '\0';
+        char *filename = line;
+        char *visStr = eq + 1;
+
+        // Trim newline
+        char *nl = strchr(visStr, '\n');
+        if (nl) *nl = '\0';
+
+        // Find plugin and set visibility
+        for (int i = 0; i < registry->count; i++) {
+            if (strcmp(registry->items[i].filename, filename) == 0) {
+                if (strcmp(visStr, "home") == 0) {
+                    registry->items[i].visibility = PLUGIN_VIS_HOME;
+                } else if (strcmp(visStr, "folder") == 0) {
+                    registry->items[i].visibility = PLUGIN_VIS_FOLDER;
+                } else if (strcmp(visStr, "hidden") == 0) {
+                    registry->items[i].visibility = PLUGIN_VIS_HIDDEN;
+                }
+                break;
+            }
+        }
+    }
+
+    fclose(f);
+    printf("Loaded plugin visibility config\n");
+}
+
+void SavePluginVisibility(const PluginRegistry *registry)
+{
+    if (!registry) return;
+
+    FILE *f = fopen(GetVisibilityConfigPath(), "w");
+    if (!f) {
+        fprintf(stderr, "Failed to save visibility config\n");
+        return;
+    }
+
+    fprintf(f, "# Plugin visibility configuration\n");
+    fprintf(f, "# Values: home, folder, hidden\n\n");
+
+    for (int i = 0; i < registry->count; i++) {
+        const char *visStr = "folder";
+        switch (registry->items[i].visibility) {
+            case PLUGIN_VIS_HOME: visStr = "home"; break;
+            case PLUGIN_VIS_FOLDER: visStr = "folder"; break;
+            case PLUGIN_VIS_HIDDEN: visStr = "hidden"; break;
+        }
+        fprintf(f, "%s=%s\n", registry->items[i].filename, visStr);
+    }
+
+    fclose(f);
+}
+
+// ============================================================================
+// Menu Building
+// ============================================================================
+
+void BuildMenuItems(const PluginRegistry *registry, MenuItemList *menuItems)
+{
+    if (!registry || !menuItems) return;
+
+    // Initialize menu items
+    menuItems->items = NULL;
+    menuItems->count = 0;
+    menuItems->capacity = 0;
+
+    // Count plugins per category (for folders)
+    int categoryCount[LLZ_CATEGORY_COUNT] = {0};
+    for (int i = 0; i < registry->count; i++) {
+        if (registry->items[i].visibility == PLUGIN_VIS_FOLDER) {
+            LlzPluginCategory cat = registry->items[i].category;
+            if (cat < LLZ_CATEGORY_COUNT) {
+                categoryCount[cat]++;
+            }
+        }
+    }
+
+    // Calculate total menu items needed
+    int folderCount = 0;
+    for (int c = 0; c < LLZ_CATEGORY_COUNT; c++) {
+        if (categoryCount[c] > 0) folderCount++;
+    }
+
+    int homeCount = 0;
+    for (int i = 0; i < registry->count; i++) {
+        if (registry->items[i].visibility == PLUGIN_VIS_HOME) {
+            homeCount++;
+        }
+    }
+
+    int totalItems = folderCount + homeCount;
+    if (totalItems == 0) return;
+
+    // Allocate menu items
+    menuItems->items = (MenuItem *)malloc(sizeof(MenuItem) * totalItems);
+    if (!menuItems->items) return;
+    menuItems->capacity = totalItems;
+
+    // Add folders first
+    for (int c = 0; c < LLZ_CATEGORY_COUNT; c++) {
+        if (categoryCount[c] > 0) {
+            MenuItem *item = &menuItems->items[menuItems->count];
+            item->type = MENU_ITEM_FOLDER;
+            item->folder.category = (LlzPluginCategory)c;
+            item->folder.pluginCount = categoryCount[c];
+            strncpy(item->displayName, LLZ_CATEGORY_NAMES[c], sizeof(item->displayName) - 1);
+            menuItems->count++;
+        }
+    }
+
+    // Add HOME plugins after folders
+    for (int i = 0; i < registry->count; i++) {
+        if (registry->items[i].visibility == PLUGIN_VIS_HOME) {
+            MenuItem *item = &menuItems->items[menuItems->count];
+            item->type = MENU_ITEM_PLUGIN;
+            item->plugin.pluginIndex = i;
+            strncpy(item->displayName, registry->items[i].displayName, sizeof(item->displayName) - 1);
+            menuItems->count++;
+        }
+    }
+}
+
+int *GetFolderPlugins(const PluginRegistry *registry, LlzPluginCategory category, int *outCount)
+{
+    if (!registry || !outCount) return NULL;
+    *outCount = 0;
+
+    // Count plugins in this category with FOLDER visibility
+    int count = 0;
+    for (int i = 0; i < registry->count; i++) {
+        if (registry->items[i].visibility == PLUGIN_VIS_FOLDER &&
+            registry->items[i].category == category) {
+            count++;
+        }
+    }
+
+    if (count == 0) return NULL;
+
+    // Allocate and fill indices array
+    int *indices = (int *)malloc(sizeof(int) * count);
+    if (!indices) return NULL;
+
+    int idx = 0;
+    for (int i = 0; i < registry->count; i++) {
+        if (registry->items[i].visibility == PLUGIN_VIS_FOLDER &&
+            registry->items[i].category == category) {
+            indices[idx++] = i;
+        }
+    }
+
+    *outCount = count;
+    return indices;
+}
+
+void FreeMenuItems(MenuItemList *menuItems)
+{
+    if (!menuItems) return;
+    if (menuItems->items) {
+        free(menuItems->items);
+        menuItems->items = NULL;
+    }
+    menuItems->count = 0;
+    menuItems->capacity = 0;
+}
+
+void FreeFolderPlugins(int *indices)
+{
+    if (indices) free(indices);
 }

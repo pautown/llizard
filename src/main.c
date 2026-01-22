@@ -46,6 +46,7 @@ static const Color COLOR_TEXT_DIM = {100, 100, 115, 255};
 static const Color COLOR_CARD_BG = {32, 30, 42, 255};
 static const Color COLOR_CARD_SELECTED = {48, 42, 68, 255};
 static const Color COLOR_CARD_BORDER = {60, 55, 80, 255};
+static const Color COLOR_FOLDER = {100, 180, 255, 255};
 
 // Smooth scroll state
 static float g_scrollOffset = 0.0f;
@@ -62,6 +63,13 @@ static float g_styleIndicatorTimer = 0.0f;  // Timer for indicator visibility
 #define PLUGIN_REFRESH_INTERVAL 2.0f  // Check for changes every 2 seconds
 static float g_pluginRefreshTimer = 0.0f;
 static PluginDirSnapshot g_pluginSnapshot = {0};
+
+// Folder-based menu state
+static MenuItemList g_menuItems = {0};
+static bool g_insideFolder = false;
+static LlzPluginCategory g_currentFolder = LLZ_CATEGORY_MEDIA;
+static int *g_folderPlugins = NULL;
+static int g_folderPluginCount = 0;
 
 // Font
 static Font g_menuFont;
@@ -280,26 +288,44 @@ static void DrawMenuBackground(void)
 // Draw menu header (shared across styles)
 static void DrawMenuHeader(const PluginRegistry *registry, int selected, Color dynamicAccent, Color complementary)
 {
-    // Header
-    DrawTextEx(g_menuFont, "llizardOS", (Vector2){MENU_PADDING_X, 28}, 38, 2, COLOR_TEXT_PRIMARY);
+    (void)registry;  // Used by other menu styles, kept for API consistency
+    // Header - show folder name with back hint if inside folder
+    if (g_insideFolder) {
+        // Back arrow and folder name
+        DrawTextEx(g_menuFont, "◀", (Vector2){MENU_PADDING_X, 32}, 24, 1, COLOR_TEXT_DIM);
+        const char *folderName = LLZ_CATEGORY_NAMES[g_currentFolder];
+        DrawTextEx(g_menuFont, folderName, (Vector2){MENU_PADDING_X + 34, 28}, 38, 2, COLOR_TEXT_PRIMARY);
 
-    // Selected plugin name in top right (if plugins exist) - uses complementary color
-    if (registry && registry->count > 0 && selected >= 0 && selected < registry->count) {
-        const char *pluginName = registry->items[selected].displayName;
-        float fontSize = 36;
-        float spacing = 2;
-        Vector2 textSize = MeasureTextEx(g_menuFont, pluginName, fontSize, spacing);
-        float textX = SCREEN_WIDTH - textSize.x - MENU_PADDING_X;
-        float textY = 28;
-        DrawTextEx(g_menuFont, pluginName, (Vector2){textX, textY}, fontSize, spacing, complementary);
+        // Subtle accent underline
+        Vector2 folderSize = MeasureTextEx(g_menuFont, folderName, 38, 2);
+        DrawRectangle(MENU_PADDING_X + 34, 74, (int)folderSize.x, 3, COLOR_FOLDER);
+
+        // Back hint
+        const char *instructions = "back to return • select to launch";
+        DrawTextEx(g_menuFont, instructions, (Vector2){MENU_PADDING_X, 88}, 16, 1, COLOR_TEXT_DIM);
+    } else {
+        // Normal header
+        DrawTextEx(g_menuFont, "llizardOS", (Vector2){MENU_PADDING_X, 28}, 38, 2, COLOR_TEXT_PRIMARY);
+
+        // Selected item name in top right - uses complementary color
+        if (g_menuItems.count > 0 && selected >= 0 && selected < g_menuItems.count) {
+            MenuItem *item = &g_menuItems.items[selected];
+            const char *itemName = item->displayName;
+            float fontSize = 36;
+            float spacing = 2;
+            Vector2 textSize = MeasureTextEx(g_menuFont, itemName, fontSize, spacing);
+            float textX = SCREEN_WIDTH - textSize.x - MENU_PADDING_X;
+            float textY = 28;
+            DrawTextEx(g_menuFont, itemName, (Vector2){textX, textY}, fontSize, spacing, complementary);
+        }
+
+        // Subtle accent underline
+        DrawRectangle(MENU_PADDING_X, 74, 160, 3, dynamicAccent);
+
+        // Instruction text
+        const char *instructions = "scroll to navigate • select to launch";
+        DrawTextEx(g_menuFont, instructions, (Vector2){MENU_PADDING_X, 88}, 16, 1, COLOR_TEXT_DIM);
     }
-
-    // Subtle accent underline
-    DrawRectangle(MENU_PADDING_X, 74, 160, 3, dynamicAccent);
-
-    // Instruction text
-    const char *instructions = "scroll to navigate • select to launch";
-    DrawTextEx(g_menuFont, instructions, (Vector2){MENU_PADDING_X, 88}, 16, 1, COLOR_TEXT_DIM);
 }
 
 // ============================================================================
@@ -538,25 +564,95 @@ static void DrawPluginMenuCards(const PluginRegistry *registry, int selected,
 }
 
 // ============================================================================
-// LIST STYLE - Classic vertical scrolling list (original)
+// LIST STYLE - Folder-based menu with categories
 // ============================================================================
+
+// Draw a single menu item (folder or plugin)
+static void DrawMenuItem(float x, float y, float width, float height,
+                         const char *name, const char *description,
+                         bool isFolder, bool isSelected, int itemCount,
+                         Color dynamicAccent, Color dynamicAccentDim)
+{
+    (void)dynamicAccentDim;  // Reserved for future use
+    Rectangle cardRect = {x, y, width, height};
+
+    Color cardBg = isSelected ? COLOR_CARD_SELECTED : COLOR_CARD_BG;
+    Color borderColor = isSelected ? dynamicAccent : COLOR_CARD_BORDER;
+
+    // Draw card with rounded corners
+    DrawRectangleRounded(cardRect, 0.15f, 8, cardBg);
+
+    // Selection accent bar on left
+    if (isSelected) {
+        Rectangle accentBar = {cardRect.x, cardRect.y + 8, 4, cardRect.height - 16};
+        Color barColor = isFolder ? COLOR_FOLDER : dynamicAccent;
+        DrawRectangleRounded(accentBar, 0.5f, 4, barColor);
+    }
+
+    // Subtle border
+    DrawRectangleRoundedLines(cardRect, 0.15f, 8, ColorAlpha(borderColor, isSelected ? 0.6f : 0.2f));
+
+    // Icon for folders
+    float textStartX = MENU_PADDING_X + 8;
+    if (isFolder) {
+        // Draw folder icon
+        Color iconColor = isSelected ? COLOR_FOLDER : ColorAlpha(COLOR_FOLDER, 0.6f);
+        DrawTextEx(g_menuFont, "📁", (Vector2){textStartX, y + 20}, 24, 1, iconColor);
+        textStartX += 36;
+    }
+
+    // Name
+    Color nameColor = isSelected ? COLOR_TEXT_PRIMARY : COLOR_TEXT_SECONDARY;
+    DrawTextEx(g_menuFont, name, (Vector2){textStartX, y + 16}, 24, 1.5f, nameColor);
+
+    // Description or plugin count for folders
+    if (isFolder && itemCount > 0) {
+        char countStr[32];
+        snprintf(countStr, sizeof(countStr), "%d plugin%s", itemCount, itemCount == 1 ? "" : "s");
+        Color descColor = isSelected ? COLOR_TEXT_SECONDARY : COLOR_TEXT_DIM;
+        DrawTextEx(g_menuFont, countStr, (Vector2){textStartX, y + 46}, 16, 1, descColor);
+
+        // Arrow indicator on right
+        Vector2 arrowSize = MeasureTextEx(g_menuFont, "▶", 18, 1);
+        Color arrowColor = isSelected ? dynamicAccent : COLOR_TEXT_DIM;
+        DrawTextEx(g_menuFont, "▶",
+                  (Vector2){cardRect.x + cardRect.width - arrowSize.x - 16, y + (height - 18) / 2},
+                  18, 1, arrowColor);
+    } else if (description) {
+        Color descColor = isSelected ? COLOR_TEXT_SECONDARY : COLOR_TEXT_DIM;
+        DrawTextEx(g_menuFont, description, (Vector2){textStartX, y + 46}, 16, 1, descColor);
+    }
+}
 
 static void DrawPluginMenuList(const PluginRegistry *registry, int selected, float deltaTime,
                                Color dynamicAccent, Color dynamicAccentDim)
 {
-    if (!registry || registry->count == 0) {
-        DrawTextEx(g_menuFont, "No plugins found", (Vector2){MENU_PADDING_X, MENU_PADDING_TOP + 40}, 24, 1, COLOR_TEXT_SECONDARY);
-        DrawTextEx(g_menuFont, "Place .so files in ./plugins", (Vector2){MENU_PADDING_X, MENU_PADDING_TOP + 70}, 18, 1, COLOR_TEXT_DIM);
+    int itemCount = 0;
+
+    // Determine what we're showing
+    if (g_insideFolder) {
+        itemCount = g_folderPluginCount;
+    } else {
+        itemCount = g_menuItems.count;
+    }
+
+    if (itemCount == 0) {
+        if (g_insideFolder) {
+            DrawTextEx(g_menuFont, "Folder is empty", (Vector2){MENU_PADDING_X, MENU_PADDING_TOP + 40}, 24, 1, COLOR_TEXT_SECONDARY);
+        } else {
+            DrawTextEx(g_menuFont, "No plugins found", (Vector2){MENU_PADDING_X, MENU_PADDING_TOP + 40}, 24, 1, COLOR_TEXT_SECONDARY);
+            DrawTextEx(g_menuFont, "Place .so files in ./plugins", (Vector2){MENU_PADDING_X, MENU_PADDING_TOP + 70}, 18, 1, COLOR_TEXT_DIM);
+        }
         return;
     }
 
     // Update scroll animation
-    g_targetScrollOffset = CalculateTargetScroll(selected, registry->count);
+    g_targetScrollOffset = CalculateTargetScroll(selected, itemCount);
     UpdateScroll(deltaTime);
 
     // Calculate scroll indicators
     float itemTotalHeight = MENU_ITEM_HEIGHT + MENU_ITEM_SPACING;
-    float totalListHeight = registry->count * itemTotalHeight;
+    float totalListHeight = itemCount * itemTotalHeight;
     float maxScroll = totalListHeight - MENU_VISIBLE_AREA;
     if (maxScroll < 0) maxScroll = 0;
 
@@ -566,70 +662,55 @@ static void DrawPluginMenuList(const PluginRegistry *registry, int selected, flo
     // Clipping region for list
     BeginScissorMode(0, MENU_PADDING_TOP, SCREEN_WIDTH, (int)MENU_VISIBLE_AREA);
 
-    // Draw plugin items
-    for (int i = 0; i < registry->count; ++i) {
+    // Draw items
+    for (int i = 0; i < itemCount; ++i) {
         float itemY = MENU_PADDING_TOP + i * itemTotalHeight - g_scrollOffset;
 
-        // Skip items outside visible area (with margin for partial visibility)
+        // Skip items outside visible area
         if (itemY < MENU_PADDING_TOP - MENU_ITEM_HEIGHT || itemY > SCREEN_HEIGHT) continue;
 
         bool isSelected = (i == selected);
+        float cardX = MENU_PADDING_X - 12;
+        float cardWidth = SCREEN_WIDTH - (MENU_PADDING_X - 12) * 2;
 
-        // Card background
-        Rectangle cardRect = {
-            MENU_PADDING_X - 12,
-            itemY,
-            SCREEN_WIDTH - (MENU_PADDING_X - 12) * 2,
-            MENU_ITEM_HEIGHT
-        };
-
-        Color cardBg = isSelected ? COLOR_CARD_SELECTED : COLOR_CARD_BG;
-        Color borderColor = isSelected ? dynamicAccent : COLOR_CARD_BORDER;
-
-        // Draw card with rounded corners
-        DrawRectangleRounded(cardRect, 0.15f, 8, cardBg);
-
-        // Selection accent bar on left
-        if (isSelected) {
-            Rectangle accentBar = {cardRect.x, cardRect.y + 8, 4, cardRect.height - 16};
-            DrawRectangleRounded(accentBar, 0.5f, 4, dynamicAccent);
+        if (g_insideFolder) {
+            // Inside folder: show plugins
+            int pluginIdx = g_folderPlugins[i];
+            const LoadedPlugin *plugin = &registry->items[pluginIdx];
+            const char *desc = (plugin->api && plugin->api->description) ? plugin->api->description : "";
+            DrawMenuItem(cardX, itemY, cardWidth, MENU_ITEM_HEIGHT,
+                         plugin->displayName, desc,
+                         false, isSelected, 0,
+                         dynamicAccent, dynamicAccentDim);
+        } else {
+            // Main menu: show folders and home plugins
+            MenuItem *item = &g_menuItems.items[i];
+            if (item->type == MENU_ITEM_FOLDER) {
+                DrawMenuItem(cardX, itemY, cardWidth, MENU_ITEM_HEIGHT,
+                             item->displayName, NULL,
+                             true, isSelected, item->folder.pluginCount,
+                             dynamicAccent, dynamicAccentDim);
+            } else {
+                int pluginIdx = item->plugin.pluginIndex;
+                const LoadedPlugin *plugin = &registry->items[pluginIdx];
+                const char *desc = (plugin->api && plugin->api->description) ? plugin->api->description : "";
+                DrawMenuItem(cardX, itemY, cardWidth, MENU_ITEM_HEIGHT,
+                             plugin->displayName, desc,
+                             false, isSelected, 0,
+                             dynamicAccent, dynamicAccentDim);
+            }
         }
-
-        // Subtle border
-        DrawRectangleRoundedLines(cardRect, 0.15f, 8, ColorAlpha(borderColor, isSelected ? 0.6f : 0.2f));
-
-        // Plugin name
-        Color nameColor = isSelected ? COLOR_TEXT_PRIMARY : COLOR_TEXT_SECONDARY;
-        float nameY = itemY + 16;
-        DrawTextEx(g_menuFont, registry->items[i].displayName, (Vector2){MENU_PADDING_X + 8, nameY}, 24, 1.5f, nameColor);
-
-        // Plugin description
-        if (registry->items[i].api && registry->items[i].api->description) {
-            Color descColor = isSelected ? COLOR_TEXT_SECONDARY : COLOR_TEXT_DIM;
-            DrawTextEx(g_menuFont, registry->items[i].api->description,
-                      (Vector2){MENU_PADDING_X + 8, nameY + 30}, 16, 1, descColor);
-        }
-
-        // Index indicator on right
-        char indexStr[16];
-        snprintf(indexStr, sizeof(indexStr), "%d", i + 1);
-        Vector2 indexSize = MeasureTextEx(g_menuFont, indexStr, 16, 1);
-        Color indexColor = isSelected ? dynamicAccentDim : ColorAlpha(COLOR_TEXT_DIM, 0.5f);
-        DrawTextEx(g_menuFont, indexStr,
-                  (Vector2){cardRect.x + cardRect.width - indexSize.x - 16, itemY + (MENU_ITEM_HEIGHT - 16) / 2},
-                  16, 1, indexColor);
     }
 
     EndScissorMode();
 
-    // Scroll indicators (fade gradients at top/bottom)
+    // Scroll indicators
     if (canScrollUp) {
         for (int i = 0; i < 30; i++) {
             float alpha = (30 - i) / 30.0f * 0.8f;
             Color fade = ColorAlpha(COLOR_BG_DARK, alpha);
             DrawRectangle(0, MENU_PADDING_TOP + i, SCREEN_WIDTH, 1, fade);
         }
-        // Up arrow hint
         DrawTextEx(g_menuFont, "▲", (Vector2){SCREEN_WIDTH / 2 - 6, MENU_PADDING_TOP + 4}, 14, 1, ColorAlpha(COLOR_TEXT_DIM, 0.6f));
     }
 
@@ -640,13 +721,17 @@ static void DrawPluginMenuList(const PluginRegistry *registry, int selected, flo
             Color fade = ColorAlpha(COLOR_BG_DARK, alpha);
             DrawRectangle(0, bottomY - 30 + i, SCREEN_WIDTH, 1, fade);
         }
-        // Down arrow hint
         DrawTextEx(g_menuFont, "▼", (Vector2){SCREEN_WIDTH / 2 - 6, bottomY - 18}, 14, 1, ColorAlpha(COLOR_TEXT_DIM, 0.6f));
     }
 
-    // Selection counter at bottom right
-    char counterStr[32];
-    snprintf(counterStr, sizeof(counterStr), "%d of %d", selected + 1, registry->count);
+    // Selection counter and folder indicator at bottom
+    char counterStr[64];
+    if (g_insideFolder) {
+        snprintf(counterStr, sizeof(counterStr), "%s: %d of %d",
+                 LLZ_CATEGORY_NAMES[g_currentFolder], selected + 1, itemCount);
+    } else {
+        snprintf(counterStr, sizeof(counterStr), "%d of %d", selected + 1, itemCount);
+    }
     Vector2 counterSize = MeasureTextEx(g_menuFont, counterStr, 16, 1);
     DrawTextEx(g_menuFont, counterStr,
               (Vector2){SCREEN_WIDTH - counterSize.x - MENU_PADDING_X, SCREEN_HEIGHT - 28},
@@ -1269,6 +1354,13 @@ int main(void)
     PluginRegistry registry = {0};
     LoadPlugins(pluginDir, &registry);
 
+    // Load visibility configuration and build menu items
+    LoadPluginVisibility(&registry);
+    BuildMenuItems(&registry, &g_menuItems);
+    printf("Menu built: %d items (%d folders + home plugins)\n", g_menuItems.count,
+           g_menuItems.count > 0 ? (int)(g_menuItems.count -
+               (registry.count > 0 ? registry.count : 0)) : 0);
+
     // Create initial snapshot for change detection
     g_pluginSnapshot = CreatePluginSnapshot(pluginDir);
 
@@ -1352,13 +1444,6 @@ int main(void)
                 g_pluginRefreshTimer = 0.0f;
 
                 if (HasPluginDirectoryChanged(pluginDir, &g_pluginSnapshot)) {
-                    // Remember current selection name to restore after refresh
-                    char selectedName[128] = {0};
-                    if (selectedIndex >= 0 && selectedIndex < registry.count) {
-                        strncpy(selectedName, registry.items[selectedIndex].displayName,
-                                sizeof(selectedName) - 1);
-                    }
-
                     // Refresh plugins
                     int changes = RefreshPlugins(pluginDir, &registry);
                     if (changes > 0) {
@@ -1368,28 +1453,23 @@ int main(void)
                         FreePluginSnapshot(&g_pluginSnapshot);
                         g_pluginSnapshot = CreatePluginSnapshot(pluginDir);
 
-                        // Try to restore selection by name
-                        int newIndex = -1;
-                        if (selectedName[0]) {
-                            for (int i = 0; i < registry.count; i++) {
-                                if (strcmp(registry.items[i].displayName, selectedName) == 0) {
-                                    newIndex = i;
-                                    break;
-                                }
-                            }
+                        // Reload visibility config and rebuild menu items
+                        LoadPluginVisibility(&registry);
+                        FreeMenuItems(&g_menuItems);
+                        BuildMenuItems(&registry, &g_menuItems);
+
+                        // Exit folder view if we were inside (plugins may have changed)
+                        if (g_insideFolder) {
+                            FreeFolderPlugins(g_folderPlugins);
+                            g_folderPlugins = NULL;
+                            g_folderPluginCount = 0;
+                            g_insideFolder = false;
                         }
 
-                        // Update selection
-                        if (newIndex >= 0) {
-                            selectedIndex = newIndex;
-                        } else if (registry.count > 0) {
-                            // Clamp to valid range
-                            if (selectedIndex >= registry.count) {
-                                selectedIndex = registry.count - 1;
-                            }
-                        } else {
-                            selectedIndex = 0;
-                        }
+                        // Reset selection
+                        selectedIndex = 0;
+                        g_scrollOffset = 0;
+                        g_targetScrollOffset = 0;
 
                         // Reset last plugin index if that plugin was removed
                         if (lastPluginIndex >= registry.count) {
@@ -1399,14 +1479,17 @@ int main(void)
                 }
             }
 
+            // Determine current item count based on view
+            int currentItemCount = g_insideFolder ? g_folderPluginCount : g_menuItems.count;
+
             bool downKey = IsKeyPressed(KEY_DOWN) || inputState.downPressed || (inputState.scrollDelta > 0.0f);
             bool upKey = IsKeyPressed(KEY_UP) || inputState.upPressed || (inputState.scrollDelta < 0.0f);
 
-            if (downKey && registry.count > 0) {
-                selectedIndex = (selectedIndex + 1) % registry.count;
+            if (downKey && currentItemCount > 0) {
+                selectedIndex = (selectedIndex + 1) % currentItemCount;
             }
-            if (upKey && registry.count > 0) {
-                selectedIndex = (selectedIndex - 1 + registry.count) % registry.count;
+            if (upKey && currentItemCount > 0) {
+                selectedIndex = (selectedIndex - 1 + currentItemCount) % currentItemCount;
             }
 
             // Cycle background style with screenshot button (or button4)
@@ -1421,26 +1504,63 @@ int main(void)
                 CycleMenuStyle();
             }
 
-            // Back button release reopens last plugin
-            if (inputState.backReleased && lastPluginIndex >= 0 && lastPluginIndex < registry.count) {
-                selectedIndex = lastPluginIndex;
-                active = &registry.items[selectedIndex];
-                if (active && active->api && active->api->init) {
-                    active->api->init(SCREEN_WIDTH, SCREEN_HEIGHT);
+            // Back button handling
+            if (inputState.backReleased) {
+                if (g_insideFolder) {
+                    // Exit folder, return to main menu
+                    FreeFolderPlugins(g_folderPlugins);
+                    g_folderPlugins = NULL;
+                    g_folderPluginCount = 0;
+                    g_insideFolder = false;
+                    selectedIndex = 0;  // Reset to top of menu
+                    g_scrollOffset = 0;
+                    g_targetScrollOffset = 0;
+                } else if (lastPluginIndex >= 0 && lastPluginIndex < registry.count) {
+                    // Reopen last plugin
+                    active = &registry.items[lastPluginIndex];
+                    if (active && active->api && active->api->init) {
+                        active->api->init(SCREEN_WIDTH, SCREEN_HEIGHT);
+                    }
+                    runningPlugin = true;
+                    continue;
                 }
-                runningPlugin = true;
-                continue;
             }
 
             bool selectPressed = IsKeyPressed(KEY_ENTER) || inputState.selectPressed;
-            if (selectPressed && registry.count > 0) {
-                lastPluginIndex = selectedIndex;  // Remember which plugin we're launching
-                active = &registry.items[selectedIndex];
-                if (active && active->api && active->api->init) {
-                    active->api->init(SCREEN_WIDTH, SCREEN_HEIGHT);
+            if (selectPressed && currentItemCount > 0) {
+                if (g_insideFolder) {
+                    // Launch plugin from folder
+                    int pluginIdx = g_folderPlugins[selectedIndex];
+                    lastPluginIndex = pluginIdx;
+                    active = &registry.items[pluginIdx];
+                    if (active && active->api && active->api->init) {
+                        active->api->init(SCREEN_WIDTH, SCREEN_HEIGHT);
+                    }
+                    runningPlugin = true;
+                    continue;
+                } else {
+                    // Main menu: check if folder or plugin
+                    MenuItem *item = &g_menuItems.items[selectedIndex];
+                    if (item->type == MENU_ITEM_FOLDER) {
+                        // Enter folder
+                        g_currentFolder = item->folder.category;
+                        g_folderPlugins = GetFolderPlugins(&registry, g_currentFolder, &g_folderPluginCount);
+                        g_insideFolder = true;
+                        selectedIndex = 0;
+                        g_scrollOffset = 0;
+                        g_targetScrollOffset = 0;
+                    } else {
+                        // Launch plugin
+                        int pluginIdx = item->plugin.pluginIndex;
+                        lastPluginIndex = pluginIdx;
+                        active = &registry.items[pluginIdx];
+                        if (active && active->api && active->api->init) {
+                            active->api->init(SCREEN_WIDTH, SCREEN_HEIGHT);
+                        }
+                        runningPlugin = true;
+                        continue;
+                    }
                 }
-                runningPlugin = true;
-                continue;
             }
 
             LlzDisplayBegin();
@@ -1512,6 +1632,8 @@ int main(void)
     if (active && active->api && active->api->shutdown) {
         active->api->shutdown();
     }
+    FreeFolderPlugins(g_folderPlugins);
+    FreeMenuItems(&g_menuItems);
     FreePluginSnapshot(&g_pluginSnapshot);
     UnloadPlugins(&registry);
     UnloadIBrandFont();
