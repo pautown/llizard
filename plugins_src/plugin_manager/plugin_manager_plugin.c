@@ -170,10 +170,19 @@ static void LoadVisibilityConfig(void) {
 
         *eq = '\0';
         char *filename = line;
-        char *visStr = eq + 1;
+        char *value = eq + 1;
 
-        char *nl = strchr(visStr, '\n');
+        char *nl = strchr(value, '\n');
         if (nl) *nl = '\0';
+
+        // Parse value: "visibility:category" or just "visibility" (backwards compatible)
+        char *colon = strchr(value, ':');
+        int category = -1;
+        if (colon) {
+            *colon = '\0';
+            category = atoi(colon + 1);
+        }
+        char *visStr = value;
 
         for (int i = 0; i < g_pluginCount; i++) {
             if (strcmp(g_plugins[i].filename, filename) == 0) {
@@ -183,6 +192,10 @@ static void LoadVisibilityConfig(void) {
                     g_plugins[i].visibility = PM_VIS_FOLDER;
                 } else if (strcmp(visStr, "hidden") == 0) {
                     g_plugins[i].visibility = PM_VIS_HIDDEN;
+                }
+                // Apply category if specified and valid
+                if (category >= 0 && category < LLZ_CATEGORY_COUNT) {
+                    g_plugins[i].category = (LlzPluginCategory)category;
                 }
                 break;
             }
@@ -200,7 +213,9 @@ static void SaveVisibilityConfig(void) {
     }
 
     fprintf(f, "# Plugin visibility configuration\n");
-    fprintf(f, "# Values: home, folder, hidden\n\n");
+    fprintf(f, "# Format: filename=visibility:category\n");
+    fprintf(f, "# visibility: home, folder, hidden\n");
+    fprintf(f, "# category: 0=Media, 1=Utilities, 2=Games, 3=Info, 4=Debug\n\n");
 
     for (int i = 0; i < g_pluginCount; i++) {
         const char *visStr = "folder";
@@ -210,7 +225,8 @@ static void SaveVisibilityConfig(void) {
             case PM_VIS_HIDDEN: visStr = "hidden"; break;
             default: break;
         }
-        fprintf(f, "%s=%s\n", g_plugins[i].filename, visStr);
+        // Save both visibility and category
+        fprintf(f, "%s=%s:%d\n", g_plugins[i].filename, visStr, (int)g_plugins[i].category);
     }
 
     fclose(f);

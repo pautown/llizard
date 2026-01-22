@@ -390,19 +390,28 @@ void LoadPluginVisibility(PluginRegistry *registry)
         // Skip comments and empty lines
         if (line[0] == '#' || line[0] == '\n' || line[0] == '\0') continue;
 
-        // Parse "filename=visibility"
+        // Parse "filename=visibility:category" or "filename=visibility" (backwards compatible)
         char *eq = strchr(line, '=');
         if (!eq) continue;
 
         *eq = '\0';
         char *filename = line;
-        char *visStr = eq + 1;
+        char *value = eq + 1;
 
         // Trim newline
-        char *nl = strchr(visStr, '\n');
+        char *nl = strchr(value, '\n');
         if (nl) *nl = '\0';
 
-        // Find plugin and set visibility
+        // Parse value: "visibility:category" or just "visibility"
+        char *colon = strchr(value, ':');
+        int category = -1;
+        if (colon) {
+            *colon = '\0';
+            category = atoi(colon + 1);
+        }
+        char *visStr = value;
+
+        // Find plugin and set visibility and category
         for (int i = 0; i < registry->count; i++) {
             if (strcmp(registry->items[i].filename, filename) == 0) {
                 if (strcmp(visStr, "home") == 0) {
@@ -411,6 +420,10 @@ void LoadPluginVisibility(PluginRegistry *registry)
                     registry->items[i].visibility = PLUGIN_VIS_FOLDER;
                 } else if (strcmp(visStr, "hidden") == 0) {
                     registry->items[i].visibility = PLUGIN_VIS_HIDDEN;
+                }
+                // Apply category if specified and valid
+                if (category >= 0 && category < LLZ_CATEGORY_COUNT) {
+                    registry->items[i].category = (LlzPluginCategory)category;
                 }
                 break;
             }
@@ -432,7 +445,9 @@ void SavePluginVisibility(const PluginRegistry *registry)
     }
 
     fprintf(f, "# Plugin visibility configuration\n");
-    fprintf(f, "# Values: home, folder, hidden\n\n");
+    fprintf(f, "# Format: filename=visibility:category\n");
+    fprintf(f, "# visibility: home, folder, hidden\n");
+    fprintf(f, "# category: 0=Media, 1=Utilities, 2=Games, 3=Info, 4=Debug\n\n");
 
     for (int i = 0; i < registry->count; i++) {
         const char *visStr = "folder";
@@ -441,7 +456,8 @@ void SavePluginVisibility(const PluginRegistry *registry)
             case PLUGIN_VIS_FOLDER: visStr = "folder"; break;
             case PLUGIN_VIS_HIDDEN: visStr = "hidden"; break;
         }
-        fprintf(f, "%s=%s\n", registry->items[i].filename, visStr);
+        // Save both visibility and category
+        fprintf(f, "%s=%s:%d\n", registry->items[i].filename, visStr, (int)registry->items[i].category);
     }
 
     fclose(f);
