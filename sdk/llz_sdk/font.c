@@ -20,9 +20,10 @@
 
 // Font file names
 static const char* FONT_FILENAMES[LLZ_FONT_COUNT] = {
-    "ZegoeUI-U.ttf",      // LLZ_FONT_UI
-    "ZegoeUI-U.ttf",      // LLZ_FONT_UI_BOLD (same file, bold via rendering)
-    "DejaVuSansMono.ttf"  // LLZ_FONT_MONO
+    "ZegoeUI-U.ttf",         // LLZ_FONT_UI
+    "ZegoeUI-U.ttf",         // LLZ_FONT_UI_BOLD (same file, bold via rendering)
+    "DejaVuSansMono.ttf",    // LLZ_FONT_MONO
+    "QuincyCapsRegular.ttf"  // LLZ_FONT_DISPLAY
 };
 
 // Search paths for fonts (in priority order)
@@ -126,6 +127,26 @@ static bool FindFontFile(LlzFontType type, char* outPath, int outPathSize) {
         }
     }
 
+    // Fallback for Display font - try caps/bold alternatives
+    if (type == LLZ_FONT_DISPLAY) {
+        const char* displayFallbacks[] = {
+            "QuincyCapsRegular.ttf",
+            "ZegoeCapsBold.ttf",
+            "ZegoeUI-UBold.ttf",
+            "DejaVuSans-Bold.ttf",
+            NULL
+        };
+
+        for (int i = 0; displayFallbacks[i] != NULL; i++) {
+            for (int j = 0; FONT_SEARCH_PATHS[j] != NULL; j++) {
+                snprintf(outPath, outPathSize, "%s%s", FONT_SEARCH_PATHS[j], displayFallbacks[i]);
+                if (FontFileExists(outPath)) {
+                    return true;
+                }
+            }
+        }
+    }
+
     outPath[0] = '\0';
     return false;
 }
@@ -197,12 +218,11 @@ bool LlzFontInit(void) {
 
     // Find font files for each type
     bool foundAny = false;
+    static const char* fontTypeNames[] = {"UI", "UI Bold", "Mono", "Display"};
     for (int i = 0; i < LLZ_FONT_COUNT; i++) {
         if (FindFontFile((LlzFontType)i, g_fontState.fontPaths[i], sizeof(g_fontState.fontPaths[i]))) {
             foundAny = true;
-            printf("[LlzFont] Found %s font: %s\n",
-                   (i == LLZ_FONT_UI) ? "UI" : (i == LLZ_FONT_UI_BOLD) ? "UI Bold" : "Mono",
-                   g_fontState.fontPaths[i]);
+            printf("[LlzFont] Found %s font: %s\n", fontTypeNames[i], g_fontState.fontPaths[i]);
 
             // Set directory from first found font
             if (g_fontState.fontDirectory[0] == '\0') {

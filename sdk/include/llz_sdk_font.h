@@ -39,6 +39,7 @@ typedef enum {
     LLZ_FONT_UI,          /**< Primary UI font (ZegoeUI) - good for menus, labels */
     LLZ_FONT_UI_BOLD,     /**< Bold variant of UI font */
     LLZ_FONT_MONO,        /**< Monospace font for code/technical display */
+    LLZ_FONT_DISPLAY,     /**< Display/decorative font (Quincy Caps) - all caps, good for titles */
     LLZ_FONT_COUNT        /**< Number of font types (internal use) */
 } LlzFontType;
 

@@ -286,6 +286,15 @@ static Color LerpColor(Color a, Color b, float t) {
     };
 }
 
+/* Convert string to uppercase in-place */
+static void ToUpperCase(char *str) {
+    for (int i = 0; str[i]; i++) {
+        if (str[i] >= 'a' && str[i] <= 'z') {
+            str[i] = str[i] - 'a' + 'A';
+        }
+    }
+}
+
 /* ============================================================================
  * LAYOUT CALCULATION
  * ============================================================================ */
@@ -1307,12 +1316,12 @@ static void DrawHUD(void) {
 
         /* Level reached */
         char levelText[32];
-        snprintf(levelText, sizeof(levelText), "Level %d", GetLevel());
+        snprintf(levelText, sizeof(levelText), "LEVEL %d", GetLevel());
         Vector2 levelSize = MeasureTextEx(g_font, levelText, 20, 1);
         DrawTextEx(g_font, levelText, (Vector2){centerX - levelSize.x / 2, panelY + 78}, 20, 1, COLOR_TEXT);
 
         /* Restart instruction with pulsing */
-        const char *restartText = "Press SELECT to play again";
+        const char *restartText = "PRESS SELECT TO PLAY AGAIN";
         float restartAlpha = 150 + 105 * sinf(g_animTimer * 2.5f);
         Vector2 restartSize = MeasureTextEx(g_font, restartText, 16, 1);
         DrawTextEx(g_font, restartText, (Vector2){centerX - restartSize.x / 2, panelY + 130},
@@ -1719,8 +1728,8 @@ static void PluginInit(int width, int height) {
     g_screenHeight = height;
     g_wantsClose = false;
 
-    /* Load font */
-    g_font = LlzFontGet(LLZ_FONT_UI, 48);
+    /* Load display font (Quincy Caps - all uppercase decorative font) */
+    g_font = LlzFontGet(LLZ_FONT_DISPLAY, 48);
     if (g_font.texture.id == 0) {
         g_font = GetFontDefault();
     }
