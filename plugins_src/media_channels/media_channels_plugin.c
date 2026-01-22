@@ -25,6 +25,13 @@ static float g_scrollOffset = 0.0f;
 static float g_targetScrollOffset = 0.0f;
 static float g_animTime = 0.0f;
 
+// Refresh button is at index 0 when channels are loaded
+#define REFRESH_ITEM_INDEX 0
+static bool HasRefreshItem(void) { return g_channelsLoaded && g_channels.count > 0; }
+static int GetChannelIndex(int uiIndex) { return HasRefreshItem() ? uiIndex - 1 : uiIndex; }
+static int GetUIIndex(int channelIndex) { return HasRefreshItem() ? channelIndex + 1 : channelIndex; }
+static int GetItemCount(void) { return g_channels.count + (HasRefreshItem() ? 1 : 0); }
+
 // Animation
 static float g_selectionAnim[LLZ_MEDIA_CHANNEL_MAX] = {0};
 static float g_loadingAnim = 0.0f;
@@ -75,7 +82,8 @@ static float EaseOutCubic(float t) {
 // ============================================================================
 static float CalculateTargetScroll(int selected) {
     float itemTotalHeight = CARD_HEIGHT + CARD_SPACING;
-    int itemCount = g_channels.count > 0 ? g_channels.count : 1;
+    int itemCount = GetItemCount();
+    if (itemCount < 1) itemCount = 1;
     float totalListHeight = itemCount * itemTotalHeight;
     float maxScroll = totalListHeight - CONTENT_HEIGHT;
     if (maxScroll < 0) maxScroll = 0;
@@ -206,6 +214,62 @@ static void DrawChannelCard(int index, const char *name, float y, bool selected,
     }
 }
 
+static void DrawRefreshCard(float y, bool selected, float selectionAnim) {
+    float cardX = CARD_MARGIN_X;
+    float cardWidth = g_screenWidth - CARD_MARGIN_X * 2;
+
+    // Card color - use a slightly different tint for the refresh button
+    Color cardColor = ColorLerp(COLOR_CARD, COLOR_CARD_SELECTED, EaseOutCubic(selectionAnim));
+
+    // Subtle lift when selected
+    float liftOffset = selected ? -2.0f * selectionAnim : 0.0f;
+    float cardY = y + liftOffset;
+
+    Rectangle cardRect = {cardX, cardY, cardWidth, CARD_HEIGHT};
+
+    // Shadow
+    if (selected) {
+        Color shadowColor = {0, 0, 0, (unsigned char)(40 * selectionAnim)};
+        DrawRectangleRounded((Rectangle){cardX + 2, cardY + 4, cardWidth, CARD_HEIGHT},
+                             CARD_ROUNDNESS, 12, shadowColor);
+    }
+
+    // Card background
+    DrawRectangleRounded(cardRect, CARD_ROUNDNESS, 12, cardColor);
+
+    // Selection indicator bar (left edge)
+    if (selectionAnim > 0.01f) {
+        Color indicatorColor = COLOR_ACCENT;
+        indicatorColor.a = (unsigned char)(255 * selectionAnim);
+        float barHeight = CARD_HEIGHT * (0.4f + 0.6f * selectionAnim);
+        float barY = cardY + (CARD_HEIGHT - barHeight) / 2;
+        DrawRectangleRounded((Rectangle){cardX, barY, 4, barHeight}, 0.5f, 4, indicatorColor);
+    }
+
+    // Border
+    Color borderColor = selected ? COLOR_CARD_BORDER_SELECTED : COLOR_CARD_BORDER;
+    DrawRectangleRoundedLinesEx(cardRect, CARD_ROUNDNESS, 12, 1.0f, borderColor);
+
+    // Refresh icon (circular arrows) - simplified as text for now
+    float textX = cardX + 22;
+    float textY = cardY + (CARD_HEIGHT - 24) / 2;
+
+    // Draw refresh symbol and text
+    const char *refreshText = g_channelsLoading ? "Refreshing..." : "Refresh Channels";
+    Color textColor = g_channelsLoading ? COLOR_ACCENT : COLOR_TEXT_PRIMARY;
+    LlzDrawText(refreshText, (int)textX, (int)textY, LLZ_FONT_SIZE_LARGE - 2, textColor);
+
+    // Loading indicator when refreshing
+    if (g_channelsLoading) {
+        float dotX = cardX + cardWidth - 50;
+        float dotY = cardY + CARD_HEIGHT / 2;
+        float pulse = 0.5f + 0.5f * sinf(g_loadingAnim * 4.0f);
+        Color dotColor = COLOR_ACCENT;
+        dotColor.a = (unsigned char)(180 + 75 * pulse);
+        DrawCircle((int)dotX, (int)dotY, 4 + 2 * pulse, dotColor);
+    }
+}
+
 static void DrawLoadingState(void) {
     float centerY = g_screenHeight / 2;
 
@@ -294,13 +358,16 @@ static void PluginInit(int width, int height) {
         LlzMediaGetControlledChannel(g_controlledChannel, sizeof(g_controlledChannel));
         if (g_controlledChannel[0]) {
             printf("Media Channels: Currently controlling: %s\n", g_controlledChannel);
-            // Find and select the controlled channel
+            // Find and select the controlled channel (account for refresh item at index 0)
             for (int i = 0; i < g_channels.count; i++) {
                 if (strcmp(g_channels.channels[i], g_controlledChannel) == 0) {
-                    g_selectedIndex = i;
+                    g_selectedIndex = GetUIIndex(i);
                     break;
                 }
             }
+        } else {
+            // Default to first channel (after refresh item)
+            g_selectedIndex = HasRefreshItem() ? 1 : 0;
         }
     } else {
         // Request fresh channels
@@ -322,8 +389,9 @@ static void PluginUpdate(const LlzInputState *hostInput, float deltaTime) {
     g_loadingAnim += deltaTime;
 
     // Selection animations
-    int maxIndex = g_channels.count > 0 ? g_channels.count : 1;
-    for (int i = 0; i < maxIndex && i < LLZ_MEDIA_CHANNEL_MAX; i++) {
+    int itemCount = GetItemCount();
+    if (itemCount < 1) itemCount = 1;
+    for (int i = 0; i < itemCount && i < LLZ_MEDIA_CHANNEL_MAX; i++) {
         float target = (i == g_selectedIndex) ? 1.0f : 0.0f;
         g_selectionAnim[i] = Lerp(g_selectionAnim[i], target, deltaTime * 14.0f);
     }
@@ -350,51 +418,80 @@ static void PluginUpdate(const LlzInputState *hostInput, float deltaTime) {
     }
 
     // Navigation
-    if (!g_channelsLoading && g_channels.count > 0) {
+    int itemCount = GetItemCount();
+    if (itemCount > 0) {
         // Scroll wheel navigates
         if (input->scrollDelta != 0) {
             int delta = (input->scrollDelta > 0) ? 1 : -1;
             g_selectedIndex += delta;
             if (g_selectedIndex < 0) g_selectedIndex = 0;
-            if (g_selectedIndex >= g_channels.count) g_selectedIndex = g_channels.count - 1;
+            if (g_selectedIndex >= itemCount) g_selectedIndex = itemCount - 1;
             g_targetScrollOffset = CalculateTargetScroll(g_selectedIndex);
         }
 
         // Up/down buttons
         if (input->downPressed || IsKeyPressed(KEY_DOWN)) {
-            g_selectedIndex = (g_selectedIndex + 1) % g_channels.count;
+            g_selectedIndex = (g_selectedIndex + 1) % itemCount;
             g_targetScrollOffset = CalculateTargetScroll(g_selectedIndex);
         }
         if (input->upPressed || IsKeyPressed(KEY_UP)) {
-            g_selectedIndex = (g_selectedIndex - 1 + g_channels.count) % g_channels.count;
+            g_selectedIndex = (g_selectedIndex - 1 + itemCount) % itemCount;
             g_targetScrollOffset = CalculateTargetScroll(g_selectedIndex);
         }
 
-        // Select channel
+        // Select item
         if (input->selectPressed || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE)) {
-            const char *selectedChannel = g_channels.channels[g_selectedIndex];
-            printf("Media Channels: Selecting channel: %s\n", selectedChannel);
+            if (HasRefreshItem() && g_selectedIndex == REFRESH_ITEM_INDEX) {
+                // Refresh button selected
+                if (!g_channelsLoading) {
+                    g_channelsLoading = true;
+                    g_requestTime = 0.0f;
+                    LlzMediaRequestChannels();
+                    printf("Media Channels: Refreshing...\n");
+                }
+            } else {
+                // Channel selected
+                int channelIndex = GetChannelIndex(g_selectedIndex);
+                if (channelIndex >= 0 && channelIndex < g_channels.count) {
+                    const char *selectedChannel = g_channels.channels[channelIndex];
+                    printf("Media Channels: Selecting channel: %s\n", selectedChannel);
 
-            // Send select command
-            LlzMediaSelectChannel(selectedChannel);
+                    // Send select command
+                    LlzMediaSelectChannel(selectedChannel);
 
-            // Update local state
-            strncpy(g_controlledChannel, selectedChannel, sizeof(g_controlledChannel) - 1);
+                    // Update local state
+                    strncpy(g_controlledChannel, selectedChannel, sizeof(g_controlledChannel) - 1);
+                }
+            }
         }
 
         // Tap to select
         if (input->tap || input->mouseJustPressed) {
             Vector2 tapPos = input->tap ? input->tapPosition : input->mousePos;
-            for (int i = 0; i < g_channels.count; i++) {
+            for (int i = 0; i < itemCount; i++) {
                 float cardY = CONTENT_TOP + i * (CARD_HEIGHT + CARD_SPACING) - g_scrollOffset;
                 Rectangle bounds = {CARD_MARGIN_X, cardY, g_screenWidth - CARD_MARGIN_X * 2, CARD_HEIGHT};
                 if (CheckCollisionPointRec(tapPos, bounds)) {
                     if (g_selectedIndex == i) {
-                        // Double tap - select
-                        const char *selectedChannel = g_channels.channels[i];
-                        printf("Media Channels: Selecting channel: %s\n", selectedChannel);
-                        LlzMediaSelectChannel(selectedChannel);
-                        strncpy(g_controlledChannel, selectedChannel, sizeof(g_controlledChannel) - 1);
+                        // Double tap - activate
+                        if (HasRefreshItem() && i == REFRESH_ITEM_INDEX) {
+                            // Refresh
+                            if (!g_channelsLoading) {
+                                g_channelsLoading = true;
+                                g_requestTime = 0.0f;
+                                LlzMediaRequestChannels();
+                                printf("Media Channels: Refreshing...\n");
+                            }
+                        } else {
+                            // Select channel
+                            int channelIndex = GetChannelIndex(i);
+                            if (channelIndex >= 0 && channelIndex < g_channels.count) {
+                                const char *selectedChannel = g_channels.channels[channelIndex];
+                                printf("Media Channels: Selecting channel: %s\n", selectedChannel);
+                                LlzMediaSelectChannel(selectedChannel);
+                                strncpy(g_controlledChannel, selectedChannel, sizeof(g_controlledChannel) - 1);
+                            }
+                        }
                     } else {
                         g_selectedIndex = i;
                         g_targetScrollOffset = CalculateTargetScroll(g_selectedIndex);
@@ -425,7 +522,7 @@ static void PluginDraw(void) {
     DrawGradientBackground();
     DrawHeader();
 
-    if (g_channelsLoading) {
+    if (g_channelsLoading && g_channels.count == 0) {
         DrawLoadingState();
     } else if (g_channels.count == 0) {
         DrawEmptyState();
@@ -433,19 +530,35 @@ static void PluginDraw(void) {
         // Clip content area
         BeginScissorMode(0, CONTENT_TOP, g_screenWidth, (int)CONTENT_HEIGHT);
 
+        int uiIndex = 0;
+
+        // Draw refresh button first if we have channels
+        if (HasRefreshItem()) {
+            float cardY = CONTENT_TOP + uiIndex * (CARD_HEIGHT + CARD_SPACING) - g_scrollOffset;
+            if (cardY >= CONTENT_TOP - CARD_HEIGHT && cardY <= g_screenHeight) {
+                bool selected = (g_selectedIndex == REFRESH_ITEM_INDEX);
+                DrawRefreshCard(cardY, selected, g_selectionAnim[REFRESH_ITEM_INDEX]);
+            }
+            uiIndex++;
+        }
+
         // Draw channel cards
         for (int i = 0; i < g_channels.count; i++) {
-            float cardY = CONTENT_TOP + i * (CARD_HEIGHT + CARD_SPACING) - g_scrollOffset;
+            float cardY = CONTENT_TOP + uiIndex * (CARD_HEIGHT + CARD_SPACING) - g_scrollOffset;
 
             // Skip if outside visible area
-            if (cardY < CONTENT_TOP - CARD_HEIGHT || cardY > g_screenHeight) continue;
+            if (cardY < CONTENT_TOP - CARD_HEIGHT || cardY > g_screenHeight) {
+                uiIndex++;
+                continue;
+            }
 
-            bool selected = (i == g_selectedIndex);
+            bool selected = (uiIndex == g_selectedIndex);
             bool isControlled = (g_controlledChannel[0] != '\0' &&
                                 strcmp(g_channels.channels[i], g_controlledChannel) == 0);
 
             DrawChannelCard(i, g_channels.channels[i], cardY, selected, isControlled,
-                           g_selectionAnim[i]);
+                           g_selectionAnim[uiIndex]);
+            uiIndex++;
         }
 
         EndScissorMode();
