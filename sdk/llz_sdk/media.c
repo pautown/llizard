@@ -1567,3 +1567,121 @@ bool LlzMediaGetControlledChannel(char *outChannel, size_t maxLen)
     freeReplyObject(reply);
     return success;
 }
+
+// ============================================================================
+// Timezone API Implementation
+// ============================================================================
+
+// Cache for timezone data to avoid frequent Redis queries
+static LlzTimezone g_cachedTimezone = {0, "", false};
+static time_t g_lastTimezoneCheck = 0;
+#define TIMEZONE_CACHE_SECONDS 60  // Refresh timezone cache every 60 seconds
+
+bool LlzMediaGetTimezone(LlzTimezone *outTimezone)
+{
+    if (!outTimezone) return false;
+
+    // Check if we should use cached value
+    time_t now = time(NULL);
+    if (g_cachedTimezone.valid && (now - g_lastTimezoneCheck) < TIMEZONE_CACHE_SECONDS) {
+        *outTimezone = g_cachedTimezone;
+        return true;
+    }
+
+    // Default values
+    outTimezone->offsetMinutes = 0;
+    outTimezone->timezoneId[0] = '\0';
+    outTimezone->valid = false;
+
+    // Get timezone offset from Redis
+    redisReply *offsetReply = llz_media_command("GET system:timezone_offset");
+    if (offsetReply) {
+        if (offsetReply->type == REDIS_REPLY_STRING && offsetReply->str) {
+            outTimezone->offsetMinutes = atoi(offsetReply->str);
+            outTimezone->valid = true;
+        }
+        freeReplyObject(offsetReply);
+    }
+
+    // Get timezone ID from Redis
+    redisReply *idReply = llz_media_command("GET system:timezone_id");
+    if (idReply) {
+        if (idReply->type == REDIS_REPLY_STRING && idReply->str) {
+            size_t len = strlen(idReply->str);
+            if (len < LLZ_TIMEZONE_ID_MAX) {
+                strcpy(outTimezone->timezoneId, idReply->str);
+            }
+        }
+        freeReplyObject(idReply);
+    }
+
+    // Update cache
+    if (outTimezone->valid) {
+        g_cachedTimezone = *outTimezone;
+        g_lastTimezoneCheck = now;
+    }
+
+    return outTimezone->valid;
+}
+
+bool LlzMediaGetPhoneTime(int *hours, int *minutes, int *seconds)
+{
+    LlzTimezone tz;
+    time_t now = time(NULL);
+
+    if (LlzMediaGetTimezone(&tz) && tz.valid) {
+        // Apply timezone offset
+        // offsetMinutes is the offset FROM UTC, so we add it to UTC time
+        now += (tz.offsetMinutes * 60);
+
+        // Use gmtime since we've already applied the offset
+        struct tm *t = gmtime(&now);
+        if (t) {
+            if (hours) *hours = t->tm_hour;
+            if (minutes) *minutes = t->tm_min;
+            if (seconds) *seconds = t->tm_sec;
+            return true;
+        }
+    }
+
+    // Fall back to system local time
+    struct tm *t = localtime(&now);
+    if (t) {
+        if (hours) *hours = t->tm_hour;
+        if (minutes) *minutes = t->tm_min;
+        if (seconds) *seconds = t->tm_sec;
+    }
+    return false;
+}
+
+bool LlzMediaGetPhoneTimePrecise(int *hours, int *minutes, int *seconds, double *fractionalSecond)
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+
+    LlzTimezone tz;
+    if (LlzMediaGetTimezone(&tz) && tz.valid) {
+        // Apply timezone offset
+        tv.tv_sec += (tz.offsetMinutes * 60);
+
+        // Use gmtime since we've already applied the offset
+        struct tm *t = gmtime(&tv.tv_sec);
+        if (t) {
+            if (hours) *hours = t->tm_hour;
+            if (minutes) *minutes = t->tm_min;
+            if (seconds) *seconds = t->tm_sec;
+            if (fractionalSecond) *fractionalSecond = tv.tv_usec / 1000000.0;
+            return true;
+        }
+    }
+
+    // Fall back to system local time
+    struct tm *t = localtime(&tv.tv_sec);
+    if (t) {
+        if (hours) *hours = t->tm_hour;
+        if (minutes) *minutes = t->tm_min;
+        if (seconds) *seconds = t->tm_sec;
+        if (fractionalSecond) *fractionalSecond = tv.tv_usec / 1000000.0;
+    }
+    return false;
+}

@@ -323,6 +323,36 @@ bool LlzMediaSelectChannel(const char *channelName);
 // Returns true if controlled channel was retrieved
 bool LlzMediaGetControlledChannel(char *outChannel, size_t maxLen);
 
+// ============================================================================
+// Timezone API
+// ============================================================================
+
+#define LLZ_TIMEZONE_ID_MAX 64
+
+// Timezone information from phone
+typedef struct {
+    int offsetMinutes;                    // Offset from UTC in minutes (e.g., -300 for EST)
+    char timezoneId[LLZ_TIMEZONE_ID_MAX]; // IANA timezone ID (e.g., "America/New_York")
+    bool valid;                           // True if timezone data was successfully retrieved
+} LlzTimezone;
+
+// Get phone's timezone from Redis
+// outTimezone: pointer to receive timezone info
+// Returns true if timezone data was retrieved successfully
+bool LlzMediaGetTimezone(LlzTimezone *outTimezone);
+
+// Get current time adjusted to phone's timezone
+// This applies the timezone offset to the system time
+// hours, minutes, seconds: pointers to receive time components (any can be NULL)
+// Returns true if timezone was applied, false if using system local time
+bool LlzMediaGetPhoneTime(int *hours, int *minutes, int *seconds);
+
+// Get precise time adjusted to phone's timezone with sub-second accuracy
+// hours, minutes, seconds: pointers to receive time components (any can be NULL)
+// fractionalSecond: pointer to receive fractional second (0.0-1.0, can be NULL)
+// Returns true if timezone was applied, false if using system local time
+bool LlzMediaGetPhoneTimePrecise(int *hours, int *minutes, int *seconds, double *fractionalSecond);
+
 #ifdef __cplusplus
 }
 #endif

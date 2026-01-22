@@ -490,7 +490,15 @@ static void UpdateAlbumArtTransition(float dt) {
 // Time Functions
 // ============================================================================
 
+// Get current time using phone's timezone (from Redis via BLE)
+// Falls back to system local time if timezone data not available
 static void GetCurrentTime(int *hours, int *minutes, int *seconds) {
+    // Try to use phone timezone first
+    if (LlzMediaGetPhoneTime(hours, minutes, seconds)) {
+        return;  // Successfully got phone timezone time
+    }
+
+    // Fall back to system local time
     time_t now = time(NULL);
     struct tm *t = localtime(&now);
     if (hours) *hours = t->tm_hour;
@@ -498,8 +506,15 @@ static void GetCurrentTime(int *hours, int *minutes, int *seconds) {
     if (seconds) *seconds = t->tm_sec;
 }
 
-// Get precise time with sub-second accuracy
+// Get precise time with sub-second accuracy using phone's timezone
+// Falls back to system local time if timezone data not available
 static void GetPreciseTime(int *hours, int *minutes, int *seconds, double *fractionalSecond) {
+    // Try to use phone timezone first
+    if (LlzMediaGetPhoneTimePrecise(hours, minutes, seconds, fractionalSecond)) {
+        return;  // Successfully got phone timezone time
+    }
+
+    // Fall back to system local time
     struct timeval tv;
     gettimeofday(&tv, NULL);
     struct tm *t = localtime(&tv.tv_sec);
@@ -507,6 +522,32 @@ static void GetPreciseTime(int *hours, int *minutes, int *seconds, double *fract
     if (minutes) *minutes = t->tm_min;
     if (seconds) *seconds = t->tm_sec;
     if (fractionalSecond) *fractionalSecond = tv.tv_usec / 1000000.0;
+}
+
+// Get struct tm adjusted for phone's timezone (for date formatting)
+// Returns pointer to static buffer (same as localtime behavior)
+static struct tm *GetPhoneLocalTime(void) {
+    static struct tm result;
+    LlzTimezone tz;
+    time_t now = time(NULL);
+
+    if (LlzMediaGetTimezone(&tz) && tz.valid) {
+        // Apply timezone offset and use gmtime
+        now += (tz.offsetMinutes * 60);
+        struct tm *t = gmtime(&now);
+        if (t) {
+            result = *t;
+            return &result;
+        }
+    }
+
+    // Fall back to system localtime
+    struct tm *t = localtime(&now);
+    if (t) {
+        result = *t;
+        return &result;
+    }
+    return NULL;
 }
 
 static void FormatTime(double seconds, char *out, size_t size, bool showMs) {
@@ -615,11 +656,14 @@ static void DrawDigitalClock(int h, int m, int s, float centerX, float centerY, 
         // The colons in timeStr are already visible
     }
 
-    // Date
-    time_t now = time(NULL);
-    struct tm *t = localtime(&now);
+    // Date (using phone timezone)
+    struct tm *t = GetPhoneLocalTime();
     char dateStr[64];
-    strftime(dateStr, sizeof(dateStr), "%A, %B %d", t);
+    if (t) {
+        strftime(dateStr, sizeof(dateStr), "%A, %B %d", t);
+    } else {
+        strcpy(dateStr, "");
+    }
 
     float dateSize = 24.0f * scale;
     Vector2 dateMeasure = MeasureTextEx(g_font, dateStr, dateSize, 1.0f);
