@@ -417,8 +417,8 @@ static void PluginUpdate(const LlzInputState *hostInput, float deltaTime) {
         }
     }
 
-    // Navigation
-    int itemCount = GetItemCount();
+    // Navigation (reuse itemCount from above)
+    itemCount = GetItemCount();
     if (itemCount > 0) {
         // Scroll wheel navigates
         if (input->scrollDelta != 0) {
