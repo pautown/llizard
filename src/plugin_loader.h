@@ -77,6 +77,8 @@ typedef struct {
         } plugin;
     };
     char displayName[128];
+    char sortKey[128];              // Key for sort order config (e.g., "folder:Media" or "plugin:nowplaying.so")
+    int sortIndex;                  // Sort order (lower = higher in list)
 } MenuItem;
 
 typedef struct {
@@ -87,6 +89,7 @@ typedef struct {
 
 // Build menu item list from registry based on visibility settings
 // Returns a list containing: folders first (for FOLDER visibility), then HOME plugins
+// Items are sorted by sortIndex after loading sort order config
 void BuildMenuItems(const PluginRegistry *registry, MenuItemList *menuItems);
 
 // Get plugins for a specific category folder (FOLDER visibility only)
@@ -98,5 +101,12 @@ void FreeMenuItems(MenuItemList *menuItems);
 
 // Free folder plugins array
 void FreeFolderPlugins(int *indices);
+
+// Load sort order configuration from menu_sort_order.ini
+// Call after BuildMenuItems to apply saved sort order
+void LoadMenuSortOrder(MenuItemList *menuItems);
+
+// Sort menu items by their sortIndex
+void SortMenuItems(MenuItemList *menuItems);
 
 #endif

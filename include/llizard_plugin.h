@@ -44,6 +44,11 @@ typedef struct LlzPluginAPI {
 
     // Plugin category for menu organization (default: LLZ_CATEGORY_MEDIA)
     LlzPluginCategory category;
+
+    // Optional: If provided and returns true, host will rebuild menu items
+    // when plugin closes. Used by plugins that modify visibility or sort order.
+    // Default behavior (NULL): no refresh
+    bool (*wants_refresh)(void);
 } LlzPluginAPI;
 
 typedef const LlzPluginAPI *(*LlzGetPluginFunc)(void);

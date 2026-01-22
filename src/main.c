@@ -1587,7 +1587,25 @@ int main(void)
             }
 
             if (exitRequest) {
+                // Check if plugin wants host to refresh before shutdown
+                bool needsRefresh = active->api->wants_refresh && active->api->wants_refresh();
+
                 if (active->api->shutdown) active->api->shutdown();
+
+                // Refresh menu if plugin requested it (e.g., plugin manager, menu sorter)
+                if (needsRefresh) {
+                    LoadPluginVisibility(&registry);
+                    FreeMenuItems(&g_menuItems);
+                    BuildMenuItems(&registry, &g_menuItems);
+
+                    // Exit folder view since menu structure may have changed
+                    if (g_insideFolder) {
+                        g_insideFolder = false;
+                        FreeFolderPlugins(g_folderPlugins);
+                        g_folderPlugins = NULL;
+                        g_folderPluginCount = 0;
+                    }
+                }
 
                 // Check if the plugin requested opening another plugin
                 if (LlzHasRequestedPlugin()) {

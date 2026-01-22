@@ -808,6 +808,11 @@ static bool PluginWantsClose(void) {
     return g_wantsClose;
 }
 
+static bool PluginWantsRefresh(void) {
+    // Request menu refresh if any visibility/folder settings were changed
+    return g_configChanged;
+}
+
 // ============================================================================
 // Plugin Export
 // ============================================================================
@@ -820,6 +825,7 @@ static LlzPluginAPI g_api = {
     .draw = PluginDraw,
     .shutdown = PluginShutdown,
     .wants_close = PluginWantsClose,
+    .wants_refresh = PluginWantsRefresh,
     .category = LLZ_CATEGORY_UTILITIES
 };
 

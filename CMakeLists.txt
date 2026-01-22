@@ -344,6 +344,34 @@ add_custom_command(TARGET plugin_manager_plugin POST_BUILD
     COMMENT "Copying plugin_manager plugin to runtime plugins directory"
 )
 
+# ===== Menu Sorter Plugin =====
+set(MENU_SORTER_SOURCES
+    plugins_src/menu_sorter/menu_sorter_plugin.c
+)
+
+add_library(menu_sorter_plugin SHARED ${MENU_SORTER_SOURCES})
+set_target_properties(menu_sorter_plugin PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+target_include_directories(menu_sorter_plugin PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/external/raylib/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/sdk/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/plugins_src
+)
+
+target_link_libraries(menu_sorter_plugin llz_sdk ${CMAKE_DL_LIBS})
+
+set_target_properties(menu_sorter_plugin PROPERTIES
+    PREFIX ""
+    OUTPUT_NAME "menu_sorter"
+)
+
+add_custom_command(TARGET menu_sorter_plugin POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/plugins
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:menu_sorter_plugin> ${CMAKE_CURRENT_SOURCE_DIR}/plugins/
+    COMMENT "Copying menu_sorter plugin to runtime plugins directory"
+)
+
 # ===== Media Channels Plugin =====
 set(MEDIA_CHANNELS_PLUGIN_SOURCES
     plugins_src/media_channels/media_channels_plugin.c

@@ -508,7 +508,9 @@ void BuildMenuItems(const PluginRegistry *registry, MenuItemList *menuItems)
     if (!menuItems->items) return;
     menuItems->capacity = totalItems;
 
-    // Add folders first
+    int defaultIndex = 0;
+
+    // Add folders first (with default alphabetical order)
     for (int c = 0; c < LLZ_CATEGORY_COUNT; c++) {
         if (categoryCount[c] > 0) {
             MenuItem *item = &menuItems->items[menuItems->count];
@@ -516,6 +518,8 @@ void BuildMenuItems(const PluginRegistry *registry, MenuItemList *menuItems)
             item->folder.category = (LlzPluginCategory)c;
             item->folder.pluginCount = categoryCount[c];
             strncpy(item->displayName, LLZ_CATEGORY_NAMES[c], sizeof(item->displayName) - 1);
+            snprintf(item->sortKey, sizeof(item->sortKey), "folder:%s", LLZ_CATEGORY_NAMES[c]);
+            item->sortIndex = defaultIndex++;
             menuItems->count++;
         }
     }
@@ -527,9 +531,15 @@ void BuildMenuItems(const PluginRegistry *registry, MenuItemList *menuItems)
             item->type = MENU_ITEM_PLUGIN;
             item->plugin.pluginIndex = i;
             strncpy(item->displayName, registry->items[i].displayName, sizeof(item->displayName) - 1);
+            snprintf(item->sortKey, sizeof(item->sortKey), "plugin:%s", registry->items[i].filename);
+            item->sortIndex = defaultIndex++;
             menuItems->count++;
         }
     }
+
+    // Load sort order from config and sort
+    LoadMenuSortOrder(menuItems);
+    SortMenuItems(menuItems);
 }
 
 int *GetFolderPlugins(const PluginRegistry *registry, LlzPluginCategory category, int *outCount)
@@ -578,4 +588,78 @@ void FreeMenuItems(MenuItemList *menuItems)
 void FreeFolderPlugins(int *indices)
 {
     if (indices) free(indices);
+}
+
+// ============================================================================
+// Menu Sort Order
+// ============================================================================
+
+static const char *GetSortConfigPath(void)
+{
+#ifdef PLATFORM_DRM
+    return "/var/llizard/menu_sort_order.ini";
+#else
+    return "./menu_sort_order.ini";
+#endif
+}
+
+void LoadMenuSortOrder(MenuItemList *menuItems)
+{
+    if (!menuItems || !menuItems->items) return;
+
+    FILE *f = fopen(GetSortConfigPath(), "r");
+    if (!f) {
+        printf("No sort order config found, using default order\n");
+        return;
+    }
+
+    char line[512];
+    while (fgets(line, sizeof(line), f)) {
+        // Skip comments and empty lines
+        if (line[0] == '#' || line[0] == '\n' || line[0] == '\0') continue;
+
+        // Parse "key=index"
+        char *eq = strchr(line, '=');
+        if (!eq) continue;
+
+        *eq = '\0';
+        char *key = line;
+        char *value = eq + 1;
+
+        // Trim newline
+        char *nl = strchr(value, '\n');
+        if (nl) *nl = '\0';
+
+        int sortIndex = atoi(value);
+
+        // Find menu item and set sort index
+        for (int i = 0; i < menuItems->count; i++) {
+            if (strcmp(menuItems->items[i].sortKey, key) == 0) {
+                menuItems->items[i].sortIndex = sortIndex;
+                break;
+            }
+        }
+    }
+
+    fclose(f);
+    printf("Loaded menu sort order config\n");
+}
+
+static int CompareMenuItems(const void *a, const void *b)
+{
+    const MenuItem *ia = (const MenuItem *)a;
+    const MenuItem *ib = (const MenuItem *)b;
+    return ia->sortIndex - ib->sortIndex;
+}
+
+void SortMenuItems(MenuItemList *menuItems)
+{
+    if (!menuItems || !menuItems->items || menuItems->count < 2) return;
+
+    qsort(menuItems->items, menuItems->count, sizeof(MenuItem), CompareMenuItems);
+
+    // Normalize indices (0, 1, 2, ...) after sorting
+    for (int i = 0; i < menuItems->count; i++) {
+        menuItems->items[i].sortIndex = i;
+    }
 }
