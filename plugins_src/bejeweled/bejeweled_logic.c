@@ -30,11 +30,49 @@
 #define GEM_PURPLE      6
 #define GEM_WHITE       7
 
+/* Special gem type constants */
+#define SPECIAL_NONE        0
+#define SPECIAL_FLAME       1
+#define SPECIAL_STAR        2
+#define SPECIAL_HYPERCUBE   3
+#define SPECIAL_SUPERNOVA   4
+#define SPECIAL_COUNT       5
+
+/* Max queued effects for chain reactions */
+#define MAX_QUEUED_EFFECTS  16
+#define MAX_PENDING_SPECIALS 16
+
 /* Scoring constants */
 #define SCORE_MATCH_3   50      /* Points for 3-gem match */
 #define SCORE_MATCH_4   100     /* Points for 4-gem match */
 #define SCORE_MATCH_5   200     /* Points for 5+ gem match */
 #define CASCADE_BONUS   25      /* Bonus per cascade level */
+
+/* Blitz mode constants */
+#define BLITZ_TIME_LIMIT    60.0f   /* 60 seconds for Blitz mode */
+#define BLITZ_SCORE_MULT    2       /* Score multiplier for Blitz mode */
+
+/* CASCADE RUSH mode constants */
+#define CASCADE_RUSH_START_TIME     30.0f   /* 30 seconds initial time */
+#define RUSH_ZONE_SPAWN_INTERVAL    8.0f    /* Seconds between zone spawns */
+#define RUSH_ZONE_DURATION          5.0f    /* Seconds zone stays active */
+#define CASCADE_RUSH_SCORE_MULT     3       /* 3x cascade multiplier */
+
+/* GEM SURGE mode constants */
+#define SURGE_MAX_LINES     8       /* Maximum active surge lines */
+#define SURGE_LINE_DURATION 8.0f    /* Duration surge lines stay active (seconds) */
+#define SURGE_INITIAL_TIME  45.0f   /* Initial time for Gem Surge mode */
+#define SURGE_INITIAL_TARGET 1000   /* Initial wave target score */
+
+/* Game modes */
+typedef enum {
+    GAME_MODE_CLASSIC,
+    GAME_MODE_BLITZ,
+    GAME_MODE_TWIST,
+    GAME_MODE_CASCADE_RUSH,
+    GAME_MODE_GEM_SURGE,
+    GAME_MODE_COUNT
+} GameMode;
 
 /* ============================================================================
  * GAME STATE STRUCTURES
@@ -77,10 +115,28 @@ typedef struct {
     int fallDistance;           /* Number of cells this gem needs to fall */
 } GemAnimation;
 
+/* Pending special gem info */
+typedef struct {
+    int x, y;
+    int color;
+    int specialType;
+} PendingSpecialGem;
+
+/* Queued effect for chain reactions */
+typedef struct {
+    int x, y;
+    int effectType;
+    int targetColor;
+    bool active;
+} QueuedEffect;
+
 /* Main game state structure */
 typedef struct {
     /* Board state - gem types at each position (0 = empty) */
     int board[BOARD_HEIGHT][BOARD_WIDTH];
+
+    /* Special gem types at each position (SPECIAL_NONE = normal) */
+    int special[BOARD_HEIGHT][BOARD_WIDTH];
 
     /* Animation states for each gem */
     GemAnimation animations[BOARD_HEIGHT][BOARD_WIDTH];
@@ -122,6 +178,37 @@ typedef struct {
     int lightningCenterX;
     int lightningCenterY;
 
+    /* Game mode */
+    GameMode gameMode;
+
+    /* Pending special gems (to be created after match removal) */
+    PendingSpecialGem pendingSpecials[MAX_PENDING_SPECIALS];
+    int pendingSpecialCount;
+
+    /* Queued effects for chain reactions */
+    QueuedEffect queuedEffects[MAX_QUEUED_EFFECTS];
+    int queuedEffectCount;
+
+    /* CASCADE RUSH Mode State */
+    bool rushZoneActive;
+    int rushZoneX, rushZoneY;
+    float rushZoneTimer;
+    float rushZoneSpawnTimer;
+    int rushZonesCaptured;
+    float timeAddedFromCascades;
+
+    /* GEM SURGE Mode State */
+    int surgeCurrentWave;
+    int surgeWaveTarget;
+    int surgeWaveScore;
+    int surgeFeaturedGem;
+    bool surgeLines[SURGE_MAX_LINES];
+    bool surgeLinesHorizontal[SURGE_MAX_LINES];
+    int surgeLinePositions[SURGE_MAX_LINES];
+    float surgeLineTimers[SURGE_MAX_LINES];
+    int surgeActiveLineCount;
+    int surgeLinesCleared;
+
 } BejeweledState;
 
 /* ============================================================================
@@ -140,7 +227,18 @@ static bool HasMatchAt(int x, int y);
 static bool HasHorizontalMatchAt(int x, int y, int minLength);
 static bool HasVerticalMatchAt(int x, int y, int minLength);
 static void ClearMatchInfo(void);
-static int CalculateMatchScore(int matchLength, int cascadeLevel);
+static int CalculateMatchScore(int matchLength, int cascadeLevel, int gemType);
+
+/* Forward declarations for Twist mode */
+bool CheckTwistGameOver(void);
+
+/* Forward declarations for CASCADE RUSH mode */
+void InitCascadeRush(void);
+void SpawnRushZone(void);
+
+/* Forward declarations for GEM SURGE mode */
+static void InitGemSurge(void);
+static void AdvanceToNextWave(void);
 
 /* ============================================================================
  * UTILITY FUNCTIONS
@@ -452,9 +550,9 @@ static void UpdateLevel(void)
 
 /**
  * Calculate score for a match based on length and cascade level
- * Score = baseScore * matchLength * comboMultiplier
+ * Score = baseScore * matchLength * comboMultiplier * modeMultiplier
  */
-static int CalculateMatchScore(int matchLength, int cascadeLevel)
+static int CalculateMatchScore(int matchLength, int cascadeLevel, int gemType)
 {
     int baseScore;
 
@@ -469,8 +567,24 @@ static int CalculateMatchScore(int matchLength, int cascadeLevel)
     /* Apply combo multiplier (cascade=1 is 1x, cascade=2 is 2x, etc.) */
     int comboMultiplier = (cascadeLevel < 1) ? 1 : cascadeLevel;
 
-    /* Score scales with match length and combo */
-    return baseScore * matchLength * comboMultiplier / 3;
+    /* Apply mode multiplier */
+    int modeMultiplier = 1;
+    if (g_game.gameMode == GAME_MODE_BLITZ) {
+        modeMultiplier = BLITZ_SCORE_MULT;
+    } else if (g_game.gameMode == GAME_MODE_CASCADE_RUSH) {
+        /* CASCADE RUSH: 3x cascade multiplier */
+        modeMultiplier = CASCADE_RUSH_SCORE_MULT;
+    }
+
+    /* Calculate base score */
+    int score = baseScore * matchLength * comboMultiplier * modeMultiplier / 3;
+
+    /* GEM SURGE: Apply 2x bonus for featured gem matches */
+    if (g_game.gameMode == GAME_MODE_GEM_SURGE && gemType == g_game.surgeFeaturedGem) {
+        score *= 2;
+    }
+
+    return score;
 }
 
 /**
@@ -486,12 +600,21 @@ int RemoveMatches(void)
     int scoreEarned = 0;
     int gemsRemoved = 0;
 
+    /* First, analyze matches for special gem creation */
+    AnalyzeForSpecialGems();
+
     /* Process each match */
     for (int m = 0; m < g_game.matchCount; m++) {
         MatchInfo *match = &g_game.matches[m];
 
+        /* Get gem type from first position in match */
+        int matchGemType = GEM_EMPTY;
+        if (match->count > 0) {
+            matchGemType = GetGemAt(match->positions[0].x, match->positions[0].y);
+        }
+
         /* Calculate score for this match */
-        int matchScore = CalculateMatchScore(match->count, g_game.cascadeLevel);
+        int matchScore = CalculateMatchScore(match->count, g_game.cascadeLevel, matchGemType);
         scoreEarned += matchScore;
 
         /* Track statistics */
@@ -504,20 +627,58 @@ int RemoveMatches(void)
             int x = match->positions[i].x;
             int y = match->positions[i].y;
 
+            /* Check if this position should become a special gem */
+            bool becomesSpecial = false;
+            int specialType = SPECIAL_NONE;
+            int gemColor = GetGemAt(x, y);
+
+            for (int p = 0; p < g_game.pendingSpecialCount; p++) {
+                if (g_game.pendingSpecials[p].x == x && g_game.pendingSpecials[p].y == y) {
+                    becomesSpecial = true;
+                    specialType = g_game.pendingSpecials[p].specialType;
+                    gemColor = g_game.pendingSpecials[p].color;
+                    break;
+                }
+            }
+
             if (GetGemAt(x, y) != GEM_EMPTY) {
-                SetGemAt(x, y, GEM_EMPTY);
-                g_game.animations[y][x].isRemoving = true;
-                g_game.animations[y][x].scale = 1.0f;
-                gemsRemoved++;
+                /* Check if this gem is already special - queue its effect */
+                int existingSpecial = GetBoardSpecial(x, y);
+                if (existingSpecial != SPECIAL_NONE && !becomesSpecial) {
+                    QueueSpecialEffect(x, y, existingSpecial, GetGemAt(x, y));
+                }
+
+                if (becomesSpecial) {
+                    /* Create special gem instead of removing */
+                    SetGemAt(x, y, gemColor);
+                    SetBoardSpecial(x, y, specialType);
+                    g_game.animations[y][x].isSpawning = true;
+                    g_game.animations[y][x].scale = 0.0f;
+                } else {
+                    /* Normal removal */
+                    SetGemAt(x, y, GEM_EMPTY);
+                    SetBoardSpecial(x, y, SPECIAL_NONE);
+                    g_game.animations[y][x].isRemoving = true;
+                    g_game.animations[y][x].scale = 1.0f;
+                    gemsRemoved++;
+                }
             }
         }
     }
+
+    /* Clear pending specials */
+    g_game.pendingSpecialCount = 0;
 
     /* Update game state */
     g_game.score += scoreEarned;
     g_game.cascadeScore += scoreEarned;
     g_game.gemsDestroyed += gemsRemoved;
     g_game.totalMatches += g_game.matchCount;
+
+    /* GEM SURGE: Add to wave score */
+    if (g_game.gameMode == GAME_MODE_GEM_SURGE) {
+        g_game.surgeWaveScore += scoreEarned;
+    }
 
     /* Check for level up */
     UpdateLevel();
@@ -844,9 +1005,9 @@ static int GetSafeGemAt(int x, int y)
 }
 
 /**
- * Initialize the game board with random gems, ensuring no initial matches
+ * Internal function to initialize board (shared by all init functions)
  */
-void InitGame(void)
+static void InitBoardInternal(void)
 {
     /* Seed random number generator if not already done */
     static bool seeded = false;
@@ -855,18 +1016,23 @@ void InitGame(void)
         seeded = true;
     }
 
-    /* Clear entire game state */
+    /* Clear entire game state (preserves mode-specific settings set before) */
+    GameMode savedMode = g_game.gameMode;
+    int savedMoves = g_game.movesRemaining;
+    float savedTime = g_game.timeRemaining;
+
     memset(&g_game, 0, sizeof(g_game));
+
+    /* Restore mode-specific settings */
+    g_game.gameMode = savedMode;
+    g_game.movesRemaining = savedMoves;
+    g_game.timeRemaining = savedTime;
 
     /* Initialize selection to none */
     g_game.selectedGem.x = -1;
     g_game.selectedGem.y = -1;
     g_game.swapGem.x = -1;
     g_game.swapGem.y = -1;
-
-    /* Set default game mode (unlimited moves/time) */
-    g_game.movesRemaining = -1;    /* -1 = unlimited */
-    g_game.timeRemaining = -1.0f;  /* -1 = unlimited */
 
     /* Fill board with random gems, ensuring no initial matches */
     for (int y = 0; y < BOARD_HEIGHT; y++) {
@@ -887,10 +1053,11 @@ void InitGame(void)
         FillBoard();
     }
 
-    /* Ensure at least one valid move exists */
-    if (CheckGameOver()) {
+    /* Ensure at least one valid move exists based on game mode */
+    bool gameOver = (g_game.gameMode == GAME_MODE_TWIST) ? CheckTwistGameOver() : CheckGameOver();
+    if (gameOver) {
         /* Rare case: regenerate entire board */
-        InitGame();
+        InitBoardInternal();
         return;
     }
 
@@ -899,6 +1066,75 @@ void InitGame(void)
     g_game.level = 1;
 
     g_initialized = true;
+}
+
+/**
+ * Initialize the game board with random gems, ensuring no initial matches.
+ * Uses Classic mode by default.
+ */
+void InitGame(void)
+{
+    g_game.gameMode = GAME_MODE_CLASSIC;
+    g_game.movesRemaining = -1;    /* -1 = unlimited */
+    g_game.timeRemaining = -1.0f;  /* -1 = unlimited */
+    InitBoardInternal();
+}
+
+/**
+ * Initialize game with a specific game mode.
+ */
+void InitGameMode(GameMode mode)
+{
+    g_game.gameMode = mode;
+
+    switch (mode) {
+        case GAME_MODE_CLASSIC:
+            g_game.movesRemaining = -1;
+            g_game.timeRemaining = -1.0f;
+            break;
+
+        case GAME_MODE_BLITZ:
+            g_game.movesRemaining = -1;
+            g_game.timeRemaining = BLITZ_TIME_LIMIT;
+            break;
+
+        case GAME_MODE_TWIST:
+            g_game.movesRemaining = -1;
+            g_game.timeRemaining = -1.0f;
+            break;
+
+        case GAME_MODE_CASCADE_RUSH:
+            g_game.movesRemaining = -1;
+            g_game.timeRemaining = CASCADE_RUSH_START_TIME;
+            break;
+
+        case GAME_MODE_GEM_SURGE:
+            g_game.movesRemaining = -1;
+            g_game.timeRemaining = SURGE_INITIAL_TIME;
+            break;
+
+        default:
+            g_game.movesRemaining = -1;
+            g_game.timeRemaining = -1.0f;
+            break;
+    }
+
+    InitBoardInternal();
+
+    /* Mode-specific post-initialization */
+    if (mode == GAME_MODE_CASCADE_RUSH) {
+        InitCascadeRush();
+    } else if (mode == GAME_MODE_GEM_SURGE) {
+        InitGemSurge();
+    }
+}
+
+/**
+ * Get the current game mode.
+ */
+GameMode GetCurrentGameMode(void)
+{
+    return g_game.gameMode;
 }
 
 /**
@@ -1061,6 +1297,43 @@ bool HasSelection(void)
 int GetBoardGem(int x, int y)
 {
     return GetGemAt(x, y);
+}
+
+/**
+ * Get the special type at a position
+ */
+int GetBoardSpecial(int x, int y)
+{
+    if (!IsValidPosition(x, y)) {
+        return SPECIAL_NONE;
+    }
+    return g_game.special[y][x];
+}
+
+/**
+ * Set the special type at a position
+ */
+void SetBoardSpecial(int x, int y, int specialType)
+{
+    if (IsValidPosition(x, y)) {
+        g_game.special[y][x] = specialType;
+    }
+}
+
+/**
+ * Check if a gem at position is special
+ */
+bool IsSpecialGem(int x, int y)
+{
+    return GetBoardSpecial(x, y) != SPECIAL_NONE;
+}
+
+/**
+ * Check if position has a Hypercube
+ */
+bool IsHypercube(int x, int y)
+{
+    return GetBoardSpecial(x, y) == SPECIAL_HYPERCUBE;
 }
 
 /**
@@ -1303,4 +1576,1025 @@ int ExecuteLightningStrike(bool isHorizontal, int index)
     UpdateLevel();
 
     return gemsDestroyed;
+}
+
+/* ============================================================================
+ * TWIST MODE FUNCTIONS
+ * ============================================================================ */
+
+/**
+ * Check if rotating a 2x2 grid would create a match.
+ * Does not modify the board.
+ */
+bool IsValidRotation(int topLeftX, int topLeftY)
+{
+    /* Validate position - need a full 2x2 grid */
+    if (topLeftX < 0 || topLeftX >= BOARD_WIDTH - 1 ||
+        topLeftY < 0 || topLeftY >= BOARD_HEIGHT - 1) {
+        return false;
+    }
+
+    /* Get the 4 gems in the 2x2 grid */
+    int gem_tl = GetGemAt(topLeftX, topLeftY);         /* Top-left */
+    int gem_tr = GetGemAt(topLeftX + 1, topLeftY);     /* Top-right */
+    int gem_bl = GetGemAt(topLeftX, topLeftY + 1);     /* Bottom-left */
+    int gem_br = GetGemAt(topLeftX + 1, topLeftY + 1); /* Bottom-right */
+
+    /* All gems must be non-empty */
+    if (gem_tl == GEM_EMPTY || gem_tr == GEM_EMPTY ||
+        gem_bl == GEM_EMPTY || gem_br == GEM_EMPTY) {
+        return false;
+    }
+
+    /* Temporarily rotate clockwise: tl->tr, tr->br, br->bl, bl->tl */
+    SetGemAt(topLeftX, topLeftY, gem_bl);         /* tl = old bl */
+    SetGemAt(topLeftX + 1, topLeftY, gem_tl);     /* tr = old tl */
+    SetGemAt(topLeftX + 1, topLeftY + 1, gem_tr); /* br = old tr */
+    SetGemAt(topLeftX, topLeftY + 1, gem_br);     /* bl = old br */
+
+    /* Check if any of the 4 positions now creates a match */
+    bool hasMatch = HasMatchAt(topLeftX, topLeftY) ||
+                    HasMatchAt(topLeftX + 1, topLeftY) ||
+                    HasMatchAt(topLeftX, topLeftY + 1) ||
+                    HasMatchAt(topLeftX + 1, topLeftY + 1);
+
+    /* Restore original state */
+    SetGemAt(topLeftX, topLeftY, gem_tl);
+    SetGemAt(topLeftX + 1, topLeftY, gem_tr);
+    SetGemAt(topLeftX, topLeftY + 1, gem_bl);
+    SetGemAt(topLeftX + 1, topLeftY + 1, gem_br);
+
+    return hasMatch;
+}
+
+/**
+ * Rotate a 2x2 grid of gems clockwise.
+ * Returns true if rotation created a match.
+ */
+bool RotateGems(int topLeftX, int topLeftY)
+{
+    /* Validate the rotation would create a match */
+    if (!IsValidRotation(topLeftX, topLeftY)) {
+        return false;
+    }
+
+    /* Get the 4 gems in the 2x2 grid */
+    int gem_tl = GetGemAt(topLeftX, topLeftY);
+    int gem_tr = GetGemAt(topLeftX + 1, topLeftY);
+    int gem_bl = GetGemAt(topLeftX, topLeftY + 1);
+    int gem_br = GetGemAt(topLeftX + 1, topLeftY + 1);
+
+    /* Perform clockwise rotation: tl->tr, tr->br, br->bl, bl->tl */
+    SetGemAt(topLeftX, topLeftY, gem_bl);         /* tl = old bl */
+    SetGemAt(topLeftX + 1, topLeftY, gem_tl);     /* tr = old tl */
+    SetGemAt(topLeftX + 1, topLeftY + 1, gem_tr); /* br = old tr */
+    SetGemAt(topLeftX, topLeftY + 1, gem_br);     /* bl = old br */
+
+    /* Set up rotation animation for all 4 gems */
+    /* The visual animation will be handled by the plugin */
+    g_game.animations[topLeftY][topLeftX].offsetX = -1.0f;
+    g_game.animations[topLeftY][topLeftX].offsetY = 0.0f;
+
+    g_game.animations[topLeftY][topLeftX + 1].offsetX = 0.0f;
+    g_game.animations[topLeftY][topLeftX + 1].offsetY = -1.0f;
+
+    g_game.animations[topLeftY + 1][topLeftX + 1].offsetX = 1.0f;
+    g_game.animations[topLeftY + 1][topLeftX + 1].offsetY = 0.0f;
+
+    g_game.animations[topLeftY + 1][topLeftX].offsetX = 0.0f;
+    g_game.animations[topLeftY + 1][topLeftX].offsetY = 1.0f;
+
+    /* Reset cascade tracking for new move */
+    g_game.cascadeLevel = 0;
+    g_game.cascadeScore = 0;
+
+    return true;
+}
+
+/**
+ * Check if any valid rotation moves exist on the board.
+ * Returns true if no valid rotations exist (game over).
+ */
+bool CheckTwistGameOver(void)
+{
+    /* Check every possible 2x2 rotation position */
+    for (int y = 0; y < BOARD_HEIGHT - 1; y++) {
+        for (int x = 0; x < BOARD_WIDTH - 1; x++) {
+            if (IsValidRotation(x, y)) {
+                return false;  /* Found a valid move */
+            }
+        }
+    }
+
+    /* Also check time limit */
+    if (g_game.timeRemaining <= 0.0f && g_game.timeRemaining != -1.0f) {
+        return true;
+    }
+
+    return true;  /* No valid rotations found */
+}
+
+/**
+ * Find a valid rotation move (for hint system in Twist mode).
+ */
+bool GetTwistHint(int *topLeftX, int *topLeftY)
+{
+    for (int y = 0; y < BOARD_HEIGHT - 1; y++) {
+        for (int x = 0; x < BOARD_WIDTH - 1; x++) {
+            if (IsValidRotation(x, y)) {
+                *topLeftX = x;
+                *topLeftY = y;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+/* ============================================================================
+ * SPECIAL GEM FUNCTIONS
+ * ============================================================================ */
+
+/**
+ * Get pending special gems array
+ */
+PendingSpecialGem* GetPendingSpecialGems(void)
+{
+    return g_game.pendingSpecials;
+}
+
+/**
+ * Get count of pending special gems
+ */
+int GetPendingSpecialCount(void)
+{
+    return g_game.pendingSpecialCount;
+}
+
+/**
+ * Check if a match forms an L, T, or + shape (for Star Gem)
+ * Returns the intersection point if found
+ */
+static bool CheckLTPlusShape(int *outX, int *outY)
+{
+    /* Look for positions that are part of both horizontal and vertical matches */
+    for (int y = 0; y < BOARD_HEIGHT; y++) {
+        for (int x = 0; x < BOARD_WIDTH; x++) {
+            int gemType = GetGemAt(x, y);
+            if (gemType == GEM_EMPTY) continue;
+
+            int hLen = GetHorizontalMatchLength(x, y);
+            int vLen = GetVerticalMatchLength(x, y);
+
+            /* Check if this gem is at intersection of 3+ horizontal and 3+ vertical */
+            if (hLen >= 3 && vLen >= 3) {
+                *outX = x;
+                *outY = y;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+/**
+ * Analyze matches and determine which special gems should be created
+ */
+int AnalyzeForSpecialGems(void)
+{
+    g_game.pendingSpecialCount = 0;
+
+    /* First check for L/T/+ shapes (Star Gem) - highest pattern priority */
+    int intersectX, intersectY;
+    if (CheckLTPlusShape(&intersectX, &intersectY)) {
+        int gemColor = GetGemAt(intersectX, intersectY);
+        if (gemColor != GEM_EMPTY && g_game.pendingSpecialCount < MAX_PENDING_SPECIALS) {
+            PendingSpecialGem *pending = &g_game.pendingSpecials[g_game.pendingSpecialCount++];
+            pending->x = intersectX;
+            pending->y = intersectY;
+            pending->color = gemColor;
+            pending->specialType = SPECIAL_STAR;
+        }
+    }
+
+    /* Check each recorded match for special gem patterns */
+    for (int m = 0; m < g_game.matchCount; m++) {
+        MatchInfo *match = &g_game.matches[m];
+        if (match->count < 4) continue;  /* Need 4+ for special gems */
+
+        /* Skip if this match position already has a pending special */
+        bool alreadyPending = false;
+        int centerIdx = match->count / 2;
+        int centerX = match->positions[centerIdx].x;
+        int centerY = match->positions[centerIdx].y;
+
+        for (int p = 0; p < g_game.pendingSpecialCount; p++) {
+            if (g_game.pendingSpecials[p].x == centerX &&
+                g_game.pendingSpecials[p].y == centerY) {
+                alreadyPending = true;
+                break;
+            }
+        }
+        if (alreadyPending) continue;
+
+        int gemColor = GetGemAt(centerX, centerY);
+        if (gemColor == GEM_EMPTY) continue;
+
+        int specialType = SPECIAL_NONE;
+
+        if (match->count >= 6) {
+            /* 6+ in a row = Supernova */
+            specialType = SPECIAL_SUPERNOVA;
+        } else if (match->count == 5) {
+            /* 5 in a row = Hypercube (if not already L/T/+ shape) */
+            specialType = SPECIAL_HYPERCUBE;
+        } else if (match->count == 4) {
+            /* 4 in a row = Flame Gem */
+            specialType = SPECIAL_FLAME;
+        }
+
+        if (specialType != SPECIAL_NONE && g_game.pendingSpecialCount < MAX_PENDING_SPECIALS) {
+            PendingSpecialGem *pending = &g_game.pendingSpecials[g_game.pendingSpecialCount++];
+            pending->x = centerX;
+            pending->y = centerY;
+            pending->color = gemColor;
+            pending->specialType = specialType;
+        }
+    }
+
+    return g_game.pendingSpecialCount;
+}
+
+/**
+ * Execute a Flame Gem effect (3x3 explosion)
+ */
+int ExecuteFlameEffect(int x, int y)
+{
+    int gemsDestroyed = 0;
+    int cascadeMult = (g_game.cascadeLevel < 1) ? 1 : g_game.cascadeLevel;
+
+    /* Destroy 3x3 area around the gem */
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            int gx = x + dx;
+            int gy = y + dy;
+
+            if (!IsValidPosition(gx, gy)) continue;
+            if (GetGemAt(gx, gy) == GEM_EMPTY) continue;
+
+            /* Check if this gem is also special - queue its effect */
+            int specialType = GetBoardSpecial(gx, gy);
+            if (specialType != SPECIAL_NONE && !(gx == x && gy == y)) {
+                QueueSpecialEffect(gx, gy, specialType, GetGemAt(gx, gy));
+            }
+
+            SetGemAt(gx, gy, GEM_EMPTY);
+            SetBoardSpecial(gx, gy, SPECIAL_NONE);
+            g_game.animations[gy][gx].isRemoving = true;
+            g_game.animations[gy][gx].scale = 1.0f;
+            gemsDestroyed++;
+        }
+    }
+
+    /* Add score */
+    int flameScore = gemsDestroyed * SCORE_MATCH_3 * cascadeMult * 3 / 2;  /* 1.5x bonus */
+    g_game.score += flameScore;
+    g_game.gemsDestroyed += gemsDestroyed;
+
+    UpdateLevel();
+    return gemsDestroyed;
+}
+
+/**
+ * Execute a Star Gem effect (row + column clear)
+ */
+int ExecuteStarEffect(int x, int y)
+{
+    int gemsDestroyed = 0;
+    int cascadeMult = (g_game.cascadeLevel < 1) ? 1 : g_game.cascadeLevel;
+
+    /* Clear entire row */
+    for (int gx = 0; gx < BOARD_WIDTH; gx++) {
+        if (GetGemAt(gx, y) == GEM_EMPTY) continue;
+
+        /* Check if this gem is also special - queue its effect */
+        int specialType = GetBoardSpecial(gx, y);
+        if (specialType != SPECIAL_NONE && gx != x) {
+            QueueSpecialEffect(gx, y, specialType, GetGemAt(gx, y));
+        }
+
+        SetGemAt(gx, y, GEM_EMPTY);
+        SetBoardSpecial(gx, y, SPECIAL_NONE);
+        g_game.animations[y][gx].isRemoving = true;
+        g_game.animations[y][gx].scale = 1.0f;
+        gemsDestroyed++;
+    }
+
+    /* Clear entire column */
+    for (int gy = 0; gy < BOARD_HEIGHT; gy++) {
+        if (gy == y) continue;  /* Already cleared in row pass */
+        if (GetGemAt(x, gy) == GEM_EMPTY) continue;
+
+        /* Check if this gem is also special - queue its effect */
+        int specialType = GetBoardSpecial(x, gy);
+        if (specialType != SPECIAL_NONE) {
+            QueueSpecialEffect(x, gy, specialType, GetGemAt(x, gy));
+        }
+
+        SetGemAt(x, gy, GEM_EMPTY);
+        SetBoardSpecial(x, gy, SPECIAL_NONE);
+        g_game.animations[gy][x].isRemoving = true;
+        g_game.animations[gy][x].scale = 1.0f;
+        gemsDestroyed++;
+    }
+
+    /* Add score */
+    int starScore = gemsDestroyed * SCORE_MATCH_3 * cascadeMult * 7 / 4;  /* 1.75x bonus */
+    g_game.score += starScore;
+    g_game.gemsDestroyed += gemsDestroyed;
+
+    UpdateLevel();
+    return gemsDestroyed;
+}
+
+/**
+ * Execute a Hypercube effect (clear all of one color)
+ */
+int ExecuteHypercubeEffect(int targetColor)
+{
+    int gemsDestroyed = 0;
+    int cascadeMult = (g_game.cascadeLevel < 1) ? 1 : g_game.cascadeLevel;
+
+    /* Clear all gems of the target color */
+    for (int gy = 0; gy < BOARD_HEIGHT; gy++) {
+        for (int gx = 0; gx < BOARD_WIDTH; gx++) {
+            int gem = GetGemAt(gx, gy);
+            if (gem != targetColor) continue;
+
+            /* Check if this gem is also special - queue its effect */
+            int specialType = GetBoardSpecial(gx, gy);
+            if (specialType != SPECIAL_NONE) {
+                QueueSpecialEffect(gx, gy, specialType, gem);
+            }
+
+            SetGemAt(gx, gy, GEM_EMPTY);
+            SetBoardSpecial(gx, gy, SPECIAL_NONE);
+            g_game.animations[gy][gx].isRemoving = true;
+            g_game.animations[gy][gx].scale = 1.0f;
+            gemsDestroyed++;
+        }
+    }
+
+    /* Add score */
+    int hypercubeScore = gemsDestroyed * SCORE_MATCH_3 * cascadeMult * 3 / 2;  /* 1.5x bonus */
+    g_game.score += hypercubeScore;
+    g_game.gemsDestroyed += gemsDestroyed;
+
+    UpdateLevel();
+    return gemsDestroyed;
+}
+
+/**
+ * Execute a Supernova effect (3-wide cross pattern)
+ */
+int ExecuteSupernovaEffect(int x, int y)
+{
+    int gemsDestroyed = 0;
+    int cascadeMult = (g_game.cascadeLevel < 1) ? 1 : g_game.cascadeLevel;
+
+    /* Track which positions have been cleared to avoid double-counting */
+    bool cleared[BOARD_HEIGHT][BOARD_WIDTH];
+    memset(cleared, false, sizeof(cleared));
+
+    /* Clear 3 rows centered on y */
+    for (int dy = -1; dy <= 1; dy++) {
+        int gy = y + dy;
+        if (gy < 0 || gy >= BOARD_HEIGHT) continue;
+
+        for (int gx = 0; gx < BOARD_WIDTH; gx++) {
+            if (cleared[gy][gx]) continue;
+            if (GetGemAt(gx, gy) == GEM_EMPTY) continue;
+
+            /* Check if this gem is also special - queue its effect */
+            int specialType = GetBoardSpecial(gx, gy);
+            if (specialType != SPECIAL_NONE && !(gx == x && gy == y)) {
+                QueueSpecialEffect(gx, gy, specialType, GetGemAt(gx, gy));
+            }
+
+            SetGemAt(gx, gy, GEM_EMPTY);
+            SetBoardSpecial(gx, gy, SPECIAL_NONE);
+            g_game.animations[gy][gx].isRemoving = true;
+            g_game.animations[gy][gx].scale = 1.0f;
+            cleared[gy][gx] = true;
+            gemsDestroyed++;
+        }
+    }
+
+    /* Clear 3 columns centered on x */
+    for (int dx = -1; dx <= 1; dx++) {
+        int gx = x + dx;
+        if (gx < 0 || gx >= BOARD_WIDTH) continue;
+
+        for (int gy = 0; gy < BOARD_HEIGHT; gy++) {
+            if (cleared[gy][gx]) continue;
+            if (GetGemAt(gx, gy) == GEM_EMPTY) continue;
+
+            /* Check if this gem is also special - queue its effect */
+            int specialType = GetBoardSpecial(gx, gy);
+            if (specialType != SPECIAL_NONE) {
+                QueueSpecialEffect(gx, gy, specialType, GetGemAt(gx, gy));
+            }
+
+            SetGemAt(gx, gy, GEM_EMPTY);
+            SetBoardSpecial(gx, gy, SPECIAL_NONE);
+            g_game.animations[gy][gx].isRemoving = true;
+            g_game.animations[gy][gx].scale = 1.0f;
+            cleared[gy][gx] = true;
+            gemsDestroyed++;
+        }
+    }
+
+    /* Add score */
+    int supernovaScore = gemsDestroyed * SCORE_MATCH_3 * cascadeMult * 2;  /* 2x bonus */
+    g_game.score += supernovaScore;
+    g_game.gemsDestroyed += gemsDestroyed;
+
+    UpdateLevel();
+    return gemsDestroyed;
+}
+
+/**
+ * Queue a special effect for later execution
+ */
+void QueueSpecialEffect(int x, int y, int effectType, int targetColor)
+{
+    if (g_game.queuedEffectCount >= MAX_QUEUED_EFFECTS) return;
+
+    QueuedEffect *effect = &g_game.queuedEffects[g_game.queuedEffectCount++];
+    effect->x = x;
+    effect->y = y;
+    effect->effectType = effectType;
+    effect->targetColor = targetColor;
+    effect->active = true;
+}
+
+/**
+ * Process queued special effects
+ */
+bool ProcessQueuedEffects(void)
+{
+    if (g_game.queuedEffectCount == 0) return false;
+
+    /* Process one effect at a time */
+    QueuedEffect effect = g_game.queuedEffects[0];
+
+    /* Remove from queue by shifting */
+    for (int i = 0; i < g_game.queuedEffectCount - 1; i++) {
+        g_game.queuedEffects[i] = g_game.queuedEffects[i + 1];
+    }
+    g_game.queuedEffectCount--;
+
+    if (!effect.active) return g_game.queuedEffectCount > 0;
+
+    /* Increment cascade for chain reactions */
+    IncrementCascade();
+
+    /* Execute the effect */
+    switch (effect.effectType) {
+        case SPECIAL_FLAME:
+            ExecuteFlameEffect(effect.x, effect.y);
+            break;
+        case SPECIAL_STAR:
+            ExecuteStarEffect(effect.x, effect.y);
+            break;
+        case SPECIAL_HYPERCUBE:
+            ExecuteHypercubeEffect(effect.targetColor);
+            break;
+        case SPECIAL_SUPERNOVA:
+            ExecuteSupernovaEffect(effect.x, effect.y);
+            break;
+    }
+
+    return true;
+}
+
+/**
+ * Perform Hypercube swap (doesn't require valid match)
+ */
+bool SwapHypercube(int hcX, int hcY, int targetX, int targetY)
+{
+    /* Validate positions */
+    if (!IsValidPosition(hcX, hcY) || !IsValidPosition(targetX, targetY)) {
+        return false;
+    }
+
+    /* Check adjacency */
+    int dx = abs(hcX - targetX);
+    int dy = abs(hcY - targetY);
+    if (!((dx == 1 && dy == 0) || (dx == 0 && dy == 1))) {
+        return false;
+    }
+
+    int hcSpecial = GetBoardSpecial(hcX, hcY);
+    int targetSpecial = GetBoardSpecial(targetX, targetY);
+
+    /* Check if swapping two Hypercubes - clear entire board */
+    if (hcSpecial == SPECIAL_HYPERCUBE && targetSpecial == SPECIAL_HYPERCUBE) {
+        /* Clear entire board! */
+        for (int gy = 0; gy < BOARD_HEIGHT; gy++) {
+            for (int gx = 0; gx < BOARD_WIDTH; gx++) {
+                if (GetGemAt(gx, gy) != GEM_EMPTY) {
+                    SetGemAt(gx, gy, GEM_EMPTY);
+                    SetBoardSpecial(gx, gy, SPECIAL_NONE);
+                    g_game.animations[gy][gx].isRemoving = true;
+                    g_game.animations[gy][gx].scale = 1.0f;
+                }
+            }
+        }
+
+        /* Massive score bonus */
+        int cascadeMult = (g_game.cascadeLevel < 1) ? 1 : g_game.cascadeLevel;
+        g_game.score += BOARD_WIDTH * BOARD_HEIGHT * SCORE_MATCH_3 * cascadeMult * 3;
+        g_game.gemsDestroyed += BOARD_WIDTH * BOARD_HEIGHT;
+        UpdateLevel();
+
+        return true;
+    }
+
+    /* Get target gem color */
+    int targetColor = GetGemAt(targetX, targetY);
+    if (targetColor == GEM_EMPTY) return false;
+
+    /* Remove the Hypercube */
+    SetGemAt(hcX, hcY, GEM_EMPTY);
+    SetBoardSpecial(hcX, hcY, SPECIAL_NONE);
+    g_game.animations[hcY][hcX].isRemoving = true;
+
+    /* Execute the color clear */
+    ExecuteHypercubeEffect(targetColor);
+
+    return true;
+}
+
+/* ============================================================================
+ * CASCADE RUSH MODE FUNCTIONS
+ * ============================================================================ */
+
+/**
+ * Initialize CASCADE RUSH mode state.
+ * Called after board initialization.
+ */
+void InitCascadeRush(void)
+{
+    /* Time is already set in InitGameMode, but ensure it's correct */
+    g_game.timeRemaining = CASCADE_RUSH_START_TIME;
+
+    /* Clear rush zone state */
+    g_game.rushZoneActive = false;
+    g_game.rushZoneX = 0;
+    g_game.rushZoneY = 0;
+    g_game.rushZoneTimer = 0.0f;
+    g_game.rushZoneSpawnTimer = RUSH_ZONE_SPAWN_INTERVAL;
+    g_game.rushZonesCaptured = 0;
+    g_game.timeAddedFromCascades = 0.0f;
+}
+
+/**
+ * Spawn a new rush zone at a random position.
+ * Zone is 3x3, so position range is 0 to BOARD_SIZE-3.
+ */
+void SpawnRushZone(void)
+{
+    /* Pick random position (0 to BOARD_SIZE-3 for both x and y) */
+    g_game.rushZoneX = rand() % (BOARD_WIDTH - 2);
+    g_game.rushZoneY = rand() % (BOARD_HEIGHT - 2);
+
+    g_game.rushZoneActive = true;
+    g_game.rushZoneTimer = RUSH_ZONE_DURATION;
+    g_game.rushZoneSpawnTimer = RUSH_ZONE_SPAWN_INTERVAL;
+}
+
+/**
+ * Update CASCADE RUSH mode state.
+ * @param deltaTime Time since last frame
+ * @return false if time expired (game over), true otherwise
+ */
+bool UpdateCascadeRush(float deltaTime)
+{
+    /* Only update if in CASCADE RUSH mode */
+    if (g_game.gameMode != GAME_MODE_CASCADE_RUSH) {
+        return true;
+    }
+
+    /* Decrement game time */
+    if (g_game.timeRemaining > 0.0f) {
+        g_game.timeRemaining -= deltaTime;
+        if (g_game.timeRemaining < 0.0f) {
+            g_game.timeRemaining = 0.0f;
+        }
+    }
+
+    /* Update rush zone spawn timer */
+    if (!g_game.rushZoneActive) {
+        g_game.rushZoneSpawnTimer -= deltaTime;
+        if (g_game.rushZoneSpawnTimer <= 0.0f) {
+            SpawnRushZone();
+        }
+    } else {
+        /* Zone is active, decrement zone timer */
+        g_game.rushZoneTimer -= deltaTime;
+        if (g_game.rushZoneTimer <= 0.0f) {
+            /* Zone expired - missed */
+            g_game.rushZoneActive = false;
+            g_game.rushZoneTimer = 0.0f;
+            /* Reset spawn timer for next zone */
+            g_game.rushZoneSpawnTimer = RUSH_ZONE_SPAWN_INTERVAL;
+        }
+    }
+
+    /* Return false if time expired */
+    return g_game.timeRemaining > 0.0f;
+}
+
+/**
+ * Check if a position is inside the current rush zone.
+ * @param x, y Grid coordinates to check
+ * @return true if (x,y) is within the 3x3 rush zone bounds
+ */
+bool IsInsideRushZone(int x, int y)
+{
+    if (!g_game.rushZoneActive) {
+        return false;
+    }
+
+    return (x >= g_game.rushZoneX && x < g_game.rushZoneX + 3 &&
+            y >= g_game.rushZoneY && y < g_game.rushZoneY + 3);
+}
+
+/**
+ * Get current rush zone info.
+ * @param x Output: X position of rush zone top-left
+ * @param y Output: Y position of rush zone top-left
+ * @param active Output: true if rush zone is active
+ * @param timeRemaining Output: time remaining on rush zone
+ */
+void GetRushZoneInfo(int *x, int *y, bool *active, float *timeRemaining)
+{
+    if (x) *x = g_game.rushZoneX;
+    if (y) *y = g_game.rushZoneY;
+    if (active) *active = g_game.rushZoneActive;
+    if (timeRemaining) *timeRemaining = g_game.rushZoneTimer;
+}
+
+/**
+ * Add time bonus from cascade.
+ * @param cascadeLevel The current cascade level
+ * @return The amount of time added (cascadeLevel * 2.0 seconds)
+ */
+float AddCascadeTimeBonus(int cascadeLevel)
+{
+    float timeAdded = cascadeLevel * 2.0f;
+    g_game.timeRemaining += timeAdded;
+    g_game.timeAddedFromCascades += timeAdded;
+    return timeAdded;
+}
+
+/**
+ * Capture the current rush zone (called when player swipes through zone).
+ * Deactivates the zone and increments capture count.
+ */
+void CaptureRushZone(void)
+{
+    if (g_game.rushZoneActive) {
+        g_game.rushZoneActive = false;
+        g_game.rushZonesCaptured++;
+        /* Reset spawn timer for next zone */
+        g_game.rushZoneSpawnTimer = RUSH_ZONE_SPAWN_INTERVAL;
+    }
+}
+
+/**
+ * Get the number of rush zones captured.
+ * @return Number of zones captured this game
+ */
+int GetRushZonesCaptured(void)
+{
+    return g_game.rushZonesCaptured;
+}
+
+/**
+ * Get total time added from cascades.
+ * @return Total time added in seconds
+ */
+float GetTimeAddedFromCascades(void)
+{
+    return g_game.timeAddedFromCascades;
+}
+
+/* ============================================================================
+ * GEM SURGE MODE FUNCTIONS
+ * ============================================================================ */
+
+/**
+ * Advance to the next wave in GEM SURGE mode.
+ * Called when surgeWaveScore >= surgeWaveTarget.
+ */
+static void AdvanceToNextWave(void)
+{
+    g_game.surgeCurrentWave++;
+
+    /* Add time bonus: 15 seconds, decreasing for higher waves (min 5) */
+    float timeBonus = 15.0f - (g_game.surgeCurrentWave - 2) * 2.0f;
+    if (timeBonus < 5.0f) {
+        timeBonus = 5.0f;
+    }
+    g_game.timeRemaining += timeBonus;
+
+    /* Calculate new target: previous * 1.75 */
+    g_game.surgeWaveTarget = (int)(g_game.surgeWaveTarget * 1.75f);
+
+    /* Reset wave score */
+    g_game.surgeWaveScore = 0;
+
+    /* Pick new random featured gem (1-7) */
+    g_game.surgeFeaturedGem = (rand() % GEM_TYPE_COUNT) + 1;
+}
+
+/**
+ * Initialize GEM SURGE mode state.
+ * Called after board initialization.
+ */
+void InitGemSurge(void)
+{
+    /* Time is already set in InitGameMode, but ensure it's correct */
+    g_game.timeRemaining = SURGE_INITIAL_TIME;
+
+    /* Initialize wave state */
+    g_game.surgeCurrentWave = 1;
+    g_game.surgeWaveTarget = SURGE_INITIAL_TARGET;
+    g_game.surgeWaveScore = 0;
+
+    /* Pick random featured gem (1-7) */
+    g_game.surgeFeaturedGem = (rand() % GEM_TYPE_COUNT) + 1;
+
+    /* Clear all surge lines */
+    for (int i = 0; i < SURGE_MAX_LINES; i++) {
+        g_game.surgeLines[i] = false;
+        g_game.surgeLinesHorizontal[i] = false;
+        g_game.surgeLinePositions[i] = 0;
+        g_game.surgeLineTimers[i] = 0.0f;
+    }
+    g_game.surgeActiveLineCount = 0;
+    g_game.surgeLinesCleared = 0;
+}
+
+/**
+ * Update GEM SURGE mode state.
+ * @param deltaTime Time since last frame
+ * @return false if time expired (game over), true otherwise
+ */
+bool UpdateGemSurge(float deltaTime)
+{
+    /* Only update if in GEM SURGE mode */
+    if (g_game.gameMode != GAME_MODE_GEM_SURGE) {
+        return true;
+    }
+
+    /* Decrement game time */
+    if (g_game.timeRemaining > 0.0f) {
+        g_game.timeRemaining -= deltaTime;
+        if (g_game.timeRemaining < 0.0f) {
+            g_game.timeRemaining = 0.0f;
+        }
+    }
+
+    /* Update surge line timers (decrement, remove if expired) */
+    for (int i = 0; i < SURGE_MAX_LINES; i++) {
+        if (g_game.surgeLines[i]) {
+            g_game.surgeLineTimers[i] -= deltaTime;
+            if (g_game.surgeLineTimers[i] <= 0.0f) {
+                /* Line expired - remove it */
+                g_game.surgeLines[i] = false;
+                g_game.surgeLineTimers[i] = 0.0f;
+                g_game.surgeActiveLineCount--;
+            }
+        }
+    }
+
+    /* Check if wave is complete */
+    if (g_game.surgeWaveScore >= g_game.surgeWaveTarget) {
+        AdvanceToNextWave();
+    }
+
+    /* Return false if time expired */
+    return g_game.timeRemaining > 0.0f;
+}
+
+/**
+ * Spawn a new surge line at a random position.
+ */
+void SpawnSurgeLine(void)
+{
+    /* Find an empty slot in surgeLines array */
+    int slot = -1;
+    for (int i = 0; i < SURGE_MAX_LINES; i++) {
+        if (!g_game.surgeLines[i]) {
+            slot = i;
+            break;
+        }
+    }
+
+    /* No empty slot available */
+    if (slot < 0) {
+        return;
+    }
+
+    /* Randomly choose horizontal or vertical */
+    bool isHorizontal = (rand() % 2) == 0;
+
+    /* Pick random row/column */
+    int position;
+    if (isHorizontal) {
+        position = rand() % BOARD_HEIGHT;  /* Random row */
+    } else {
+        position = rand() % BOARD_WIDTH;   /* Random column */
+    }
+
+    /* Set up the surge line */
+    g_game.surgeLines[slot] = true;
+    g_game.surgeLinesHorizontal[slot] = isHorizontal;
+    g_game.surgeLinePositions[slot] = position;
+    g_game.surgeLineTimers[slot] = SURGE_LINE_DURATION;
+    g_game.surgeActiveLineCount++;
+}
+
+/**
+ * Get the current wave number.
+ * @return Current wave (1-based)
+ */
+int GetCurrentWave(void)
+{
+    return g_game.surgeCurrentWave;
+}
+
+/**
+ * Get the current wave target score.
+ * @return Target score for current wave
+ */
+int GetWaveTarget(void)
+{
+    return g_game.surgeWaveTarget;
+}
+
+/**
+ * Get the current wave score.
+ * @return Score accumulated in current wave
+ */
+int GetWaveScore(void)
+{
+    return g_game.surgeWaveScore;
+}
+
+/**
+ * Get the featured gem type for GEM SURGE mode.
+ * @return Featured gem type (1-7)
+ */
+int GetFeaturedGemType(void)
+{
+    return g_game.surgeFeaturedGem;
+}
+
+/**
+ * Check if a surge line is active.
+ * @param index Index of the surge line (0 to SURGE_MAX_LINES-1)
+ * @return true if line is active
+ */
+bool IsSurgeLineActive(int index)
+{
+    if (index < 0 || index >= SURGE_MAX_LINES) {
+        return false;
+    }
+    return g_game.surgeLines[index];
+}
+
+/**
+ * Get surge line info for rendering.
+ * @param index Index of the surge line
+ * @param isHorizontal Output: true if horizontal, false if vertical
+ * @param position Output: row (if horizontal) or column (if vertical)
+ * @param timeRemaining Output: time remaining before line expires
+ * @return true if line is active and info was populated
+ */
+bool GetSurgeLineInfo(int index, bool *isHorizontal, int *position, float *timeRemaining)
+{
+    if (index < 0 || index >= SURGE_MAX_LINES || !g_game.surgeLines[index]) {
+        return false;
+    }
+
+    if (isHorizontal) {
+        *isHorizontal = g_game.surgeLinesHorizontal[index];
+    }
+    if (position) {
+        *position = g_game.surgeLinePositions[index];
+    }
+    if (timeRemaining) {
+        *timeRemaining = g_game.surgeLineTimers[index];
+    }
+
+    return true;
+}
+
+/**
+ * Trigger a surge line - clear all gems in that row/column.
+ * @param index Index of the surge line to trigger
+ * @return Points earned from triggering the line
+ */
+int TriggerSurgeLine(int index)
+{
+    if (index < 0 || index >= SURGE_MAX_LINES || !g_game.surgeLines[index]) {
+        return 0;
+    }
+
+    bool isHorizontal = g_game.surgeLinesHorizontal[index];
+    int position = g_game.surgeLinePositions[index];
+
+    /* Count gems and clear them */
+    int gemsCleared = 0;
+
+    if (isHorizontal) {
+        /* Clear entire row */
+        for (int x = 0; x < BOARD_WIDTH; x++) {
+            if (GetGemAt(x, position) != GEM_EMPTY) {
+                SetGemAt(x, position, GEM_EMPTY);
+                SetBoardSpecial(x, position, SPECIAL_NONE);
+                g_game.animations[position][x].isRemoving = true;
+                g_game.animations[position][x].scale = 1.0f;
+                gemsCleared++;
+            }
+        }
+    } else {
+        /* Clear entire column */
+        for (int y = 0; y < BOARD_HEIGHT; y++) {
+            if (GetGemAt(position, y) != GEM_EMPTY) {
+                SetGemAt(position, y, GEM_EMPTY);
+                SetBoardSpecial(position, y, SPECIAL_NONE);
+                g_game.animations[y][position].isRemoving = true;
+                g_game.animations[y][position].scale = 1.0f;
+                gemsCleared++;
+            }
+        }
+    }
+
+    /* Calculate points: 150 base + 25 per gem */
+    int points = 150 + (gemsCleared * 25);
+
+    /* Add to surgeWaveScore */
+    g_game.surgeWaveScore += points;
+
+    /* Also add to overall score */
+    g_game.score += points;
+    g_game.gemsDestroyed += gemsCleared;
+
+    /* Set line inactive */
+    g_game.surgeLines[index] = false;
+    g_game.surgeLineTimers[index] = 0.0f;
+    g_game.surgeActiveLineCount--;
+
+    /* Increment lines cleared */
+    g_game.surgeLinesCleared++;
+
+    /* Update level */
+    UpdateLevel();
+
+    return points;
+}
+
+/**
+ * Get the number of active surge lines.
+ * @return Number of active lines
+ */
+int GetSurgeActiveLineCount(void)
+{
+    return g_game.surgeActiveLineCount;
+}
+
+/**
+ * Get the total number of surge lines cleared.
+ * @return Total lines cleared
+ */
+int GetSurgeLinesCleared(void)
+{
+    return g_game.surgeLinesCleared;
+}
+
+/**
+ * Add score to the current wave score.
+ * This should be called when matches are made in GEM SURGE mode.
+ * @param score Score to add
+ */
+void AddToWaveScore(int score)
+{
+    if (g_game.gameMode == GAME_MODE_GEM_SURGE) {
+        g_game.surgeWaveScore += score;
+    }
 }

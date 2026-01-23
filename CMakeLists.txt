@@ -43,6 +43,7 @@ add_library(llz_sdk STATIC
     sdk/llz_sdk/subscribe.c
     sdk/llz_sdk/navigation.c
     sdk/llz_sdk/font.c
+    sdk/llz_sdk/shapes.c
     shared/host_input/carthing_input.c
 )
 set_target_properties(llz_sdk PROPERTIES POSITION_INDEPENDENT_CODE ON)
@@ -638,4 +639,32 @@ add_custom_command(TARGET llzsurvivors_plugin POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/plugins
     COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:llzsurvivors_plugin> ${CMAKE_CURRENT_SOURCE_DIR}/plugins/
     COMMENT "Copying llzsurvivors plugin to runtime plugins directory"
+)
+
+# ===== Shapes Demo Plugin =====
+set(SHAPES_DEMO_PLUGIN_SOURCES
+    plugins_src/shapes_demo/shapes_demo_plugin.c
+)
+
+add_library(shapes_demo_plugin SHARED ${SHAPES_DEMO_PLUGIN_SOURCES})
+set_target_properties(shapes_demo_plugin PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+target_include_directories(shapes_demo_plugin PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/external/raylib/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/sdk/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/plugins_src
+)
+
+target_link_libraries(shapes_demo_plugin llz_sdk)
+
+set_target_properties(shapes_demo_plugin PROPERTIES
+    PREFIX ""
+    OUTPUT_NAME "shapes_demo"
+)
+
+add_custom_command(TARGET shapes_demo_plugin POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/plugins
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:shapes_demo_plugin> ${CMAKE_CURRENT_SOURCE_DIR}/plugins/
+    COMMENT "Copying shapes_demo plugin to runtime plugins directory"
 )

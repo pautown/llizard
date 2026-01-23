@@ -11,5 +11,6 @@
 #include "llz_sdk_subscribe.h"
 #include "llz_sdk_navigation.h"
 #include "llz_sdk_font.h"
+#include "llz_sdk_shapes.h"
 
 #endif

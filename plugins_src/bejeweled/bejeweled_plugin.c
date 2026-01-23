@@ -34,39 +34,45 @@
 #define COLOR_HIGHLIGHT     (Color){255, 215, 0, 255}
 #define COLOR_GLOW          (Color){255, 255, 255, 100}
 
-/* Gem colors with gradients */
-static const Color GEM_COLORS_BASE[] = {
-    {0, 0, 0, 0},           /* GEM_EMPTY */
-    {220, 50, 50, 255},     /* GEM_RED */
-    {255, 140, 0, 255},     /* GEM_ORANGE */
-    {255, 220, 0, 255},     /* GEM_YELLOW */
-    {50, 200, 80, 255},     /* GEM_GREEN */
-    {60, 120, 230, 255},    /* GEM_BLUE */
-    {150, 80, 200, 255},    /* GEM_PURPLE */
-    {230, 230, 250, 255}    /* GEM_WHITE */
+/* Mapping from bejeweled gem types to SDK gem colors */
+static const LlzGemColor GEM_TO_SDK_COLOR[] = {
+    LLZ_GEM_RUBY,       /* GEM_EMPTY (0) - fallback */
+    LLZ_GEM_RUBY,       /* GEM_RED (1) */
+    LLZ_GEM_AMBER,      /* GEM_ORANGE (2) */
+    LLZ_GEM_TOPAZ,      /* GEM_YELLOW (3) */
+    LLZ_GEM_EMERALD,    /* GEM_GREEN (4) */
+    LLZ_GEM_SAPPHIRE,   /* GEM_BLUE (5) */
+    LLZ_GEM_AMETHYST,   /* GEM_PURPLE (6) */
+    LLZ_GEM_DIAMOND     /* GEM_WHITE (7) */
 };
 
-static const Color GEM_COLORS_LIGHT[] = {
-    {0, 0, 0, 0},
-    {255, 120, 120, 255},
-    {255, 190, 80, 255},
-    {255, 255, 120, 255},
-    {120, 255, 150, 255},
-    {140, 180, 255, 255},
-    {200, 150, 255, 255},
-    {255, 255, 255, 255}
+/* Mapping from bejeweled gem types to SDK shapes */
+static const LlzShapeType GEM_TO_SDK_SHAPE[] = {
+    LLZ_SHAPE_CIRCLE,       /* GEM_EMPTY (0) - fallback */
+    LLZ_SHAPE_DIAMOND,      /* GEM_RED (1) - Ruby */
+    LLZ_SHAPE_HEXAGON,      /* GEM_ORANGE (2) - Amber */
+    LLZ_SHAPE_KITE,         /* GEM_YELLOW (3) - Topaz */
+    LLZ_SHAPE_OCTAGON,      /* GEM_GREEN (4) - Emerald */
+    LLZ_SHAPE_TALL_DIAMOND, /* GEM_BLUE (5) - Sapphire */
+    LLZ_SHAPE_TRIANGLE,     /* GEM_PURPLE (6) - Amethyst */
+    LLZ_SHAPE_CIRCLE        /* GEM_WHITE (7) - Diamond */
 };
 
-static const Color GEM_COLORS_DARK[] = {
-    {0, 0, 0, 0},
-    {150, 20, 20, 255},
-    {180, 80, 0, 255},
-    {180, 150, 0, 255},
-    {20, 120, 40, 255},
-    {30, 70, 160, 255},
-    {90, 40, 140, 255},
-    {180, 180, 200, 255}
-};
+/* Helper to get gem color from bejeweled gem type */
+static Color GetGemBaseColor(int gemType) {
+    if (gemType <= 0 || gemType > GEM_TYPE_COUNT) return (Color){0, 0, 0, 0};
+    return LlzGetGemColor(GEM_TO_SDK_COLOR[gemType]);
+}
+
+static Color GetGemLightColor(int gemType) {
+    if (gemType <= 0 || gemType > GEM_TYPE_COUNT) return (Color){0, 0, 0, 0};
+    return LlzGetGemColorLight(GEM_TO_SDK_COLOR[gemType]);
+}
+
+static Color GetGemDarkColor(int gemType) {
+    if (gemType <= 0 || gemType > GEM_TYPE_COUNT) return (Color){0, 0, 0, 0};
+    return LlzGetGemColorDark(GEM_TO_SDK_COLOR[gemType]);
+}
 
 /* Animation timing */
 #define ANIM_SWAP_SPEED     12.0f
@@ -113,10 +119,21 @@ typedef struct {
  * PLUGIN STATE
  * ============================================================================ */
 
+/* Plugin screen states */
+typedef enum {
+    PLUGIN_STATE_TITLE_SCREEN,  /* Title/splash screen */
+    PLUGIN_STATE_MODE_SELECT,   /* Mode selection menu */
+    PLUGIN_STATE_PLAYING        /* Playing the game */
+} PluginState;
+
+static PluginState g_pluginState = PLUGIN_STATE_TITLE_SCREEN;
+static int g_selectedMode = 0;  /* Currently highlighted mode in menu */
+
 static int g_screenWidth = 800;
 static int g_screenHeight = 480;
 static bool g_wantsClose = false;
 static Font g_font;
+static Font g_accentFont;  /* Flange Bold - for combos, scores, powerups */
 
 /* Board rendering */
 static float g_boardX = 0;
@@ -146,6 +163,16 @@ static int g_cursorX = 0;
 static int g_cursorY = 0;
 static bool g_touchActive = false;
 static Vector2 g_touchStart = {0, 0};
+
+/* Carousel mode selector */
+static float g_carouselPosition = 0.0f;      /* Current animated position */
+static float g_carouselTarget = 0.0f;        /* Target position */
+static bool g_carouselAnimating = false;
+static float g_modeGlowIntensity[5] = {0};   /* Glow for each mode */
+
+/* Twist mode cursor (top-left of 2x2 selection) */
+static int g_twistCursorX = 0;
+static int g_twistCursorY = 0;
 
 /* Hint system */
 static float g_hintTimer = 0;
@@ -220,6 +247,23 @@ static int g_levelUpLevel = 0;
 /* Screen flash effect */
 static float g_screenFlashTimer = 0.0f;
 static Color g_screenFlashColor = {255, 255, 255, 0};
+
+/* Title screen state */
+static float g_titleTimer = 0.0f;
+static float g_titlePulse = 0.0f;
+
+/* Title screen floating gem particles */
+#define MAX_TITLE_GEMS 24
+typedef struct {
+    Vector2 pos;
+    Vector2 vel;
+    int gemType;
+    float rotation;
+    float rotSpeed;
+    float size;
+    float alpha;
+} TitleGem;
+static TitleGem g_titleGems[MAX_TITLE_GEMS];
 
 /* Combo tier definitions */
 static const char* COMBO_TEXTS[] = {
@@ -356,7 +400,7 @@ static void SpawnMatchParticles(int x, int y, int gemType) {
     float sx, sy;
     GridToScreen(x, y, &sx, &sy);
 
-    Color baseColor = GEM_COLORS_BASE[gemType];
+    Color baseColor = GetGemBaseColor(gemType);
 
     /* Spawn simple burst - reduced for performance */
     SpawnParticles(sx, sy, baseColor, 4);
@@ -439,21 +483,21 @@ static void DrawPopups(void) {
         char text[32];
         snprintf(text, sizeof(text), "+%d", p->score);
 
-        int fontSize = 24 + (int)(8.0f * lifeRatio);
+        int fontSize = 28 + (int)(10.0f * lifeRatio);
         float scale = 0.5f + 0.5f * EaseOutBack(1.0f - lifeRatio + 0.5f);
         if (scale > 1.0f) scale = 1.0f;
 
         Color color = p->color;
         color.a = (unsigned char)(255 * lifeRatio);
 
-        Vector2 textSize = MeasureTextEx(g_font, text, fontSize, 1);
+        Vector2 textSize = MeasureTextEx(g_accentFont, text, fontSize, 1);
         float x = p->x - textSize.x / 2.0f + g_shakeOffset.x;
         float y = p->y - textSize.y / 2.0f + g_shakeOffset.y;
 
         /* Shadow */
-        DrawTextEx(g_font, text, (Vector2){x + 2, y + 2}, fontSize, 1, (Color){0, 0, 0, color.a / 2});
+        DrawTextEx(g_accentFont, text, (Vector2){x + 2, y + 2}, fontSize, 1, (Color){0, 0, 0, color.a / 2});
         /* Main text */
-        DrawTextEx(g_font, text, (Vector2){x, y}, fontSize, 1, color);
+        DrawTextEx(g_accentFont, text, (Vector2){x, y}, fontSize, 1, color);
     }
 }
 
@@ -642,116 +686,398 @@ static void DrawLightning(void) {
 }
 
 /* ============================================================================
- * GEM RENDERING - Faceted Jewel Style
+ * GEM RENDERING - Using SDK Shapes
  * ============================================================================ */
 
-/* Draw a faceted jewel with cut gem appearance */
+static void DrawSpecialGemGlow(int specialType, float cx, float cy, float size, float scale, float alpha);
+
+/* Draw a gem using SDK shapes and colors */
 static void DrawGem(int gemType, float cx, float cy, float size, float scale, float alpha) {
     if (gemType == GEM_EMPTY || gemType < 0 || gemType > GEM_TYPE_COUNT) return;
 
-    Color baseColor = GEM_COLORS_BASE[gemType];
-    Color lightColor = GEM_COLORS_LIGHT[gemType];
-    Color darkColor = GEM_COLORS_DARK[gemType];
+    /* Apply shake offset */
+    cx += g_shakeOffset.x;
+    cy += g_shakeOffset.y;
 
-    baseColor.a = (unsigned char)(baseColor.a * alpha);
-    lightColor.a = (unsigned char)(lightColor.a * alpha);
-    darkColor.a = (unsigned char)(darkColor.a * alpha);
+    /* Get SDK shape and color for this gem type */
+    LlzShapeType shape = GEM_TO_SDK_SHAPE[gemType];
+    LlzGemColor gemColor = GEM_TO_SDK_COLOR[gemType];
+
+    /* Calculate gem size */
+    float gemSize = size * 0.38f * scale;
+
+    /* Draw using SDK shape function */
+    LlzDrawGemShape(shape, cx, cy, gemSize, gemColor);
+}
+
+/* Draw special gem BACKGROUND glow effects (rendered BEHIND the gem) */
+static void DrawSpecialGemGlow(int specialType, float cx, float cy, float size, float scale, float alpha) {
+    if (specialType == SPECIAL_NONE) return;
 
     float gemSize = size * 0.40f * scale;
     cx += g_shakeOffset.x;
     cy += g_shakeOffset.y;
 
-    /* Outer glow effect */
-    Color glowColor = baseColor;
-    glowColor.a = (unsigned char)(50 * alpha);
-    DrawPoly((Vector2){cx, cy}, 8, gemSize * 1.25f, 22.5f, glowColor);
+    float animPhase = g_shimmerTime * 3.0f;
 
-    /* Shadow offset for 3D depth */
-    DrawPoly((Vector2){cx + 2, cy + 2}, 8, gemSize, 22.5f, darkColor);
-
-    /* Main gem body - octagonal cut */
-    DrawPoly((Vector2){cx, cy}, 8, gemSize, 22.5f, baseColor);
-
-    /* Define facet vertices for a brilliant cut appearance */
-    float innerRadius = gemSize * 0.6f;
-    float tableRadius = gemSize * 0.35f;
-
-    /* Draw bottom facets (pavilion) - darker */
-    for (int i = 0; i < 8; i++) {
-        float angle1 = (i * 45.0f + 22.5f) * DEG2RAD;
-        float angle2 = ((i + 1) * 45.0f + 22.5f) * DEG2RAD;
-
-        Vector2 outer1 = {cx + cosf(angle1) * gemSize, cy + sinf(angle1) * gemSize};
-        Vector2 outer2 = {cx + cosf(angle2) * gemSize, cy + sinf(angle2) * gemSize};
-        Vector2 center = {cx, cy + gemSize * 0.15f}; /* Culet slightly below center */
-
-        /* Bottom facets - gradient from dark to base */
-        Color facetColor = (i < 4) ? darkColor : LerpColor(darkColor, baseColor, 0.3f);
-        DrawTriangle(outer1, center, outer2, facetColor);
+    switch (specialType) {
+        case SPECIAL_FLAME: {
+            /* Soft orange/red glow behind flame gems */
+            float pulseScale = 1.0f + sinf(animPhase * 2.0f) * 0.1f;
+            Color glowOuter = {255, 80, 0, (unsigned char)(40 * alpha * pulseScale)};
+            Color glowInner = {255, 150, 50, (unsigned char)(60 * alpha * pulseScale)};
+            DrawCircle((int)cx, (int)cy, gemSize * 1.8f * pulseScale, glowOuter);
+            DrawCircle((int)cx, (int)cy, gemSize * 1.4f * pulseScale, glowInner);
+            break;
+        }
+        case SPECIAL_STAR: {
+            /* Soft yellow/white cross glow behind star gems */
+            float pulseScale = 1.0f + sinf(animPhase * 2.5f) * 0.08f;
+            Color glowColor = {255, 255, 150, (unsigned char)(50 * alpha * pulseScale)};
+            float lineLen = gemSize * 1.6f * pulseScale;
+            float lineWidth = gemSize * 0.25f;
+            /* Horizontal glow */
+            DrawRectanglePro(
+                (Rectangle){cx - lineLen, cy - lineWidth / 2, lineLen * 2, lineWidth},
+                (Vector2){0, 0}, 0, glowColor);
+            /* Vertical glow */
+            DrawRectanglePro(
+                (Rectangle){cx - lineWidth / 2, cy - lineLen, lineWidth, lineLen * 2},
+                (Vector2){0, 0}, 0, glowColor);
+            break;
+        }
+        case SPECIAL_HYPERCUBE: {
+            /* Soft rainbow cycling glow behind hypercube */
+            float hue = fmodf(animPhase * 60.0f, 360.0f);
+            Color rainbowGlow = ColorFromHSV(hue, 0.5f, 1.0f);
+            rainbowGlow.a = (unsigned char)(50 * alpha);
+            DrawCircle((int)cx, (int)cy, gemSize * 1.8f, rainbowGlow);
+            /* White mist layer */
+            Color mist = {255, 255, 255, (unsigned char)(30 * alpha)};
+            DrawCircle((int)cx, (int)cy, gemSize * 1.5f, mist);
+            break;
+        }
+        case SPECIAL_SUPERNOVA: {
+            /* Intense blue-white glow behind supernova */
+            float pulseScale = 1.0f + sinf(animPhase * 4.0f) * 0.15f;
+            Color blueGlow = {100, 180, 255, (unsigned char)(40 * alpha * pulseScale)};
+            Color whiteGlow = {220, 240, 255, (unsigned char)(60 * alpha * pulseScale)};
+            DrawCircle((int)cx, (int)cy, gemSize * 2.2f * pulseScale, blueGlow);
+            DrawCircle((int)cx, (int)cy, gemSize * 1.6f * pulseScale, whiteGlow);
+            break;
+        }
     }
+}
 
-    /* Draw crown facets (top facets) - lighter, creates the sparkle */
-    for (int i = 0; i < 8; i++) {
-        float angle1 = (i * 45.0f + 22.5f) * DEG2RAD;
-        float angle2 = ((i + 1) * 45.0f + 22.5f) * DEG2RAD;
-        float midAngle = ((i + 0.5f) * 45.0f + 22.5f) * DEG2RAD;
+/* Draw special gem overlay effects */
+static void DrawSpecialGemOverlay(int specialType, float cx, float cy, float size, float scale, float alpha) {
+    if (specialType == SPECIAL_NONE) return;
 
-        Vector2 outer1 = {cx + cosf(angle1) * gemSize, cy + sinf(angle1) * gemSize};
-        Vector2 outer2 = {cx + cosf(angle2) * gemSize, cy + sinf(angle2) * gemSize};
-        Vector2 inner1 = {cx + cosf(angle1) * innerRadius, cy + sinf(angle1) * innerRadius};
-        Vector2 inner2 = {cx + cosf(angle2) * innerRadius, cy + sinf(angle2) * innerRadius};
-        Vector2 midOuter = {cx + cosf(midAngle) * gemSize * 0.95f, cy + sinf(midAngle) * gemSize * 0.95f};
+    float gemSize = size * 0.40f * scale;
+    cx += g_shakeOffset.x;
+    cy += g_shakeOffset.y;
 
-        /* Star facets - alternate light/medium */
-        Color starColor = (i % 2 == 0) ? LerpColor(baseColor, lightColor, 0.6f) : LerpColor(baseColor, lightColor, 0.3f);
-        /* Upper-left facets are brighter (light source) */
-        if (i >= 5 || i <= 1) {
-            starColor = LerpColor(starColor, lightColor, 0.4f);
+    float animPhase = g_shimmerTime * 3.0f;
+
+    switch (specialType) {
+        case SPECIAL_FLAME: {
+            /* Flame Gem: Intense flickering fire with particles and orange glow */
+            float pulseScale = 1.0f + sinf(animPhase * 2.0f) * 0.15f;
+            float flickerPhase = animPhase * 5.0f;
+
+            /* Outer flame glow - layered for intensity */
+            Color flameOuter = {255, 30, 0, (unsigned char)(50 * alpha * pulseScale)};
+            Color flameMid = {255, 80, 0, (unsigned char)(80 * alpha * pulseScale)};
+            Color flameInner = {255, 140, 0, (unsigned char)(120 * alpha * pulseScale)};
+
+            DrawCircle((int)cx, (int)cy, gemSize * 1.6f * pulseScale, flameOuter);
+            DrawCircle((int)cx, (int)cy, gemSize * 1.4f * pulseScale, flameMid);
+            DrawCircle((int)cx, (int)cy, gemSize * 1.2f * pulseScale, flameInner);
+
+            /* Flickering fire particles - 8 particles with random-ish movement */
+            for (int i = 0; i < 8; i++) {
+                float particlePhase = flickerPhase + i * 0.785f;  /* Offset by ~PI/4 */
+                float flickerX = sinf(particlePhase * 2.3f + i) * gemSize * 0.2f;
+                float flickerY = -fabs(sinf(particlePhase * 1.7f)) * gemSize * 0.4f;
+
+                /* Rising flame particle */
+                float baseAngle = i * PI / 4.0f;
+                float dist = gemSize * (0.7f + sinf(particlePhase * 3.0f) * 0.15f);
+                float px = cx + cosf(baseAngle) * dist * 0.6f + flickerX;
+                float py = cy + sinf(baseAngle) * dist * 0.4f + flickerY;
+
+                /* Color gradient from yellow to red based on position */
+                float heat = (sinf(particlePhase * 2.0f) + 1.0f) * 0.5f;
+                Color particleColor = {
+                    255,
+                    (unsigned char)(200 * heat + 50),
+                    (unsigned char)(50 * heat),
+                    (unsigned char)(180 * alpha * (0.5f + heat * 0.5f))
+                };
+                float particleSize = gemSize * (0.1f + heat * 0.08f);
+                DrawCircle((int)px, (int)py, particleSize, particleColor);
+            }
+
+            /* Rising heat wisps */
+            for (int i = 0; i < 4; i++) {
+                float wispPhase = animPhase * 2.0f + i * 1.57f;
+                float wispY = cy - gemSize * (0.5f + fmodf(wispPhase * 0.3f, 1.0f) * 0.8f);
+                float wispX = cx + sinf(wispPhase * 3.0f + i) * gemSize * 0.25f;
+                float wispAlpha = 1.0f - fmodf(wispPhase * 0.3f, 1.0f);
+                Color wisp = {255, 220, 100, (unsigned char)(100 * alpha * wispAlpha)};
+                DrawCircle((int)wispX, (int)wispY, gemSize * 0.08f * wispAlpha, wisp);
+            }
+
+            /* Center hot core */
+            Color hotCore = {255, 255, 200, (unsigned char)(255 * alpha)};
+            Color hotMid = {255, 200, 100, (unsigned char)(200 * alpha)};
+            DrawCircle((int)cx, (int)(cy - gemSize * 0.05f), gemSize * 0.25f, hotMid);
+            DrawCircle((int)cx, (int)(cy - gemSize * 0.08f), gemSize * 0.15f, hotCore);
+            break;
         }
 
-        DrawTriangle(outer1, inner1, midOuter, starColor);
-        DrawTriangle(midOuter, inner2, outer2, starColor);
+        case SPECIAL_STAR: {
+            /* Star Gem: Electrical sparks with radiant cross glow */
+            float pulseScale = 1.0f + sinf(animPhase * 2.5f) * 0.1f;
+            float sparkPhase = animPhase * 8.0f;
 
-        /* Bezel facets connecting to table */
-        Color bezelColor = LerpColor(baseColor, lightColor, (i >= 5 || i <= 1) ? 0.5f : 0.2f);
-        DrawTriangle(inner1, (Vector2){cx + cosf(angle1) * tableRadius, cy + sinf(angle1) * tableRadius}, inner2, bezelColor);
-    }
+            /* Radiant cross glow - gradient from center */
+            float lineLen = gemSize * 1.4f * pulseScale;
+            float lineWidth = gemSize * 0.15f;
 
-    /* Table facet (flat top of the gem) */
-    Color tableColor = LerpColor(baseColor, lightColor, 0.7f);
-    tableColor.a = (unsigned char)(tableColor.a * alpha);
-    DrawPoly((Vector2){cx - gemSize * 0.05f, cy - gemSize * 0.05f}, 8, tableRadius, 22.5f, tableColor);
+            /* Outer glow layer */
+            Color glowOuter = {255, 255, 150, (unsigned char)(60 * alpha * pulseScale)};
+            DrawRectanglePro(
+                (Rectangle){cx - lineLen * 1.1f, cy - lineWidth * 0.8f, lineLen * 2.2f, lineWidth * 1.6f},
+                (Vector2){0, 0}, 0, glowOuter);
+            DrawRectanglePro(
+                (Rectangle){cx - lineWidth * 0.8f, cy - lineLen * 1.1f, lineWidth * 1.6f, lineLen * 2.2f},
+                (Vector2){0, 0}, 0, glowOuter);
 
-    /* Bright highlight on table (light reflection) */
-    Color highlightColor = WHITE;
-    highlightColor.a = (unsigned char)(200 * alpha);
-    DrawPoly((Vector2){cx - gemSize * 0.12f, cy - gemSize * 0.12f}, 6, tableRadius * 0.4f, 0, highlightColor);
+            /* Inner bright cross */
+            Color starGlow = {255, 255, 100, (unsigned char)(140 * alpha * pulseScale)};
+            DrawRectanglePro(
+                (Rectangle){cx - lineLen, cy - lineWidth / 2, lineLen * 2, lineWidth},
+                (Vector2){0, 0}, 0, starGlow);
+            DrawRectanglePro(
+                (Rectangle){cx - lineWidth / 2, cy - lineLen, lineWidth, lineLen * 2},
+                (Vector2){0, 0}, 0, starGlow);
 
-    /* Small sparkle point */
-    highlightColor.a = (unsigned char)(255 * alpha);
-    DrawCircle((int)(cx - gemSize * 0.2f), (int)(cy - gemSize * 0.2f), gemSize * 0.08f, highlightColor);
+            /* Electrical sparks - random jagged lines */
+            for (int i = 0; i < 6; i++) {
+                float sparkAngle = i * PI / 3.0f + sinf(sparkPhase + i * 2.0f) * 0.3f;
+                float sparkLen = gemSize * (0.6f + sinf(sparkPhase * 2.0f + i) * 0.3f);
 
-    /* Animated shimmer effect - light that dances across facets */
-    float shimmerPhase = fmodf(g_shimmerTime * 0.8f + gemType * 0.9f, 2.0f * PI);
-    float shimmerIntensity = (sinf(shimmerPhase) + 1.0f) * 0.5f;
-    if (shimmerIntensity > 0.6f) {
-        float shimmerAngle = shimmerPhase * 2.0f;
-        float shimmerX = cx + gemSize * 0.25f * cosf(shimmerAngle);
-        float shimmerY = cy + gemSize * 0.15f * sinf(shimmerAngle);
-        Color shimmer = WHITE;
-        shimmer.a = (unsigned char)((shimmerIntensity - 0.6f) * 2.5f * 255 * alpha);
-        DrawPoly((Vector2){shimmerX, shimmerY}, 4, gemSize * 0.12f, 45.0f, shimmer);
-    }
+                /* Spark origin point */
+                float ox = cx + cosf(sparkAngle) * gemSize * 0.3f;
+                float oy = cy + sinf(sparkAngle) * gemSize * 0.3f;
 
-    /* Edge highlight for extra sparkle */
-    Color edgeHighlight = WHITE;
-    edgeHighlight.a = (unsigned char)(80 * alpha);
-    for (int i = 5; i <= 7; i++) { /* Top-left edges */
-        float angle = (i * 45.0f + 22.5f) * DEG2RAD;
-        float nextAngle = ((i + 1) * 45.0f + 22.5f) * DEG2RAD;
-        Vector2 p1 = {cx + cosf(angle) * gemSize * 0.98f, cy + sinf(angle) * gemSize * 0.98f};
-        Vector2 p2 = {cx + cosf(nextAngle) * gemSize * 0.98f, cy + sinf(nextAngle) * gemSize * 0.98f};
-        DrawLineEx(p1, p2, 2.0f, edgeHighlight);
+                /* Create jagged lightning bolt effect */
+                Color sparkColor = {200, 220, 255, (unsigned char)(200 * alpha)};
+                float px = ox, py = oy;
+                for (int seg = 0; seg < 3; seg++) {
+                    float segLen = sparkLen / 3.0f;
+                    float jitter = (sinf(sparkPhase * 5.0f + i + seg * 3.0f) * 0.5f) * gemSize * 0.15f;
+                    float nx = px + cosf(sparkAngle) * segLen + cosf(sparkAngle + PI/2) * jitter;
+                    float ny = py + sinf(sparkAngle) * segLen + sinf(sparkAngle + PI/2) * jitter;
+                    DrawLineEx((Vector2){px, py}, (Vector2){nx, ny}, 2.0f, sparkColor);
+                    px = nx;
+                    py = ny;
+                }
+
+                /* Spark endpoint glow */
+                if (sinf(sparkPhase * 3.0f + i * 1.5f) > 0.3f) {
+                    Color sparkTip = {255, 255, 255, (unsigned char)(255 * alpha)};
+                    DrawCircle((int)px, (int)py, gemSize * 0.05f, sparkTip);
+                }
+            }
+
+            /* Corner diamond sparkles with pulsing */
+            Color sparkleColor = {255, 255, 255, (unsigned char)(220 * alpha)};
+            for (int i = 0; i < 4; i++) {
+                float angle = PI / 4.0f + i * PI / 2.0f;
+                float sparkDist = gemSize * 0.7f;
+                float sx = cx + cosf(angle) * sparkDist;
+                float sy = cy + sinf(angle) * sparkDist;
+                float sparkSize = gemSize * 0.1f * (1.0f + sinf(animPhase * 4.0f + i * PI / 2.0f) * 0.5f);
+                DrawPoly((Vector2){sx, sy}, 4, sparkSize, 45.0f, sparkleColor);
+            }
+
+            /* Center bright point */
+            Color centerGlow = {255, 255, 255, (unsigned char)(255 * alpha)};
+            DrawCircle((int)cx, (int)cy, gemSize * 0.12f, centerGlow);
+            break;
+        }
+
+        case SPECIAL_HYPERCUBE: {
+            /* Hypercube: Spinning rainbow cube with white mist aura */
+            float rotation = animPhase * 40.0f;  /* Rotation in degrees */
+            float rotationZ = animPhase * 25.0f; /* Secondary rotation */
+
+            /* White mist aura - multiple soft layers */
+            for (int layer = 4; layer >= 0; layer--) {
+                float mistOffset = sinf(animPhase + layer * 0.5f) * gemSize * 0.1f;
+                float mistSize = gemSize * (1.3f + layer * 0.15f);
+                Color mist = {255, 255, 255, (unsigned char)(30 - layer * 5) * alpha};
+                DrawCircle((int)(cx + mistOffset), (int)(cy + mistOffset * 0.5f), mistSize, mist);
+            }
+
+            /* Rainbow glow cycling through colors - more vibrant */
+            float hue = fmodf(animPhase * 80.0f, 360.0f);
+            Color rainbowColor = ColorFromHSV(hue, 0.9f, 1.0f);
+            rainbowColor.a = (unsigned char)(120 * alpha);
+            DrawCircle((int)cx, (int)cy, gemSize * 1.1f, rainbowColor);
+
+            /* Secondary rainbow trail */
+            float hue2 = fmodf(hue + 120.0f, 360.0f);
+            Color rainbow2 = ColorFromHSV(hue2, 0.8f, 1.0f);
+            rainbow2.a = (unsigned char)(80 * alpha);
+            DrawCircle((int)cx, (int)cy, gemSize * 1.0f, rainbow2);
+
+            /* Outer cube - larger, slower rotation */
+            float cubeSize = gemSize * 0.55f;
+            Color cubeColor = WHITE;
+            cubeColor.a = (unsigned char)(220 * alpha);
+
+            float cosR = cosf(rotation * DEG2RAD);
+            float sinR = sinf(rotation * DEG2RAD);
+            Vector2 corners[4];
+            for (int i = 0; i < 4; i++) {
+                float ax = (i == 0 || i == 3) ? -cubeSize : cubeSize;
+                float ay = (i < 2) ? -cubeSize : cubeSize;
+                corners[i].x = cx + ax * cosR - ay * sinR;
+                corners[i].y = cy + ax * sinR + ay * cosR;
+            }
+            for (int i = 0; i < 4; i++) {
+                DrawLineEx(corners[i], corners[(i + 1) % 4], 3.0f, cubeColor);
+            }
+
+            /* Inner cube - smaller, opposite rotation */
+            Color innerColor = rainbowColor;
+            innerColor.a = (unsigned char)(180 * alpha);
+            cubeSize = gemSize * 0.35f;
+            float cosR2 = cosf(-rotationZ * DEG2RAD);
+            float sinR2 = sinf(-rotationZ * DEG2RAD);
+            for (int i = 0; i < 4; i++) {
+                float ax = (i == 0 || i == 3) ? -cubeSize : cubeSize;
+                float ay = (i < 2) ? -cubeSize : cubeSize;
+                corners[i].x = cx + ax * cosR2 - ay * sinR2;
+                corners[i].y = cy + ax * sinR2 + ay * cosR2;
+            }
+            for (int i = 0; i < 4; i++) {
+                DrawLineEx(corners[i], corners[(i + 1) % 4], 2.0f, innerColor);
+            }
+
+            /* Connecting lines between cubes (3D illusion) */
+            float smallCube = gemSize * 0.2f;
+            float cosR3 = cosf((rotation + 45.0f) * DEG2RAD);
+            float sinR3 = sinf((rotation + 45.0f) * DEG2RAD);
+            Color connectColor = {255, 255, 255, (unsigned char)(100 * alpha)};
+            for (int i = 0; i < 4; i++) {
+                float ax = (i == 0 || i == 3) ? -smallCube : smallCube;
+                float ay = (i < 2) ? -smallCube : smallCube;
+                float px = cx + ax * cosR3 - ay * sinR3;
+                float py = cy + ax * sinR3 + ay * cosR3;
+                DrawCircle((int)px, (int)py, 2.0f, connectColor);
+            }
+
+            /* Center prismatic core */
+            Color coreColor = {255, 255, 255, (unsigned char)(255 * alpha)};
+            DrawCircle((int)cx, (int)cy, gemSize * 0.15f, coreColor);
+            break;
+        }
+
+        case SPECIAL_SUPERNOVA: {
+            /* Supernova: Combined flame + star effects with white-hot energy and blue tint */
+            float pulseScale = 1.0f + sinf(animPhase * 4.0f) * 0.25f;
+            float sparkPhase = animPhase * 6.0f;
+
+            /* Blue-tinted outer aura */
+            Color blueAura = {80, 150, 255, (unsigned char)(40 * alpha * pulseScale)};
+            DrawCircle((int)cx, (int)cy, gemSize * 2.0f * pulseScale, blueAura);
+
+            /* Intense white/cyan glow layers */
+            Color outerGlow = {100, 180, 255, (unsigned char)(60 * alpha * pulseScale)};
+            Color midGlow = {180, 220, 255, (unsigned char)(100 * alpha * pulseScale)};
+            Color coreGlow = {220, 240, 255, (unsigned char)(150 * alpha * pulseScale)};
+
+            DrawCircle((int)cx, (int)cy, gemSize * 1.7f * pulseScale, outerGlow);
+            DrawCircle((int)cx, (int)cy, gemSize * 1.4f * pulseScale, midGlow);
+            DrawCircle((int)cx, (int)cy, gemSize * 1.1f * pulseScale, coreGlow);
+
+            /* Radiating energy rays - 3-wide cross pattern */
+            float rayLen = gemSize * 2.0f * pulseScale;
+            float rayWidth = gemSize * 0.12f;
+
+            /* Outer glow for rays */
+            Color rayGlow = {200, 230, 255, (unsigned char)(120 * alpha)};
+            Color rayCore = {255, 255, 255, (unsigned char)(200 * alpha)};
+
+            /* Horizontal rays with glow */
+            for (int i = -1; i <= 1; i++) {
+                float yOff = i * gemSize * 0.35f;
+                float thisWidth = rayWidth * (1.0f - fabs((float)i) * 0.3f);
+                DrawRectanglePro(
+                    (Rectangle){cx - rayLen * 1.1f, cy + yOff - thisWidth, rayLen * 2.2f, thisWidth * 2},
+                    (Vector2){0, 0}, 0, rayGlow);
+                DrawRectanglePro(
+                    (Rectangle){cx - rayLen, cy + yOff - thisWidth / 2, rayLen * 2, thisWidth},
+                    (Vector2){0, 0}, 0, rayCore);
+            }
+            /* Vertical rays with glow */
+            for (int i = -1; i <= 1; i++) {
+                float xOff = i * gemSize * 0.35f;
+                float thisWidth = rayWidth * (1.0f - fabs((float)i) * 0.3f);
+                DrawRectanglePro(
+                    (Rectangle){cx + xOff - thisWidth, cy - rayLen * 1.1f, thisWidth * 2, rayLen * 2.2f},
+                    (Vector2){0, 0}, 0, rayGlow);
+                DrawRectanglePro(
+                    (Rectangle){cx + xOff - thisWidth / 2, cy - rayLen, thisWidth, rayLen * 2},
+                    (Vector2){0, 0}, 0, rayCore);
+            }
+
+            /* Fire particles around the edge - flame effect */
+            for (int i = 0; i < 8; i++) {
+                float particleAngle = i * PI / 4.0f + sparkPhase * 0.5f;
+                float flicker = sinf(sparkPhase * 2.0f + i * 1.5f);
+                float dist = gemSize * (0.9f + flicker * 0.15f);
+                float px = cx + cosf(particleAngle) * dist;
+                float py = cy + sinf(particleAngle) * dist;
+
+                Color fireColor = {255, (unsigned char)(200 + flicker * 55), (unsigned char)(100 + flicker * 50), (unsigned char)(180 * alpha)};
+                DrawCircle((int)px, (int)py, gemSize * 0.1f, fireColor);
+            }
+
+            /* Electrical sparks - star effect */
+            for (int i = 0; i < 4; i++) {
+                float sparkAngle = i * PI / 2.0f + PI / 4.0f;
+                if (sinf(sparkPhase + i * 2.0f) > 0.2f) {
+                    float sparkDist = gemSize * 1.2f;
+                    float sx = cx + cosf(sparkAngle) * sparkDist;
+                    float sy = cy + sinf(sparkAngle) * sparkDist;
+
+                    Color sparkColor = {200, 220, 255, (unsigned char)(200 * alpha)};
+                    DrawLineEx((Vector2){cx + cosf(sparkAngle) * gemSize * 0.5f, cy + sinf(sparkAngle) * gemSize * 0.5f},
+                              (Vector2){sx, sy}, 2.0f, sparkColor);
+
+                    Color sparkTip = {255, 255, 255, (unsigned char)(255 * alpha)};
+                    DrawCircle((int)sx, (int)sy, gemSize * 0.06f, sparkTip);
+                }
+            }
+
+            /* White-hot central core with blue tint ring */
+            Color blueRing = {150, 200, 255, (unsigned char)(200 * alpha)};
+            DrawRing((Vector2){cx, cy}, gemSize * 0.25f, gemSize * 0.35f, 0, 360, 24, blueRing);
+
+            Color brightCore = {255, 255, 255, (unsigned char)(255 * alpha)};
+            DrawCircle((int)cx, (int)cy, gemSize * 0.25f, brightCore);
+
+            /* Pulsing highlight */
+            float highlightPulse = (sinf(animPhase * 6.0f) + 1.0f) * 0.5f;
+            Color highlight = {255, 255, 255, (unsigned char)(150 * highlightPulse * alpha)};
+            DrawCircle((int)(cx - gemSize * 0.1f), (int)(cy - gemSize * 0.1f), gemSize * 0.12f, highlight);
+            break;
+        }
     }
 }
 
@@ -776,20 +1102,42 @@ static void DrawGemSelection(int gx, int gy) {
 
 static void DrawHintHighlight(int x1, int y1, int x2, int y2) {
     float pulse = (sinf(g_animTimer * 6.0f) + 1.0f) * 0.5f;
+    GameMode mode = GetCurrentGameMode();
 
-    for (int i = 0; i < 2; i++) {
-        int gx = (i == 0) ? x1 : x2;
-        int gy = (i == 0) ? y1 : y2;
+    if (mode == GAME_MODE_TWIST) {
+        /* Twist mode: highlight all 4 cells in the 2x2 grid */
+        float sx1, sy1, sx2, sy2;
+        GridToScreen(x1, y1, &sx1, &sy1);
+        GridToScreen(x2, y2, &sx2, &sy2);
 
-        float sx, sy;
-        GridToScreen(gx, gy, &sx, &sy);
-        sx += g_shakeOffset.x;
-        sy += g_shakeOffset.y;
+        sx1 += g_shakeOffset.x - g_cellSize / 2.0f;
+        sy1 += g_shakeOffset.y - g_cellSize / 2.0f;
+        sx2 += g_shakeOffset.x + g_cellSize / 2.0f;
+        sy2 += g_shakeOffset.y + g_cellSize / 2.0f;
 
         Color hintColor = (Color){100, 255, 100, (unsigned char)(100 + 100 * pulse)};
-        float hintSize = g_cellSize * 0.45f;
+        DrawRectangleLinesEx((Rectangle){sx1, sy1, sx2 - sx1, sy2 - sy1}, 3, hintColor);
 
-        DrawRing((Vector2){sx, sy}, hintSize - 2, hintSize, 0, 360, 36, hintColor);
+        /* Add glow effect */
+        Color glowColor = {100, 255, 100, (unsigned char)(40 * pulse)};
+        DrawRectangleRounded((Rectangle){sx1 - 4, sy1 - 4, (sx2 - sx1) + 8, (sy2 - sy1) + 8},
+                            0.1f, 8, glowColor);
+    } else {
+        /* Classic/Blitz mode: highlight the two swap positions */
+        for (int i = 0; i < 2; i++) {
+            int gx = (i == 0) ? x1 : x2;
+            int gy = (i == 0) ? y1 : y2;
+
+            float sx, sy;
+            GridToScreen(gx, gy, &sx, &sy);
+            sx += g_shakeOffset.x;
+            sy += g_shakeOffset.y;
+
+            Color hintColor = (Color){100, 255, 100, (unsigned char)(100 + 100 * pulse)};
+            float hintSize = g_cellSize * 0.45f;
+
+            DrawRing((Vector2){sx, sy}, hintSize - 2, hintSize, 0, 360, 36, hintColor);
+        }
     }
 }
 
@@ -957,10 +1305,10 @@ static void DrawComboAnnouncements(void) {
             alpha = 1.0f;
         }
 
-        int fontSize = (int)(36 * scaleAnim);
+        int fontSize = (int)(42 * scaleAnim);
         if (fontSize < 8) continue;
 
-        Vector2 textSize = MeasureTextEx(g_font, ann->text, (float)fontSize, 1);
+        Vector2 textSize = MeasureTextEx(g_accentFont, ann->text, (float)fontSize, 1);
         float tx = ann->x - textSize.x / 2.0f;
         float ty = ann->y - textSize.y / 2.0f;
 
@@ -974,10 +1322,10 @@ static void DrawComboAnnouncements(void) {
 
         /* Simple shadow - just one draw call */
         Color shadowColor = {0, 0, 0, (unsigned char)(150 * alpha)};
-        DrawTextEx(g_font, ann->text, (Vector2){tx + 2, ty + 2}, (float)fontSize, 1, shadowColor);
+        DrawTextEx(g_accentFont, ann->text, (Vector2){tx + 3, ty + 3}, (float)fontSize, 1, shadowColor);
 
         /* Main text */
-        DrawTextEx(g_font, ann->text, (Vector2){tx, ty}, (float)fontSize, 1, textColor);
+        DrawTextEx(g_accentFont, ann->text, (Vector2){tx, ty}, (float)fontSize, 1, textColor);
     }
 }
 
@@ -1063,8 +1411,8 @@ static void DrawLevelUpCelebration(void) {
     char levelText[32];
     snprintf(levelText, sizeof(levelText), "LEVEL %d!", g_levelUpLevel);
 
-    int fontSize = (int)(44 * scale);
-    Vector2 textSize = MeasureTextEx(g_font, levelText, (float)fontSize, 1);
+    int fontSize = (int)(48 * scale);
+    Vector2 textSize = MeasureTextEx(g_accentFont, levelText, (float)fontSize, 1);
     float tx = cx - textSize.x / 2.0f;
     float ty = cy - textSize.y / 2.0f;
 
@@ -1073,10 +1421,597 @@ static void DrawLevelUpCelebration(void) {
     Color textColor = {255, (unsigned char)(200 * pulse), 50, (unsigned char)(255 * alpha)};
 
     /* Shadow */
-    DrawTextEx(g_font, levelText, (Vector2){tx + 2, ty + 2}, (float)fontSize, 1, (Color){0, 0, 0, (unsigned char)(180 * alpha)});
+    DrawTextEx(g_accentFont, levelText, (Vector2){tx + 3, ty + 3}, (float)fontSize, 1, (Color){0, 0, 0, (unsigned char)(180 * alpha)});
 
     /* Main text */
-    DrawTextEx(g_font, levelText, (Vector2){tx, ty}, (float)fontSize, 1, textColor);
+    DrawTextEx(g_accentFont, levelText, (Vector2){tx, ty}, (float)fontSize, 1, textColor);
+}
+
+/* ============================================================================
+ * TITLE SCREEN
+ * ============================================================================ */
+
+/* Initialize floating title gems */
+static void InitTitleGems(void) {
+    for (int i = 0; i < MAX_TITLE_GEMS; i++) {
+        g_titleGems[i].pos.x = (float)GetRandomValue(0, g_screenWidth);
+        g_titleGems[i].pos.y = (float)GetRandomValue(0, g_screenHeight);
+        g_titleGems[i].vel.x = (float)GetRandomValue(-30, 30);
+        g_titleGems[i].vel.y = (float)GetRandomValue(-20, -60);  /* Float upward */
+        g_titleGems[i].gemType = GetRandomValue(1, 7);  /* Random gem type */
+        g_titleGems[i].rotation = (float)GetRandomValue(0, 360);
+        g_titleGems[i].rotSpeed = (float)GetRandomValue(-60, 60);
+        g_titleGems[i].size = (float)GetRandomValue(20, 50);
+        g_titleGems[i].alpha = (float)GetRandomValue(30, 80) / 100.0f;
+    }
+}
+
+/* Update title screen animations */
+static void UpdateTitleScreen(const LlzInputState *input, float deltaTime) {
+    g_titleTimer += deltaTime;
+    g_titlePulse = (sinf(g_titleTimer * 2.5f) + 1.0f) * 0.5f;
+
+    /* Update floating gems */
+    for (int i = 0; i < MAX_TITLE_GEMS; i++) {
+        g_titleGems[i].pos.x += g_titleGems[i].vel.x * deltaTime;
+        g_titleGems[i].pos.y += g_titleGems[i].vel.y * deltaTime;
+        g_titleGems[i].rotation += g_titleGems[i].rotSpeed * deltaTime;
+
+        /* Wrap around screen edges */
+        if (g_titleGems[i].pos.y < -g_titleGems[i].size) {
+            g_titleGems[i].pos.y = g_screenHeight + g_titleGems[i].size;
+            g_titleGems[i].pos.x = (float)GetRandomValue(0, g_screenWidth);
+            g_titleGems[i].gemType = GetRandomValue(1, 7);
+        }
+        if (g_titleGems[i].pos.x < -g_titleGems[i].size) {
+            g_titleGems[i].pos.x = g_screenWidth + g_titleGems[i].size;
+        }
+        if (g_titleGems[i].pos.x > g_screenWidth + g_titleGems[i].size) {
+            g_titleGems[i].pos.x = -g_titleGems[i].size;
+        }
+    }
+
+    /* Handle input */
+    if (!input) return;
+
+    /* SELECT to proceed to mode select */
+    if (input->selectPressed || input->tap) {
+        g_pluginState = PLUGIN_STATE_MODE_SELECT;
+        g_selectedMode = 0;
+    }
+
+    /* BACK to close plugin */
+    if (input->backReleased) {
+        g_wantsClose = true;
+    }
+}
+
+/* Draw the stunning title screen */
+static void DrawTitleScreen(void) {
+    float centerX = g_screenWidth / 2.0f;
+    float centerY = g_screenHeight / 2.0f;
+
+    /* ====== BACKGROUND: Dark purple to dark blue gradient ====== */
+    for (int y = 0; y < g_screenHeight; y++) {
+        float t = (float)y / g_screenHeight;
+        /* Dark purple at top, dark blue at bottom */
+        Color gradColor = {
+            (unsigned char)(25 + 15 * (1.0f - t)),   /* R: 40 -> 25 */
+            (unsigned char)(15 + 10 * t),             /* G: 15 -> 25 */
+            (unsigned char)(45 + 35 * t),             /* B: 45 -> 80 */
+            255
+        };
+        DrawRectangle(0, y, g_screenWidth, 1, gradColor);
+    }
+
+    /* ====== FLOATING GEM PARTICLES (behind title) ====== */
+    for (int i = 0; i < MAX_TITLE_GEMS; i++) {
+        float cx = g_titleGems[i].pos.x;
+        float cy = g_titleGems[i].pos.y;
+        int gemType = g_titleGems[i].gemType;
+        float alpha = g_titleGems[i].alpha;
+        float size = g_titleGems[i].size;
+
+        /* Draw simplified gem shapes with low alpha */
+        Color gemColor = GetGemBaseColor(gemType);
+        gemColor.a = (unsigned char)(gemColor.a * alpha * 0.6f);
+
+        /* Outer glow */
+        Color glowColor = gemColor;
+        glowColor.a = (unsigned char)(glowColor.a * 0.3f);
+        DrawPoly((Vector2){cx, cy}, 8, size * 0.6f, g_titleGems[i].rotation, glowColor);
+
+        /* Main gem body */
+        DrawPoly((Vector2){cx, cy}, 8, size * 0.4f, g_titleGems[i].rotation + 22.5f, gemColor);
+
+        /* Highlight */
+        Color highlight = WHITE;
+        highlight.a = (unsigned char)(60 * alpha);
+        DrawCircle((int)(cx - size * 0.1f), (int)(cy - size * 0.1f), size * 0.15f, highlight);
+    }
+
+    /* ====== DECORATIVE CORNER GEMS ====== */
+    float cornerOffset = 60.0f;
+    float cornerSize = 40.0f;
+    float cornerPulse = (sinf(g_titleTimer * 3.0f) + 1.0f) * 0.5f;
+
+    /* Top-left corner gem (Ruby) */
+    DrawGem(GEM_RED, cornerOffset, cornerOffset, cornerSize * 2, 1.0f + cornerPulse * 0.1f, 0.8f);
+
+    /* Top-right corner gem (Sapphire) */
+    DrawGem(GEM_BLUE, g_screenWidth - cornerOffset, cornerOffset, cornerSize * 2, 1.0f + cornerPulse * 0.1f, 0.8f);
+
+    /* Bottom-left corner gem (Emerald) */
+    DrawGem(GEM_GREEN, cornerOffset, g_screenHeight - cornerOffset, cornerSize * 2, 1.0f + cornerPulse * 0.1f, 0.8f);
+
+    /* Bottom-right corner gem (Amethyst) */
+    DrawGem(GEM_PURPLE, g_screenWidth - cornerOffset, g_screenHeight - cornerOffset, cornerSize * 2, 1.0f + cornerPulse * 0.1f, 0.8f);
+
+    /* ====== MAIN TITLE: "BEJEWELED" with multi-layer glow ====== */
+    const char* title = "BEJEWELED";
+    int titleFontSize = 72;
+    Vector2 titleSize = MeasureTextEx(g_font, title, titleFontSize, 2);
+
+    /* Calculate title position with pulsing scale */
+    float titleScale = 1.0f + g_titlePulse * 0.03f;
+    float scaledWidth = titleSize.x * titleScale;
+    float titleX = centerX - scaledWidth / 2.0f;
+    float titleY = centerY - 80;
+
+    /* ====== RAINBOW GLOW LAYERS (cycling through gem colors) ====== */
+    /* Layer 1: Outermost glow - cycles through colors */
+    for (int layer = 5; layer >= 0; layer--) {
+        float hueOffset = fmodf(g_titleTimer * 60.0f + layer * 60.0f, 360.0f);
+        Color glowColor = ColorFromHSV(hueOffset, 0.8f, 1.0f);
+        float glowAlpha = 25.0f - layer * 4.0f;
+        glowColor.a = (unsigned char)(glowAlpha + glowAlpha * g_titlePulse * 0.5f);
+
+        float offset = (layer + 1) * 3.0f;
+        DrawTextEx(g_font, title, (Vector2){titleX - offset, titleY - offset},
+                  titleFontSize * titleScale, 2, glowColor);
+        DrawTextEx(g_font, title, (Vector2){titleX + offset, titleY - offset},
+                  titleFontSize * titleScale, 2, glowColor);
+        DrawTextEx(g_font, title, (Vector2){titleX - offset, titleY + offset},
+                  titleFontSize * titleScale, 2, glowColor);
+        DrawTextEx(g_font, title, (Vector2){titleX + offset, titleY + offset},
+                  titleFontSize * titleScale, 2, glowColor);
+    }
+
+    /* Layer 2: Colored underglow (gem color cycle) */
+    int colorIndex = (int)(g_titleTimer * 2.0f) % 7 + 1;
+    Color underGlow = GetGemBaseColor(colorIndex);
+    underGlow.a = (unsigned char)(100 + 50 * g_titlePulse);
+    DrawTextEx(g_font, title, (Vector2){titleX + 2, titleY + 4}, titleFontSize * titleScale, 2, underGlow);
+
+    /* Layer 3: Dark shadow for depth */
+    Color shadowColor = {10, 5, 30, 200};
+    DrawTextEx(g_font, title, (Vector2){titleX + 4, titleY + 6}, titleFontSize * titleScale, 2, shadowColor);
+
+    /* Layer 4: Gold base text */
+    Color goldBase = {255, 215, 0, 255};
+    DrawTextEx(g_font, title, (Vector2){titleX, titleY}, titleFontSize * titleScale, 2, goldBase);
+
+    /* Layer 5: Bright highlight on top portion (faceted look) */
+    /* Draw top half brighter for faceted gem appearance */
+    Color brightGold = {255, 240, 150, (unsigned char)(200 + 55 * g_titlePulse)};
+    DrawTextEx(g_font, title, (Vector2){titleX - 1, titleY - 1}, titleFontSize * titleScale, 2, brightGold);
+
+    /* Layer 6: White specular highlight */
+    Color specular = {255, 255, 255, (unsigned char)(120 + 80 * g_titlePulse)};
+    DrawTextEx(g_font, title, (Vector2){titleX - 2, titleY - 2}, titleFontSize * titleScale * 0.98f, 2, specular);
+
+    /* ====== ANIMATED SPARKLES on title ====== */
+    for (int i = 0; i < 5; i++) {
+        float sparklePhase = fmodf(g_titleTimer * 3.0f + i * 1.2f, 3.0f);
+        if (sparklePhase < 0.8f) {
+            float sparkleX = titleX + (titleSize.x * titleScale) * (0.1f + i * 0.2f);
+            float sparkleY = titleY + titleFontSize * 0.3f;
+            float sparkleAlpha = sinf(sparklePhase * PI / 0.8f);
+            float sparkleSize = 6.0f + 4.0f * sparkleAlpha;
+
+            Color sparkleColor = WHITE;
+            sparkleColor.a = (unsigned char)(255 * sparkleAlpha);
+
+            /* 4-pointed star sparkle */
+            DrawPoly((Vector2){sparkleX, sparkleY}, 4, sparkleSize, 45.0f, sparkleColor);
+            DrawPoly((Vector2){sparkleX, sparkleY}, 4, sparkleSize * 0.6f, 0.0f, sparkleColor);
+        }
+    }
+
+    /* ====== SUBTITLE: "llizardOS Edition" ====== */
+    const char* subtitle = "llizardOS Edition";
+    int subtitleFontSize = 24;
+    Vector2 subtitleSize = MeasureTextEx(g_font, subtitle, subtitleFontSize, 1);
+    float subtitleX = centerX - subtitleSize.x / 2.0f;
+    float subtitleY = titleY + titleFontSize + 20;
+
+    /* Subtitle shadow */
+    DrawTextEx(g_font, subtitle, (Vector2){subtitleX + 2, subtitleY + 2}, subtitleFontSize, 1, (Color){0, 0, 0, 150});
+
+    /* Subtitle in lighter gold/amber */
+    Color subtitleColor = {255, 200, 100, (unsigned char)(200 + 55 * g_titlePulse)};
+    DrawTextEx(g_font, subtitle, (Vector2){subtitleX, subtitleY}, subtitleFontSize, 1, subtitleColor);
+
+    /* ====== PRESS SELECT prompt with blinking ====== */
+    const char* prompt = "Press SELECT to Play";
+    int promptFontSize = 20;
+    Vector2 promptSize = MeasureTextEx(g_font, prompt, promptFontSize, 1);
+    float promptX = centerX - promptSize.x / 2.0f;
+    float promptY = g_screenHeight - 80;
+
+    /* Blinking alpha */
+    float blinkAlpha = (sinf(g_titleTimer * 4.0f) + 1.0f) * 0.5f;
+    blinkAlpha = 0.3f + blinkAlpha * 0.7f;  /* Range from 0.3 to 1.0 */
+
+    /* Prompt shadow */
+    DrawTextEx(g_font, prompt, (Vector2){promptX + 1, promptY + 1}, promptFontSize, 1,
+              (Color){0, 0, 0, (unsigned char)(150 * blinkAlpha)});
+
+    /* Prompt text */
+    Color promptColor = {240, 240, 250, (unsigned char)(255 * blinkAlpha)};
+    DrawTextEx(g_font, prompt, (Vector2){promptX, promptY}, promptFontSize, 1, promptColor);
+
+    /* ====== DECORATIVE LINE below subtitle ====== */
+    float lineY = subtitleY + subtitleFontSize + 15;
+    float lineWidth = 200.0f + 50.0f * g_titlePulse;
+    float lineX = centerX - lineWidth / 2.0f;
+
+    /* Gradient line with gem colors */
+    for (int i = 0; i < (int)lineWidth; i++) {
+        float t = (float)i / lineWidth;
+        float hue = fmodf(g_titleTimer * 40.0f + t * 180.0f, 360.0f);
+        Color lineColor = ColorFromHSV(hue, 0.7f, 1.0f);
+        /* Fade at edges */
+        float edgeFade = 1.0f - fabsf(t - 0.5f) * 2.0f;
+        edgeFade = edgeFade * edgeFade;  /* Quadratic falloff */
+        lineColor.a = (unsigned char)(200 * edgeFade);
+        DrawRectangle((int)(lineX + i), (int)lineY, 1, 3, lineColor);
+    }
+
+    /* Center gem on the line */
+    float lineCenterY = lineY + 1.5f;
+    DrawGem(GEM_WHITE, centerX, lineCenterY, 30.0f, 0.8f + g_titlePulse * 0.2f, 1.0f);
+}
+
+/* ============================================================================
+ * MODE SELECTION MENU
+ * ============================================================================ */
+
+/* Mode descriptions for 5 game modes */
+static const char* MODE_NAMES[] = {
+    "CLASSIC", "BLITZ", "TWIST", "CASCADE RUSH", "GEM SURGE"
+};
+static const char* MODE_DESCRIPTIONS[] = {
+    "No time limit",
+    "60 seconds",
+    "Rotate 2x2 gems",
+    "Cascade for time!",
+    "Wave-based action"
+};
+static const Color MODE_COLORS[] = {
+    {100, 200, 255, 255},  /* Classic - Blue */
+    {255, 150, 50, 255},   /* Blitz - Orange */
+    {150, 100, 255, 255},  /* Twist - Purple */
+    {100, 255, 150, 255},  /* Cascade Rush - Green */
+    {255, 100, 200, 255}   /* Gem Surge - Pink */
+};
+
+/* Update carousel animation - smooth position interpolation */
+static void UpdateModeCarousel(float deltaTime) {
+    /* Smooth animation using exponential ease-out */
+    float diff = g_carouselTarget - g_carouselPosition;
+
+    /* Handle wrap-around for smooth transitions */
+    if (diff > 2.5f) diff -= 5.0f;
+    if (diff < -2.5f) diff += 5.0f;
+
+    /* Exponential ease-out with ~0.3 second animation */
+    float speed = 10.0f;
+    g_carouselPosition += diff * speed * deltaTime;
+
+    /* Normalize position to 0-5 range */
+    while (g_carouselPosition < 0.0f) g_carouselPosition += 5.0f;
+    while (g_carouselPosition >= 5.0f) g_carouselPosition -= 5.0f;
+
+    /* Check if animation is complete */
+    if (fabsf(diff) < 0.01f) {
+        g_carouselPosition = g_carouselTarget;
+        while (g_carouselPosition < 0.0f) g_carouselPosition += 5.0f;
+        while (g_carouselPosition >= 5.0f) g_carouselPosition -= 5.0f;
+        g_carouselAnimating = false;
+    }
+
+    /* Update glow intensity for each mode */
+    for (int i = 0; i < 5; i++) {
+        float targetGlow = (i == g_selectedMode) ? 1.0f : 0.0f;
+        g_modeGlowIntensity[i] += (targetGlow - g_modeGlowIntensity[i]) * 8.0f * deltaTime;
+    }
+}
+
+/* Draw carousel-style mode selector */
+static void DrawModeCarousel(void) {
+    float centerX = g_screenWidth / 2.0f;
+    float centerY = g_screenHeight / 2.0f;
+
+    /* Card dimensions */
+    float baseCardWidth = 180;
+    float baseCardHeight = 220;
+    float cardSpacing = 160;
+
+    /* Draw each mode card with carousel positioning */
+    /* Draw in order from back to front (farthest first) */
+    int drawOrder[5];
+    float distances[5];
+
+    for (int i = 0; i < 5; i++) {
+        /* Calculate position offset from center (selected mode) */
+        float offset = (float)i - g_carouselPosition;
+
+        /* Handle wrap-around */
+        while (offset > 2.5f) offset -= 5.0f;
+        while (offset < -2.5f) offset += 5.0f;
+
+        distances[i] = fabsf(offset);
+        drawOrder[i] = i;
+    }
+
+    /* Sort by distance (farthest first for proper z-ordering) */
+    for (int i = 0; i < 4; i++) {
+        for (int j = i + 1; j < 5; j++) {
+            if (distances[drawOrder[i]] < distances[drawOrder[j]]) {
+                int temp = drawOrder[i];
+                drawOrder[i] = drawOrder[j];
+                drawOrder[j] = temp;
+            }
+        }
+    }
+
+    /* Draw cards in sorted order */
+    for (int d = 0; d < 5; d++) {
+        int i = drawOrder[d];
+
+        /* Calculate position offset from center */
+        float offset = (float)i - g_carouselPosition;
+
+        /* Handle wrap-around */
+        while (offset > 2.5f) offset -= 5.0f;
+        while (offset < -2.5f) offset += 5.0f;
+
+        float absOffset = fabsf(offset);
+
+        /* Scale based on distance from center */
+        /* Center: 1.0, Adjacent (offset=1): 0.7, Far (offset=2): 0.5 */
+        float scale;
+        if (absOffset < 0.1f) {
+            scale = 1.0f;
+        } else if (absOffset < 1.5f) {
+            scale = 1.0f - 0.3f * absOffset;
+        } else {
+            scale = 0.5f;
+        }
+
+        /* Add pulse effect for selected mode */
+        bool isSelected = (i == g_selectedMode);
+        float selectionPulse = isSelected ? (sinf(g_animTimer * 6.0f) + 1.0f) * 0.5f * 0.05f : 0.0f;
+        scale += selectionPulse;
+
+        /* Calculate alpha based on distance */
+        float alpha = 1.0f;
+        if (absOffset > 1.5f) {
+            alpha = 0.4f;
+        } else if (absOffset > 0.5f) {
+            alpha = 1.0f - 0.4f * (absOffset - 0.5f);
+        }
+
+        /* Calculate card position */
+        float cardWidth = baseCardWidth * scale;
+        float cardHeight = baseCardHeight * scale;
+        float cardX = centerX + offset * cardSpacing - cardWidth / 2.0f;
+        float cardY = centerY - cardHeight / 2.0f + 30;
+
+        /* Glow effect for selected card */
+        float glowIntensity = g_modeGlowIntensity[i];
+        if (glowIntensity > 0.01f) {
+            Color glowColor = MODE_COLORS[i];
+            float glowPulse = (sinf(g_animTimer * 6.0f) + 1.0f) * 0.5f;
+            glowColor.a = (unsigned char)((80 + 60 * glowPulse) * glowIntensity * alpha);
+            DrawRectangleRounded((Rectangle){cardX - 8, cardY - 8, cardWidth + 16, cardHeight + 16},
+                                0.12f, 8, glowColor);
+        }
+
+        /* Card background */
+        Color cardBg = isSelected ? (Color){45, 50, 70, (unsigned char)(255 * alpha)}
+                                  : (Color){30, 33, 48, (unsigned char)(255 * alpha)};
+        DrawRectangleRounded((Rectangle){cardX, cardY, cardWidth, cardHeight}, 0.12f, 8, cardBg);
+
+        /* Card border */
+        Color borderColor = MODE_COLORS[i];
+        borderColor.a = (unsigned char)((isSelected ? 255 : 120) * alpha);
+        DrawRectangleRoundedLines((Rectangle){cardX, cardY, cardWidth, cardHeight}, 0.12f, 8, borderColor);
+
+        /* Mode name */
+        float nameX = cardX + cardWidth / 2.0f;
+        float nameY = cardY + 25 * scale;
+        int nameFontSize = (int)(32 * scale);
+        if (nameFontSize < 14) nameFontSize = 14;
+        Vector2 nameSize = MeasureTextEx(g_font, MODE_NAMES[i], nameFontSize, 1);
+
+        Color nameColor = MODE_COLORS[i];
+        nameColor.a = (unsigned char)(255 * alpha);
+        DrawTextEx(g_font, MODE_NAMES[i], (Vector2){nameX - nameSize.x / 2.0f, nameY}, nameFontSize, 1, nameColor);
+
+        /* Mode icon (decorative gem shape) */
+        float iconY = cardY + cardHeight * 0.45f;
+        float iconSize = 50 * scale;
+        Color iconColor = MODE_COLORS[i];
+        iconColor.a = (unsigned char)((isSelected ? 255 : 180) * alpha);
+        DrawPoly((Vector2){nameX, iconY}, 8, iconSize * 0.5f, 22.5f, iconColor);
+
+        /* Inner gem facet */
+        Color innerColor = {255, 255, 255, (unsigned char)((isSelected ? 150 : 80) * alpha)};
+        DrawPoly((Vector2){nameX - 4 * scale, iconY - 4 * scale}, 8, iconSize * 0.25f, 22.5f, innerColor);
+
+        /* Description - only show for visible cards */
+        if (alpha > 0.3f) {
+            float descY = cardY + cardHeight * 0.72f;
+            int descFontSize = (int)(18 * scale);
+            if (descFontSize < 10) descFontSize = 10;
+            Vector2 descSize = MeasureTextEx(g_font, MODE_DESCRIPTIONS[i], descFontSize, 1);
+
+            Color descColor = isSelected ? (Color){240, 240, 250, (unsigned char)(255 * alpha)}
+                                         : (Color){180, 185, 200, (unsigned char)(200 * alpha)};
+            DrawTextEx(g_font, MODE_DESCRIPTIONS[i], (Vector2){nameX - descSize.x / 2.0f, descY}, descFontSize, 1, descColor);
+        }
+    }
+}
+
+static void DrawModeSelectMenu(void) {
+    /* Draw animated background */
+    DrawAnimatedBackground();
+
+    float centerX = g_screenWidth / 2.0f;
+
+    /* Draw dark overlay with subtle gradient for carousel area */
+    DrawRectangleGradientV(0, 80, g_screenWidth, g_screenHeight - 130,
+                           (Color){10, 12, 20, 180}, (Color){20, 22, 35, 180});
+
+    /* Title */
+    const char* title = "SELECT MODE";
+    int titleFontSize = 52;
+    Vector2 titleSize = MeasureTextEx(g_font, title, titleFontSize, 1);
+    float titleX = centerX - titleSize.x / 2.0f;
+    float titleY = 25;
+
+    /* Title glow */
+    float pulse = (sinf(g_animTimer * 3.0f) + 1.0f) * 0.5f;
+    Color glowColor = {255, 215, 0, (unsigned char)(60 + 40 * pulse)};
+    DrawTextEx(g_font, title, (Vector2){titleX + 2, titleY + 2}, titleFontSize, 1, (Color){0, 0, 0, 180});
+    DrawTextEx(g_font, title, (Vector2){titleX, titleY}, titleFontSize, 1, glowColor);
+    DrawTextEx(g_font, title, (Vector2){titleX, titleY}, titleFontSize, 1, COLOR_HIGHLIGHT);
+
+    /* Draw carousel */
+    DrawModeCarousel();
+
+    /* Instructions */
+    const char* instructions = "SCROLL TO SELECT - PRESS TO PLAY";
+    int instrFontSize = 18;
+    Vector2 instrSize = MeasureTextEx(g_font, instructions, instrFontSize, 1);
+    float instrAlpha = 150 + 105 * sinf(g_animTimer * 2.5f);
+    DrawTextEx(g_font, instructions, (Vector2){centerX - instrSize.x / 2.0f, g_screenHeight - 45},
+              instrFontSize, 1, (Color){240, 240, 250, (unsigned char)instrAlpha});
+
+    /* Mode indicator dots */
+    float dotY = g_screenHeight - 75;
+    float dotSpacing = 18;
+    float totalDotWidth = 4 * dotSpacing;
+    float dotStartX = centerX - totalDotWidth / 2.0f;
+
+    for (int i = 0; i < 5; i++) {
+        float dotX = dotStartX + i * dotSpacing;
+        bool isSelected = (i == g_selectedMode);
+
+        Color dotColor = isSelected ? MODE_COLORS[i] : (Color){80, 85, 100, 200};
+        float dotSize = isSelected ? 6.0f : 4.0f;
+
+        DrawCircleV((Vector2){dotX, dotY}, dotSize, dotColor);
+    }
+}
+
+static void HandleModeSelectInput(const LlzInputState *input) {
+    if (!input) return;
+
+    /* BACK to return to title screen / close plugin */
+    if (input->backReleased) {
+        g_wantsClose = true;
+        return;
+    }
+
+    /* Navigate carousel - Up/Down or scroll wheel */
+    if (input->downPressed || input->scrollDelta > 0.5f) {
+        /* Move to next mode with wrap-around (0 to 4, then back to 0) */
+        g_selectedMode = (g_selectedMode + 1) % 5;
+        g_carouselTarget = (float)g_selectedMode;
+        g_carouselAnimating = true;
+    }
+    if (input->upPressed || input->scrollDelta < -0.5f) {
+        /* Move to previous mode with wrap-around (4 to 0, then back to 4) */
+        g_selectedMode = (g_selectedMode + 4) % 5;
+        g_carouselTarget = (float)g_selectedMode;
+        g_carouselAnimating = true;
+    }
+
+    /* SELECT to start game with selected mode */
+    if (input->selectPressed) {
+        InitGameMode((GameMode)g_selectedMode);
+
+        /* Reset cursor positions */
+        g_cursorX = BOARD_WIDTH / 2;
+        g_cursorY = BOARD_HEIGHT / 2;
+        g_twistCursorX = BOARD_WIDTH / 2 - 1;
+        g_twistCursorY = BOARD_HEIGHT / 2 - 1;
+        if (g_twistCursorX < 0) g_twistCursorX = 0;
+        if (g_twistCursorY < 0) g_twistCursorY = 0;
+
+        /* Reset display state */
+        g_displayScore = 0;
+        g_scorePulse = 0;
+        g_previousLevel = 1;
+        g_lastCascadeLevel = 0;
+
+        g_pluginState = PLUGIN_STATE_PLAYING;
+    }
+
+    /* Touch input - tap center card to start, tap side cards to navigate */
+    if (input->tap) {
+        float centerX = g_screenWidth / 2.0f;
+        float tapX = input->tapPosition.x;
+        float cardSpacing = 160;
+
+        /* Check if tap is in the center card area (start game) */
+        float centerCardLeft = centerX - 90;
+        float centerCardRight = centerX + 90;
+
+        if (tapX >= centerCardLeft && tapX <= centerCardRight) {
+            /* Tapped center card - start game */
+            InitGameMode((GameMode)g_selectedMode);
+
+            g_cursorX = BOARD_WIDTH / 2;
+            g_cursorY = BOARD_HEIGHT / 2;
+            g_twistCursorX = BOARD_WIDTH / 2 - 1;
+            g_twistCursorY = BOARD_HEIGHT / 2 - 1;
+            if (g_twistCursorX < 0) g_twistCursorX = 0;
+            if (g_twistCursorY < 0) g_twistCursorY = 0;
+
+            g_displayScore = 0;
+            g_scorePulse = 0;
+            g_previousLevel = 1;
+            g_lastCascadeLevel = 0;
+
+            g_pluginState = PLUGIN_STATE_PLAYING;
+        } else if (tapX < centerCardLeft) {
+            /* Tapped left side - navigate to previous mode */
+            g_selectedMode = (g_selectedMode + 4) % 5;
+            g_carouselTarget = (float)g_selectedMode;
+            g_carouselAnimating = true;
+        } else if (tapX > centerCardRight) {
+            /* Tapped right side - navigate to next mode */
+            g_selectedMode = (g_selectedMode + 1) % 5;
+            g_carouselTarget = (float)g_selectedMode;
+            g_carouselAnimating = true;
+        }
+    }
+
+    /* Swipe gestures for navigation */
+    if (input->swipeLeft) {
+        g_selectedMode = (g_selectedMode + 1) % 5;
+        g_carouselTarget = (float)g_selectedMode;
+        g_carouselAnimating = true;
+    }
+    if (input->swipeRight) {
+        g_selectedMode = (g_selectedMode + 4) % 5;
+        g_carouselTarget = (float)g_selectedMode;
+        g_carouselAnimating = true;
+    }
 }
 
 /* ============================================================================
@@ -1105,7 +2040,38 @@ static void DrawBoard(void) {
         }
     }
 
-    /* Draw gems with animation */
+    /* PASS 1: Draw special gem GLOWS (behind gems) */
+    for (int y = 0; y < BOARD_HEIGHT; y++) {
+        for (int x = 0; x < BOARD_WIDTH; x++) {
+            int specialType = GetBoardSpecial(x, y);
+            if (specialType == SPECIAL_NONE) continue;
+
+            GemAnimation *anim = GetGemAnimation(x, y);
+            float cx, cy;
+            GridToScreen(x, y, &cx, &cy);
+
+            if (anim) {
+                cx += anim->offsetX * g_cellSize;
+                cy += anim->offsetY * g_cellSize;
+            }
+
+            float scale = 1.0f;
+            float alpha = 1.0f;
+            if (anim) {
+                if (anim->isRemoving) {
+                    scale = anim->scale;
+                    alpha = anim->scale;
+                } else if (anim->isSpawning) {
+                    scale = anim->scale;
+                    alpha = anim->scale * 0.8f + 0.2f;
+                }
+            }
+
+            DrawSpecialGemGlow(specialType, cx, cy, g_cellSize, scale, alpha);
+        }
+    }
+
+    /* PASS 2: Draw gems (on top of glows) */
     for (int y = 0; y < BOARD_HEIGHT; y++) {
         for (int x = 0; x < BOARD_WIDTH; x++) {
             int gemType = GetBoardGem(x, y);
@@ -1152,17 +2118,55 @@ static void DrawBoard(void) {
 
     /* Draw cursor in idle state */
     if (GetGameState() == GAME_STATE_IDLE && !HasSelection()) {
-        float cx, cy;
-        GridToScreen(g_cursorX, g_cursorY, &cx, &cy);
-        cx += g_shakeOffset.x;
-        cy += g_shakeOffset.y;
+        GameMode mode = GetCurrentGameMode();
 
-        Color cursorColor = COLOR_TEXT;
-        cursorColor.a = 100;
-        float cursorSize = g_cellSize * 0.48f;
-        DrawRectangleLinesEx(
-            (Rectangle){cx - cursorSize, cy - cursorSize, cursorSize * 2, cursorSize * 2},
-            2, cursorColor);
+        if (mode == GAME_MODE_TWIST) {
+            /* Twist mode: Draw 2x2 selection cursor */
+            float cx1, cy1, cx2, cy2;
+            GridToScreen(g_twistCursorX, g_twistCursorY, &cx1, &cy1);
+            GridToScreen(g_twistCursorX + 1, g_twistCursorY + 1, &cx2, &cy2);
+
+            cx1 += g_shakeOffset.x - g_cellSize / 2.0f;
+            cy1 += g_shakeOffset.y - g_cellSize / 2.0f;
+            cx2 += g_shakeOffset.x + g_cellSize / 2.0f;
+            cy2 += g_shakeOffset.y + g_cellSize / 2.0f;
+
+            float pulse = 1.0f + sinf(g_animTimer * 6.0f) * 0.1f;
+
+            /* Outer glow */
+            Color glowColor = {150, 100, 255, (unsigned char)(60 * pulse)};
+            DrawRectangleRounded(
+                (Rectangle){cx1 - 4, cy1 - 4, (cx2 - cx1) + 8, (cy2 - cy1) + 8},
+                0.1f, 8, glowColor);
+
+            /* Selection border */
+            Color cursorColor = {150, 100, 255, (unsigned char)(200 * pulse)};
+            DrawRectangleLinesEx(
+                (Rectangle){cx1, cy1, cx2 - cx1, cy2 - cy1},
+                3, cursorColor);
+
+            /* Rotation indicator arrows */
+            float arrowSize = g_cellSize * 0.15f;
+            float centerX = (cx1 + cx2) / 2.0f;
+            float centerY = (cy1 + cy2) / 2.0f;
+            Color arrowColor = {200, 180, 255, (unsigned char)(180 * pulse)};
+
+            /* Draw curved arrow hint */
+            DrawCircleSector((Vector2){centerX, centerY}, arrowSize * 2.5f, 45, 135, 12, arrowColor);
+        } else {
+            /* Classic/Blitz mode: Standard single-cell cursor */
+            float cx, cy;
+            GridToScreen(g_cursorX, g_cursorY, &cx, &cy);
+            cx += g_shakeOffset.x;
+            cy += g_shakeOffset.y;
+
+            Color cursorColor = COLOR_TEXT;
+            cursorColor.a = 100;
+            float cursorSize = g_cellSize * 0.48f;
+            DrawRectangleLinesEx(
+                (Rectangle){cx - cursorSize, cy - cursorSize, cursorSize * 2, cursorSize * 2},
+                2, cursorColor);
+        }
     }
 }
 
@@ -1171,6 +2175,8 @@ static void DrawBoard(void) {
  * ============================================================================ */
 
 static void DrawHUD(void) {
+    GameMode currentMode = GetCurrentGameMode();
+
     /* Level overlay - top left */
     Rectangle levelPanel = {12, 12, 100, 44};
     DrawRectangleRounded(levelPanel, 0.2f, 8, COLOR_BOARD_BG);
@@ -1180,6 +2186,62 @@ static void DrawHUD(void) {
     char levelText[32];
     snprintf(levelText, sizeof(levelText), "%d", GetLevel());
     DrawTextEx(g_font, levelText, (Vector2){levelPanel.x + 50, levelPanel.y + 10}, 26, 1, COLOR_TEXT);
+
+    /* Blitz timer - center top (only in Blitz mode) */
+    if (currentMode == GAME_MODE_BLITZ) {
+        float timeRemaining = GetTimeRemaining();
+        Rectangle timerPanel = {g_screenWidth / 2.0f - 60, 8, 120, 52};
+
+        /* Timer background with urgency-based color */
+        Color timerBg = COLOR_BOARD_BG;
+        Color timerBorder = {60, 65, 80, 255};
+        Color timerText = COLOR_TEXT;
+
+        if (timeRemaining <= 10.0f && timeRemaining > 0) {
+            /* Urgent - red pulsing */
+            float urgencyPulse = (sinf(g_animTimer * 10.0f) + 1.0f) * 0.5f;
+            timerBg = (Color){60 + (int)(40 * urgencyPulse), 20, 20, 255};
+            timerBorder = (Color){255, 80, 80, 255};
+            timerText = (Color){255, (unsigned char)(100 + 155 * urgencyPulse), (unsigned char)(100 + 155 * urgencyPulse), 255};
+        } else if (timeRemaining <= 30.0f) {
+            /* Warning - yellow */
+            timerBorder = (Color){255, 200, 50, 255};
+            timerText = (Color){255, 220, 100, 255};
+        } else {
+            /* Normal - green */
+            timerBorder = (Color){50, 200, 100, 255};
+            timerText = (Color){100, 255, 150, 255};
+        }
+
+        DrawRectangleRounded(timerPanel, 0.2f, 8, timerBg);
+        DrawRectangleRoundedLines(timerPanel, 0.2f, 8, timerBorder);
+
+        /* Timer value */
+        int seconds = (int)timeRemaining;
+        int tenths = (int)((timeRemaining - seconds) * 10);
+        char timerStr[32];
+        if (timeRemaining <= 10.0f) {
+            snprintf(timerStr, sizeof(timerStr), "%d.%d", seconds, tenths);
+        } else {
+            snprintf(timerStr, sizeof(timerStr), "%d", seconds);
+        }
+
+        int timerFontSize = 38;
+        Vector2 timerSize = MeasureTextEx(g_accentFont, timerStr, timerFontSize, 1);
+        float timerX = timerPanel.x + (timerPanel.width - timerSize.x) / 2.0f;
+        DrawTextEx(g_accentFont, timerStr, (Vector2){timerX, timerPanel.y + 6}, timerFontSize, 1, timerText);
+
+        /* "BLITZ" label */
+        DrawTextEx(g_font, "BLITZ", (Vector2){timerPanel.x + 38, timerPanel.y + 42}, 10, 1, timerBorder);
+    }
+
+    /* Mode indicator - below level panel for non-Blitz modes */
+    if (currentMode != GAME_MODE_BLITZ) {
+        const char* modeLabel = (currentMode == GAME_MODE_TWIST) ? "TWIST" : "CLASSIC";
+        Color modeColor = MODE_COLORS[currentMode];
+        modeColor.a = 180;
+        DrawTextEx(g_font, modeLabel, (Vector2){levelPanel.x + 10, levelPanel.y + levelPanel.height + 4}, 12, 1, modeColor);
+    }
 
     /* Level progress bar */
     int currentLevelScore, nextLevelScore;
@@ -1233,14 +2295,14 @@ static void DrawHUD(void) {
         snprintf(cascadeText, sizeof(cascadeText), "x%d COMBO!", cascade);
 
         float pulse = 1.0f + sinf(g_animTimer * 10.0f) * 0.1f;
-        int fontSize = (int)(24 * pulse);
+        int fontSize = (int)(28 * pulse);
 
-        Vector2 textSize = MeasureTextEx(g_font, cascadeText, fontSize, 1);
+        Vector2 textSize = MeasureTextEx(g_accentFont, cascadeText, fontSize, 1);
         float cx = g_boardX + g_boardSize / 2.0f - textSize.x / 2.0f;
         float cy = g_boardY - 30;
 
-        DrawTextEx(g_font, cascadeText, (Vector2){cx + 2, cy + 2}, fontSize, 1, (Color){0, 0, 0, 180});
-        DrawTextEx(g_font, cascadeText, (Vector2){cx, cy}, fontSize, 1, cascadeColor);
+        DrawTextEx(g_accentFont, cascadeText, (Vector2){cx + 2, cy + 2}, fontSize, 1, (Color){0, 0, 0, 180});
+        DrawTextEx(g_accentFont, cascadeText, (Vector2){cx, cy}, fontSize, 1, cascadeColor);
     }
 
     /* Game over overlay - enhanced with animations */
@@ -1336,6 +2398,18 @@ static void DrawHUD(void) {
 static void UpdateAnimations(float deltaTime) {
     g_animTimer += deltaTime;
     g_shimmerTime += deltaTime;
+
+    /* Update Blitz timer */
+    GameMode mode = GetCurrentGameMode();
+    if (mode == GAME_MODE_BLITZ && GetGameState() != GAME_STATE_GAME_OVER) {
+        UpdateTime(deltaTime);
+
+        /* Check for time-based game over */
+        if (GetTimeRemaining() <= 0.0f) {
+            SetGameState(GAME_STATE_GAME_OVER);
+            TriggerShake(15.0f);
+        }
+    }
 
     /* Update background animation */
     g_bgGridOffset += deltaTime * 15.0f;
@@ -1501,7 +2575,10 @@ static void UpdateAnimations(float deltaTime) {
                         IncrementCascade();
                     } else {
                         /* No matches - check for game over or return to idle */
-                        if (CheckGameOver()) {
+                        GameMode mode = GetCurrentGameMode();
+                        bool isGameOver = (mode == GAME_MODE_TWIST) ? CheckTwistGameOver() : CheckGameOver();
+
+                        if (isGameOver) {
                             SetGameState(GAME_STATE_GAME_OVER);
                             TriggerShake(15.0f);
                         } else {
@@ -1512,10 +2589,27 @@ static void UpdateAnimations(float deltaTime) {
                     break;
                 }
 
-                case GAME_STATE_REMOVING:
-                    SetGameState(GAME_STATE_FALLING);
-                    ApplyGravity();
+                case GAME_STATE_REMOVING: {
+                    /* Process any queued special effects before falling */
+                    if (ProcessQueuedEffects()) {
+                        /* More effects to process - spawn particles and stay in removing */
+                        for (int gy = 0; gy < BOARD_HEIGHT; gy++) {
+                            for (int gx = 0; gx < BOARD_WIDTH; gx++) {
+                                GemAnimation *a = GetGemAnimation(gx, gy);
+                                if (a && a->isRemoving) {
+                                    SpawnMatchParticles(gx, gy, 1);  /* Effect particles */
+                                }
+                            }
+                        }
+                        TriggerShake(8.0f);  /* Extra shake for special effects */
+                        /* Stay in removing state to process more effects */
+                    } else {
+                        /* No more effects - transition to falling */
+                        SetGameState(GAME_STATE_FALLING);
+                        ApplyGravity();
+                    }
                     break;
+                }
 
                 case GAME_STATE_FALLING:
                     SetGameState(GAME_STATE_FILLING);
@@ -1537,22 +2631,51 @@ static void UpdateAnimations(float deltaTime) {
  * INPUT HANDLING
  * ============================================================================ */
 
+/**
+ * Attempt to swap gems, handling Hypercube special swaps.
+ * Returns true if a valid swap was made.
+ */
+static bool TrySmartSwap(int x1, int y1, int x2, int y2) {
+    /* Check if either gem is a Hypercube */
+    bool hc1 = IsHypercube(x1, y1);
+    bool hc2 = IsHypercube(x2, y2);
+
+    if (hc1 || hc2) {
+        /* Use Hypercube swap - doesn't require normal match */
+        if (hc1) {
+            return SwapHypercube(x1, y1, x2, y2);
+        } else {
+            return SwapHypercube(x2, y2, x1, y1);
+        }
+    }
+
+    /* Normal swap */
+    return SwapGems(x1, y1, x2, y2);
+}
+
 static void HandleInput(const LlzInputState *input) {
     if (!input) return;
 
     if (input->backReleased) {
-        g_wantsClose = true;
+        /* Return to mode select instead of closing */
+        g_pluginState = PLUGIN_STATE_MODE_SELECT;
+        /* Reset carousel to current mode position */
+        g_carouselPosition = (float)g_selectedMode;
+        g_carouselTarget = (float)g_selectedMode;
         return;
     }
 
     GameState state = GetGameState();
+    GameMode mode = GetCurrentGameMode();
 
     /* Handle game over - restart on select */
     if (state == GAME_STATE_GAME_OVER) {
         if (input->selectPressed) {
-            InitGame();
-            g_cursorX = BOARD_WIDTH / 2;
-            g_cursorY = BOARD_HEIGHT / 2;
+            /* Return to mode selection */
+            g_pluginState = PLUGIN_STATE_MODE_SELECT;
+            /* Reset carousel to current mode position */
+            g_carouselPosition = (float)g_selectedMode;
+            g_carouselTarget = (float)g_selectedMode;
         }
         return;
     }
@@ -1564,103 +2687,164 @@ static void HandleInput(const LlzInputState *input) {
     g_hintTimer = 0;
     g_showHint = false;
 
-    /* Button navigation - up/down buttons move columns, scroll wheel moves rows */
-    if (input->upPressed) {
-        g_cursorX = (g_cursorX + BOARD_WIDTH - 1) % BOARD_WIDTH;
-    }
-    if (input->downPressed) {
-        g_cursorX = (g_cursorX + 1) % BOARD_WIDTH;
-    }
-    /* Scroll wheel moves cursor up/down through rows */
-    if (input->scrollDelta > 0.5f) {
-        g_cursorY = (g_cursorY + 1) % BOARD_HEIGHT;
-    }
-    if (input->scrollDelta < -0.5f) {
-        g_cursorY = (g_cursorY + BOARD_HEIGHT - 1) % BOARD_HEIGHT;
-    }
+    if (mode == GAME_MODE_TWIST) {
+        /* ============= TWIST MODE INPUT ============= */
+        /* Navigate 2x2 cursor */
+        if (input->upPressed) {
+            g_twistCursorX = (g_twistCursorX + BOARD_WIDTH - 2) % (BOARD_WIDTH - 1);
+        }
+        if (input->downPressed) {
+            g_twistCursorX = (g_twistCursorX + 1) % (BOARD_WIDTH - 1);
+        }
+        if (input->scrollDelta > 0.5f) {
+            g_twistCursorY = (g_twistCursorY + 1) % (BOARD_HEIGHT - 1);
+        }
+        if (input->scrollDelta < -0.5f) {
+            g_twistCursorY = (g_twistCursorY + BOARD_HEIGHT - 2) % (BOARD_HEIGHT - 1);
+        }
 
-    /* Select button for gem selection/swap */
-    if (input->selectPressed) {
-        Position sel = GetSelectedGem();
-
-        if (sel.x < 0) {
-            /* Nothing selected - select cursor position */
-            SetSelectedGem(g_cursorX, g_cursorY);
-        } else if (sel.x == g_cursorX && sel.y == g_cursorY) {
-            /* Same gem - deselect */
-            ClearSelection();
-        } else {
-            /* Try to swap */
-            int dx = abs(g_cursorX - sel.x);
-            int dy = abs(g_cursorY - sel.y);
-
-            if ((dx == 1 && dy == 0) || (dx == 0 && dy == 1)) {
-                if (SwapGems(sel.x, sel.y, g_cursorX, g_cursorY)) {
-                    SetGameState(GAME_STATE_SWAPPING);
-                    ClearSelection();
-                } else {
-                    /* Invalid swap - visual feedback */
-                    TriggerShake(3.0f);
-                    ClearSelection();
-                }
+        /* Select button rotates the 2x2 grid */
+        if (input->selectPressed) {
+            if (RotateGems(g_twistCursorX, g_twistCursorY)) {
+                SetGameState(GAME_STATE_SWAPPING);
             } else {
-                /* Not adjacent - select new gem */
-                SetSelectedGem(g_cursorX, g_cursorY);
+                /* Invalid rotation - visual feedback */
+                TriggerShake(3.0f);
             }
         }
-    }
 
-    /* Touch input */
-    if (input->tap) {
-        int gx, gy;
-        if (ScreenToGrid(input->tapPosition.x, input->tapPosition.y, &gx, &gy)) {
+        /* Touch input for Twist mode */
+        if (input->tap) {
+            int gx, gy;
+            if (ScreenToGrid(input->tapPosition.x, input->tapPosition.y, &gx, &gy)) {
+                /* Position cursor so tapped cell is in the 2x2 */
+                g_twistCursorX = gx;
+                g_twistCursorY = gy;
+                /* Clamp to valid range */
+                if (g_twistCursorX >= BOARD_WIDTH - 1) g_twistCursorX = BOARD_WIDTH - 2;
+                if (g_twistCursorY >= BOARD_HEIGHT - 1) g_twistCursorY = BOARD_HEIGHT - 2;
+            }
+        }
+
+        /* Double tap to rotate */
+        if (input->doubleTap) {
+            int gx, gy;
+            if (ScreenToGrid(input->tapPosition.x, input->tapPosition.y, &gx, &gy)) {
+                /* Try to rotate at tapped position */
+                int rotX = gx;
+                int rotY = gy;
+                if (rotX >= BOARD_WIDTH - 1) rotX = BOARD_WIDTH - 2;
+                if (rotY >= BOARD_HEIGHT - 1) rotY = BOARD_HEIGHT - 2;
+
+                if (RotateGems(rotX, rotY)) {
+                    SetGameState(GAME_STATE_SWAPPING);
+                    g_twistCursorX = rotX;
+                    g_twistCursorY = rotY;
+                } else {
+                    TriggerShake(3.0f);
+                }
+            }
+        }
+    } else {
+        /* ============= CLASSIC/BLITZ MODE INPUT ============= */
+        /* Button navigation - up/down buttons move columns, scroll wheel moves rows */
+        if (input->upPressed) {
+            g_cursorX = (g_cursorX + BOARD_WIDTH - 1) % BOARD_WIDTH;
+        }
+        if (input->downPressed) {
+            g_cursorX = (g_cursorX + 1) % BOARD_WIDTH;
+        }
+        /* Scroll wheel moves cursor up/down through rows */
+        if (input->scrollDelta > 0.5f) {
+            g_cursorY = (g_cursorY + 1) % BOARD_HEIGHT;
+        }
+        if (input->scrollDelta < -0.5f) {
+            g_cursorY = (g_cursorY + BOARD_HEIGHT - 1) % BOARD_HEIGHT;
+        }
+
+        /* Select button for gem selection/swap */
+        if (input->selectPressed) {
             Position sel = GetSelectedGem();
 
             if (sel.x < 0) {
-                SetSelectedGem(gx, gy);
-                g_cursorX = gx;
-                g_cursorY = gy;
-            } else if (sel.x == gx && sel.y == gy) {
+                /* Nothing selected - select cursor position */
+                SetSelectedGem(g_cursorX, g_cursorY);
+            } else if (sel.x == g_cursorX && sel.y == g_cursorY) {
+                /* Same gem - deselect */
                 ClearSelection();
             } else {
-                int dx = abs(gx - sel.x);
-                int dy = abs(gy - sel.y);
+                /* Try to swap */
+                int dx = abs(g_cursorX - sel.x);
+                int dy = abs(g_cursorY - sel.y);
 
                 if ((dx == 1 && dy == 0) || (dx == 0 && dy == 1)) {
-                    if (SwapGems(sel.x, sel.y, gx, gy)) {
+                    if (TrySmartSwap(sel.x, sel.y, g_cursorX, g_cursorY)) {
                         SetGameState(GAME_STATE_SWAPPING);
                         ClearSelection();
                     } else {
+                        /* Invalid swap - visual feedback */
                         TriggerShake(3.0f);
                         ClearSelection();
                     }
                 } else {
-                    SetSelectedGem(gx, gy);
-                    g_cursorX = gx;
-                    g_cursorY = gy;
+                    /* Not adjacent - select new gem */
+                    SetSelectedGem(g_cursorX, g_cursorY);
                 }
             }
         }
-    }
 
-    /* Swipe input for quick swap */
-    if (HasSelection()) {
-        Position sel = GetSelectedGem();
-        int targetX = sel.x;
-        int targetY = sel.y;
+        /* Touch input */
+        if (input->tap) {
+            int gx, gy;
+            if (ScreenToGrid(input->tapPosition.x, input->tapPosition.y, &gx, &gy)) {
+                Position sel = GetSelectedGem();
 
-        if (input->swipeLeft && sel.x > 0) targetX = sel.x - 1;
-        else if (input->swipeRight && sel.x < BOARD_WIDTH - 1) targetX = sel.x + 1;
-        else if (input->swipeUp && sel.y > 0) targetY = sel.y - 1;
-        else if (input->swipeDown && sel.y < BOARD_HEIGHT - 1) targetY = sel.y + 1;
+                if (sel.x < 0) {
+                    SetSelectedGem(gx, gy);
+                    g_cursorX = gx;
+                    g_cursorY = gy;
+                } else if (sel.x == gx && sel.y == gy) {
+                    ClearSelection();
+                } else {
+                    int dx = abs(gx - sel.x);
+                    int dy = abs(gy - sel.y);
 
-        if (targetX != sel.x || targetY != sel.y) {
-            if (SwapGems(sel.x, sel.y, targetX, targetY)) {
-                SetGameState(GAME_STATE_SWAPPING);
-            } else {
-                TriggerShake(3.0f);
+                    if ((dx == 1 && dy == 0) || (dx == 0 && dy == 1)) {
+                        if (TrySmartSwap(sel.x, sel.y, gx, gy)) {
+                            SetGameState(GAME_STATE_SWAPPING);
+                            ClearSelection();
+                        } else {
+                            TriggerShake(3.0f);
+                            ClearSelection();
+                        }
+                    } else {
+                        SetSelectedGem(gx, gy);
+                        g_cursorX = gx;
+                        g_cursorY = gy;
+                    }
+                }
             }
-            ClearSelection();
+        }
+
+        /* Swipe input for quick swap */
+        if (HasSelection()) {
+            Position sel = GetSelectedGem();
+            int targetX = sel.x;
+            int targetY = sel.y;
+
+            if (input->swipeLeft && sel.x > 0) targetX = sel.x - 1;
+            else if (input->swipeRight && sel.x < BOARD_WIDTH - 1) targetX = sel.x + 1;
+            else if (input->swipeUp && sel.y > 0) targetY = sel.y - 1;
+            else if (input->swipeDown && sel.y < BOARD_HEIGHT - 1) targetY = sel.y + 1;
+
+            if (targetX != sel.x || targetY != sel.y) {
+                if (TrySmartSwap(sel.x, sel.y, targetX, targetY)) {
+                    SetGameState(GAME_STATE_SWAPPING);
+                } else {
+                    TriggerShake(3.0f);
+                }
+                ClearSelection();
+            }
         }
     }
 }
@@ -1680,8 +2864,19 @@ static void UpdateHintSystem(float deltaTime) {
 
     /* Show hint after 5 seconds of inactivity */
     if (g_hintTimer > 5.0f && !g_showHint) {
-        if (GetHint(&g_hintX1, &g_hintY1, &g_hintX2, &g_hintY2)) {
-            g_showHint = true;
+        GameMode mode = GetCurrentGameMode();
+        if (mode == GAME_MODE_TWIST) {
+            /* Twist mode: find a valid rotation */
+            if (GetTwistHint(&g_hintX1, &g_hintY1)) {
+                g_hintX2 = g_hintX1 + 1;
+                g_hintY2 = g_hintY1 + 1;
+                g_showHint = true;
+            }
+        } else {
+            /* Classic/Blitz mode: find a valid swap */
+            if (GetHint(&g_hintX1, &g_hintY1, &g_hintX2, &g_hintY2)) {
+                g_showHint = true;
+            }
         }
     }
 }
@@ -1728,21 +2923,43 @@ static void PluginInit(int width, int height) {
     g_screenHeight = height;
     g_wantsClose = false;
 
+    /* Start in title screen state */
+    g_pluginState = PLUGIN_STATE_TITLE_SCREEN;
+    g_selectedMode = 0;
+
+    /* Initialize title screen state */
+    g_titleTimer = 0.0f;
+    g_titlePulse = 0.0f;
+    InitTitleGems();
+
+    /* Initialize carousel state */
+    g_carouselPosition = 0.0f;
+    g_carouselTarget = 0.0f;
+    g_carouselAnimating = false;
+    for (int i = 0; i < 5; i++) {
+        g_modeGlowIntensity[i] = (i == 0) ? 1.0f : 0.0f;
+    }
+
     /* Load display font (Quincy Caps - all uppercase decorative font) */
     g_font = LlzFontGet(LLZ_FONT_DISPLAY, 48);
     if (g_font.texture.id == 0) {
         g_font = GetFontDefault();
     }
 
+    /* Load accent font (Flange Bold - for combos, scores, powerups) */
+    g_accentFont = LlzFontGet(LLZ_FONT_ACCENT, 36);
+    if (g_accentFont.texture.id == 0) {
+        g_accentFont = g_font;  /* Fall back to display font */
+    }
+
     /* Calculate layout */
     CalculateLayout();
 
-    /* Initialize game */
-    InitGame();
-
-    /* Reset state */
+    /* Reset state (game will be initialized when mode is selected) */
     g_cursorX = BOARD_WIDTH / 2;
     g_cursorY = BOARD_HEIGHT / 2;
+    g_twistCursorX = BOARD_WIDTH / 2 - 1;
+    g_twistCursorY = BOARD_HEIGHT / 2 - 1;
     g_animTimer = 0;
     g_stateTimer = 0;
     g_shimmerTime = 0;
@@ -1795,44 +3012,67 @@ static void PluginUpdate(const LlzInputState *input, float deltaTime) {
         return;
     }
 
-    /* Update game systems */
-    UpdateAnimations(deltaTime);
-    UpdateParticles(deltaTime);
-    UpdatePopups(deltaTime);
-    UpdateShake(deltaTime);
-    UpdateLightning(deltaTime);
-    UpdateHintSystem(deltaTime);
+    /* Always update animation timer for menu */
+    g_animTimer += deltaTime;
 
-    /* Handle input */
-    HandleInput(input);
+    if (g_pluginState == PLUGIN_STATE_TITLE_SCREEN) {
+        /* Title screen */
+        UpdateTitleScreen(input, deltaTime);
+    } else if (g_pluginState == PLUGIN_STATE_MODE_SELECT) {
+        /* Mode selection menu */
+        g_bgGridOffset += deltaTime * 15.0f;  /* Keep background animating */
+        UpdateModeCarousel(deltaTime);        /* Update carousel animation */
+        HandleModeSelectInput(input);
+    } else {
+        /* Playing the game */
+        /* Update game systems (animTimer already updated above, so subtract to avoid double) */
+        g_animTimer -= deltaTime;
+        UpdateAnimations(deltaTime);
+        UpdateParticles(deltaTime);
+        UpdatePopups(deltaTime);
+        UpdateShake(deltaTime);
+        UpdateLightning(deltaTime);
+        UpdateHintSystem(deltaTime);
+
+        /* Handle input */
+        HandleInput(input);
+    }
 }
 
 static void PluginDraw(void) {
     ClearBackground(COLOR_BG);
 
-    /* Animated background layer */
-    DrawAnimatedBackground();
+    if (g_pluginState == PLUGIN_STATE_TITLE_SCREEN) {
+        /* Draw title screen */
+        DrawTitleScreen();
+    } else if (g_pluginState == PLUGIN_STATE_MODE_SELECT) {
+        /* Draw mode selection menu */
+        DrawModeSelectMenu();
+    } else {
+        /* Animated background layer */
+        DrawAnimatedBackground();
 
-    /* Game elements */
-    DrawBoard();
-    DrawLightning();
-    DrawParticles();
-    DrawPopups();
+        /* Game elements */
+        DrawBoard();
+        DrawLightning();
+        DrawParticles();
+        DrawPopups();
 
-    /* Combo announcements over gameplay */
-    DrawComboAnnouncements();
+        /* Combo announcements over gameplay */
+        DrawComboAnnouncements();
 
-    /* Level up celebration overlay */
-    DrawLevelUpCelebration();
+        /* Level up celebration overlay */
+        DrawLevelUpCelebration();
 
-    /* HUD on top */
-    DrawHUD();
+        /* HUD on top */
+        DrawHUD();
 
-    /* Screen flash effect */
-    if (g_screenFlashTimer > 0) {
-        Color flashColor = g_screenFlashColor;
-        flashColor.a = (unsigned char)(g_screenFlashTimer * 150);
-        DrawRectangle(0, 0, g_screenWidth, g_screenHeight, flashColor);
+        /* Screen flash effect */
+        if (g_screenFlashTimer > 0) {
+            Color flashColor = g_screenFlashColor;
+            flashColor.a = (unsigned char)(g_screenFlashTimer * 150);
+            DrawRectangle(0, 0, g_screenWidth, g_screenHeight, flashColor);
+        }
     }
 
     /* Draw notification overlay */
@@ -1868,6 +3108,7 @@ static LlzPluginAPI g_api = {
     .draw = PluginDraw,
     .shutdown = PluginShutdown,
     .wants_close = PluginWantsClose,
+    .handles_back_button = true,  /* Plugin handles back for mode selection navigation */
     .category = LLZ_CATEGORY_GAMES
 };
 
