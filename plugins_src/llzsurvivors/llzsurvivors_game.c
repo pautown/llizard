@@ -90,11 +90,45 @@ static SpawnWarning g_spawnWarnings[MAX_SPAWN_WARNINGS];
 #define SPAWN_WARNING_TIME 0.8f
 
 // =============================================================================
+// PHASE 3 POLISH - MENU/UI EFFECTS
+// =============================================================================
+
+// Menu animation state
+static float g_menuTitleGlow = 0.0f;        // Glow animation timer
+static float g_menuButtonScale[2] = {1.0f, 1.0f};  // Button scale for hover effect
+static float g_menuEntranceTime = 0.0f;     // Entrance animation progress
+
+// Weapon select animation (carousel style like Bejeweled)
+static float g_weaponSelectEntrance = 0.0f; // Entrance animation
+static float g_weaponCarouselPos = 0.0f;    // Current carousel position (smooth)
+static float g_weaponCarouselTarget = 0.0f; // Target carousel position
+static float g_weaponCardGlow[STARTING_WEAPON_COUNT];  // Per-card glow
+
+// Game over animation
+static float g_gameOverEntrance = 0.0f;     // Slide-in animation
+static float g_statCountUp = 0.0f;          // Count-up progress (0-1)
+static int g_displayedKills = 0;            // Animated kill counter
+static float g_displayedTime = 0.0f;        // Animated time counter
+
+// HP bar effects
+static float g_hpFlash = 0.0f;              // Damage flash intensity
+static float g_hpPrevValue = 0.0f;          // Track HP changes for flash
+static float g_lowHpPulse = 0.0f;           // Low HP pulsing timer
+
+// Screen edge danger glow
+static float g_dangerGlow[4] = {0};         // L, R, T, B edge glow intensities
+#define DANGER_GLOW_RANGE 200.0f            // Distance for danger detection
+#define LOW_HP_THRESHOLD 0.3f               // HP percent for low HP pulse
+
+// Background system active flag
+static bool g_bgSystemInitialized = false;
+
+// =============================================================================
 // ENEMY POOL PROGRESSION SYSTEM
 // =============================================================================
 
 // Tracks which enemy types are in the spawn pool
-static bool g_enemyPoolUnlocked[ENEMY_TYPE_COUNT] = {true, false, false, false, false, false, false};
+static bool g_enemyPoolUnlocked[ENEMY_TYPE_COUNT] = {true, false, false, false, false, false, false, false};
 // Base enemies: Walker always unlocked, Fast at wave 1, Tank at wave 3
 
 // Enemy introduction announcement
@@ -110,12 +144,13 @@ static const int ENEMY_UNLOCK_WAVES[] = {
     3,   // TANK - wave 3
     5,   // SWARM - wave 5
     7,   // ELITE - wave 7
+    8,   // HORNET - wave 8
     10,  // BRUTE - wave 10
     15   // BOSS - wave 15
 };
 
 static const char *ENEMY_NAMES[] = {
-    "WALKER", "SPEEDSTER", "TANK", "SWARM", "ELITE", "BRUTE", "BOSS"
+    "WALKER", "SPEEDSTER", "TANK", "SWARM", "ELITE", "HORNET", "BRUTE", "BOSS"
 };
 
 static const char *ENEMY_DESCRIPTIONS[] = {
@@ -124,6 +159,7 @@ static const char *ENEMY_DESCRIPTIONS[] = {
     "Slow but tough",
     "Tiny and numerous",
     "Enhanced warrior",
+    "Ranged laser attacker",
     "Heavy hitter",
     "Massive threat"
 };
@@ -1262,31 +1298,54 @@ static void UpdateXPGems(float dt) {
                 player->xp -= player->xpToNextLevel;
                 player->level++;
                 player->upgradePoints++;
-                if (player->level < MAX_LEVEL) {
+
+                // Check for VICTORY at level 20!
+                if (player->level >= MAX_LEVEL) {
+                    // YOU WIN! Reached max level!
+                    g_game.state = GAME_STATE_VICTORY;
+                    g_gameOverEntrance = 0;  // Reuse for victory animation
+                    g_statCountUp = 0;
+
+                    // Epic victory celebration
+                    g_levelUpCelebration = 1.0f;
+                    g_game.screenFlash = 1.0f;
+                    g_game.screenFlashColor = (Color){255, 215, 0, 255};  // Gold flash
+                    g_game.screenShake = 0.5f;
+
+                    // Massive particle burst
+                    for (int j = 0; j < 48; j++) {
+                        float angle = (float)j / 48.0f * PI * 2.0f;
+                        float speed = 300.0f + RandomFloat(0, 200);
+                        Vector2 vel = {cosf(angle) * speed, sinf(angle) * speed};
+                        Color pColor = (j % 3 == 0) ? (Color){255, 215, 0, 255} :
+                                       (j % 3 == 1) ? COLOR_XP_BAR : (Color){255, 255, 255, 255};
+                        SpawnParticle(player->pos, vel, pColor, RandomFloat(6, 12), 1.0f);
+                    }
+                } else {
                     player->xpToNextLevel = XP_THRESHOLDS[player->level - 1];
+                    GenerateUpgradeChoices();
+                    g_game.state = GAME_STATE_LEVEL_UP;
+
+                    // Level up celebration effects!
+                    g_levelUpCelebration = 1.0f;
+                    g_levelUpFreeze = LEVEL_UP_FREEZE_DURATION;
+                    g_levelUpPos = player->pos;
+
+                    // Radial particle burst
+                    for (int j = 0; j < LEVEL_UP_BURST_PARTICLES; j++) {
+                        float angle = (float)j / LEVEL_UP_BURST_PARTICLES * PI * 2.0f;
+                        float speed = 200.0f + RandomFloat(0, 100);
+                        Vector2 vel = {cosf(angle) * speed, sinf(angle) * speed};
+                        // Alternating gold and cyan particles
+                        Color pColor = (j % 2 == 0) ? (Color){255, 215, 0, 255} : COLOR_XP_BAR;
+                        SpawnParticle(player->pos, vel, pColor, RandomFloat(4, 8), 0.6f);
+                    }
+
+                    // Screen flash for level up
+                    g_game.screenFlash = 0.5f;
+                    g_game.screenFlashColor = (Color){255, 255, 200, 100};
+                    g_game.screenShake = 0.2f;
                 }
-                GenerateUpgradeChoices();
-                g_game.state = GAME_STATE_LEVEL_UP;
-
-                // Level up celebration effects!
-                g_levelUpCelebration = 1.0f;
-                g_levelUpFreeze = LEVEL_UP_FREEZE_DURATION;
-                g_levelUpPos = player->pos;
-
-                // Radial particle burst
-                for (int j = 0; j < LEVEL_UP_BURST_PARTICLES; j++) {
-                    float angle = (float)j / LEVEL_UP_BURST_PARTICLES * PI * 2.0f;
-                    float speed = 200.0f + RandomFloat(0, 100);
-                    Vector2 vel = {cosf(angle) * speed, sinf(angle) * speed};
-                    // Alternating gold and cyan particles
-                    Color pColor = (j % 2 == 0) ? (Color){255, 215, 0, 255} : COLOR_XP_BAR;
-                    SpawnParticle(player->pos, vel, pColor, RandomFloat(4, 8), 0.6f);
-                }
-
-                // Screen flash for level up
-                g_game.screenFlash = 0.5f;
-                g_game.screenFlashColor = (Color){255, 255, 200, 100};
-                g_game.screenShake = 0.2f;
             }
         }
     }
@@ -1301,46 +1360,56 @@ static void DrawXPGems(void) {
         float bob = sinf(gem->bobTimer) * 3.0f;
         float y = screen.y + bob;
 
-        Color color; float size = XP_GEM_SIZE;
+        // Determine gem size and SDK color based on XP value
+        float size = XP_GEM_SIZE;
+        LlzGemColor gemColor;
         switch (gem->type) {
-            case XP_LARGE: color = COLOR_XP_LARGE; size *= 1.4f; break;
-            case XP_MEDIUM: color = COLOR_XP_MEDIUM; size *= 1.2f; break;
-            default: color = COLOR_XP_SMALL; break;
+            case XP_LARGE:
+                size *= 1.4f;
+                gemColor = LLZ_GEM_TOPAZ;  // Golden for large
+                break;
+            case XP_MEDIUM:
+                size *= 1.2f;
+                gemColor = LLZ_GEM_SAPPHIRE;  // Blue for medium
+                break;
+            default:
+                gemColor = LLZ_GEM_EMERALD;  // Green for small
+                break;
         }
 
         // Pulsing glow effect
         float pulse = 0.6f + 0.4f * sinf(gem->glowTimer * 3.0f);
 
+        // Get SDK color for glow effects
+        Color baseColor = LlzGetGemColor(gemColor);
+
         // Outer glow (larger, softer)
-        Color glowOuter = color;
+        Color glowOuter = baseColor;
         glowOuter.a = (unsigned char)(40 * pulse);
         DrawCircleGradient((int)screen.x, (int)y, size * 3.0f * pulse, glowOuter, BLANK);
 
         // Inner glow
-        Color glowInner = color;
+        Color glowInner = baseColor;
         glowInner.a = (unsigned char)(70 * pulse);
         DrawCircleGradient((int)screen.x, (int)y, size * 1.8f, glowInner, BLANK);
 
-        // Magnetized state - brighter white pulse
+        // Magnetized state - brighter white pulse and size increase
+        float magnetScale = 1.0f;
         if (gem->magnetized) {
             float magnetPulse = 0.5f + 0.5f * sinf(gem->glowTimer * 8.0f);
+            magnetScale = 1.0f + 0.2f * magnetPulse;
             Color magnetGlow = WHITE;
-            magnetGlow.a = (unsigned char)(50 * magnetPulse);
-            DrawCircleGradient((int)screen.x, (int)y, size * 2.5f, magnetGlow, BLANK);
+            magnetGlow.a = (unsigned char)(60 * magnetPulse);
+            DrawCircleGradient((int)screen.x, (int)y, size * 2.5f * magnetScale, magnetGlow, BLANK);
         }
 
-        // Main diamond shape
-        Vector2 pts[4] = {
-            {screen.x, y - size}, {screen.x + size * 0.7f, y},
-            {screen.x, y + size}, {screen.x - size * 0.7f, y}
-        };
-        DrawTriangle(pts[0], pts[1], pts[2], color);
-        DrawTriangle(pts[0], pts[2], pts[3], color);
+        // Draw SDK gem shape (diamond shape with facets)
+        LlzDrawGemShape(LLZ_SHAPE_DIAMOND, screen.x, y, size * magnetScale, gemColor);
 
         // Highlight sparkle at top
         float sparkle = fmaxf(0, sinf(gem->sparkleTimer * 5.0f));
         if (sparkle > 0.7f) {
-            Color white = WHITE;
+            Color white = LlzGetGemColorLight(gemColor);
             white.a = (unsigned char)(200 * (sparkle - 0.7f) / 0.3f);
             DrawCircleV((Vector2){screen.x, y - size + 2}, 2.0f * sparkle, white);
         }
@@ -1390,6 +1459,18 @@ static void SpawnEnemy(EnemyType type) {
                     e->size = ELITE_SIZE; e->speed = ELITE_SPEED * (1.0f + diff * 0.15f);
                     e->hp = e->maxHp = CalculateEnemyHP(ELITE_BASE_HP) + (int)(g_game.gameTime * 0.05f);
                     e->damage = ELITE_DAMAGE; e->xpValue = ELITE_XP; break;
+                case ENEMY_HORNET:
+                    e->size = HORNET_SIZE; e->speed = HORNET_SPEED * (1.0f + diff * 0.1f);
+                    e->hp = e->maxHp = CalculateEnemyHP(HORNET_BASE_HP);
+                    e->damage = HORNET_DAMAGE; e->xpValue = HORNET_XP;
+                    // Initialize laser state
+                    e->laserCooldown = 0.5f;  // Short delay before first attack
+                    e->laserChargeTimer = 0;
+                    e->laserActiveTimer = 0;
+                    e->laserAngle = 0;
+                    e->laserCharging = false;
+                    e->laserFiring = false;
+                    break;
                 case ENEMY_BRUTE:
                     e->size = BRUTE_SIZE; e->speed = BRUTE_SPEED * (1.0f + diff * 0.08f);
                     e->hp = e->maxHp = CalculateEnemyHP(BRUTE_BASE_HP) + (int)(g_game.gameTime * 0.15f);
@@ -1453,9 +1534,17 @@ static void DamageEnemy(Enemy *e, int damage) {
         SpawnTextPopup(e->pos, dmgText, WHITE, 1.0f);
     }
 
-    // Lifesteal: heal player for % of damage dealt
+    // Lifesteal: heal player for % of damage dealt (with exponential dropoff)
+    // Raw lifesteal is capped at 50%, but effective lifesteal has diminishing returns
+    // Formula: effective = max_rate * (1 - e^(-raw / scale))
+    // At 10% raw -> ~6.3% effective, at 25% raw -> ~11.8% effective, at 50% raw -> ~15.4% effective
     if (g_game.player.lifesteal > 0) {
-        int healAmount = (int)(finalDamage * g_game.player.lifesteal / 100.0f);
+        float rawLifesteal = g_game.player.lifesteal;
+        float maxEffective = 18.0f;  // Maximum effective lifesteal percent
+        float scaleFactor = 20.0f;   // Controls curve steepness
+        float effectiveLifesteal = maxEffective * (1.0f - expf(-rawLifesteal / scaleFactor));
+
+        int healAmount = (int)(finalDamage * effectiveLifesteal / 100.0f);
         if (healAmount > 0) {
             g_game.player.hp += healAmount;
             if (g_game.player.hp > g_game.player.maxHp) {
@@ -1524,11 +1613,21 @@ static void DamagePlayer(int damage, Vector2 knockbackFrom) {
     player->pos.x += knock.x * 30;
     player->pos.y += knock.y * 30;
 
-    if (player->hp <= 0) g_game.state = GAME_STATE_GAME_OVER;
+    if (player->hp <= 0) {
+        g_game.state = GAME_STATE_GAME_OVER;
+        // Reset game over entrance animation
+        g_gameOverEntrance = 0;
+        g_statCountUp = 0;
+        g_displayedKills = 0;
+        g_displayedTime = 0;
+    }
 }
 
 static void UpdateEnemies(float dt) {
     Player *player = &g_game.player;
+
+    // Reset danger glow accumulator
+    float dangerLeft = 0, dangerRight = 0, dangerTop = 0, dangerBottom = 0;
 
     for (int i = 0; i < MAX_ENEMIES; i++) {
         Enemy *e = &g_game.enemies[i];
@@ -1538,10 +1637,76 @@ static void UpdateEnemies(float dt) {
         if (e->hitFlash < 0) e->hitFlash = 0;
 
         Vector2 dir = Normalize((Vector2){player->pos.x - e->pos.x, player->pos.y - e->pos.y});
-        e->pos.x += dir.x * e->speed * dt;
-        e->pos.y += dir.y * e->speed * dt;
-
         float dist = Distance(e->pos, player->pos);
+
+        // Hornet-specific AI: stop at range and fire lasers
+        if (e->type == ENEMY_HORNET) {
+            // Only move if outside attack range
+            if (dist > HORNET_ATTACK_RANGE) {
+                e->pos.x += dir.x * e->speed * dt;
+                e->pos.y += dir.y * e->speed * dt;
+                // Reset laser state while moving
+                e->laserCharging = false;
+                e->laserFiring = false;
+            } else {
+                // In attack range - manage laser state machine
+                if (e->laserFiring) {
+                    // Laser is active - stays on course (angle already locked)
+                    e->laserActiveTimer -= dt;
+                    if (e->laserActiveTimer <= 0) {
+                        // Laser ends
+                        e->laserFiring = false;
+                        e->laserCooldown = HORNET_LASER_COOLDOWN;
+                    }
+                } else if (e->laserCharging) {
+                    // Charging - keep tracking player angle
+                    e->laserAngle = atan2f(dir.y, dir.x);
+                    e->laserChargeTimer -= dt;
+                    if (e->laserChargeTimer <= 0) {
+                        // Fire!
+                        e->laserCharging = false;
+                        e->laserFiring = true;
+                        e->laserActiveTimer = HORNET_LASER_DURATION;
+                    }
+                } else if (e->laserCooldown > 0) {
+                    // On cooldown
+                    e->laserCooldown -= dt;
+                } else {
+                    // Ready to charge
+                    e->laserCharging = true;
+                    e->laserChargeTimer = HORNET_LASER_CHARGE_TIME;
+                    e->laserAngle = atan2f(dir.y, dir.x);
+                }
+            }
+
+            // Laser damage check when firing
+            if (e->laserFiring && player->invincibilityTimer <= 0 && !HasShield()) {
+                // Check if player intersects the laser beam
+                // Laser goes from hornet position in laserAngle direction
+                // Use point-to-line-segment distance
+                float laserLength = 500.0f;  // Long enough to reach across screen
+                Vector2 laserEnd = {
+                    e->pos.x + cosf(e->laserAngle) * laserLength,
+                    e->pos.y + sinf(e->laserAngle) * laserLength
+                };
+
+                // Calculate perpendicular distance from player to laser line
+                float dx = laserEnd.x - e->pos.x;
+                float dy = laserEnd.y - e->pos.y;
+                float lineLenSq = dx * dx + dy * dy;
+                float t = fmaxf(0, fminf(1, ((player->pos.x - e->pos.x) * dx + (player->pos.y - e->pos.y) * dy) / lineLenSq));
+                Vector2 closest = {e->pos.x + t * dx, e->pos.y + t * dy};
+                float distToLaser = Distance(player->pos, closest);
+
+                if (distToLaser < HORNET_LASER_WIDTH / 2 + PLAYER_SIZE / 2) {
+                    DamagePlayer(HORNET_LASER_DAMAGE, e->pos);
+                }
+            }
+        } else {
+            // Normal enemy movement
+            e->pos.x += dir.x * e->speed * dt;
+            e->pos.y += dir.y * e->speed * dt;
+        }
         if (dist < (e->size / 2 + PLAYER_SIZE / 2) && player->invincibilityTimer <= 0 && !HasShield()) {
             DamagePlayer(e->damage, e->pos);
 
@@ -1562,7 +1727,26 @@ static void UpdateEnemies(float dt) {
         }
 
         if (dist > 1000.0f) e->active = false;
+
+        // Calculate danger glow for off-screen but nearby enemies
+        if (e->active && dist < DANGER_GLOW_RANGE) {
+            Vector2 screen = WorldToScreen(e->pos);
+            float intensity = 1.0f - (dist / DANGER_GLOW_RANGE);
+            intensity *= intensity;  // Quadratic falloff for more urgency when close
+
+            // Check which screen edge the enemy is near/beyond
+            if (screen.x < 0) dangerLeft = fmaxf(dangerLeft, intensity);
+            else if (screen.x > g_screenWidth) dangerRight = fmaxf(dangerRight, intensity);
+            if (screen.y < 0) dangerTop = fmaxf(dangerTop, intensity);
+            else if (screen.y > g_screenHeight) dangerBottom = fmaxf(dangerBottom, intensity);
+        }
     }
+
+    // Update danger glow with smooth lerp
+    g_dangerGlow[0] = fmaxf(g_dangerGlow[0], dangerLeft);   // Left
+    g_dangerGlow[1] = fmaxf(g_dangerGlow[1], dangerRight);  // Right
+    g_dangerGlow[2] = fmaxf(g_dangerGlow[2], dangerTop);    // Top
+    g_dangerGlow[3] = fmaxf(g_dangerGlow[3], dangerBottom); // Bottom
 }
 
 static void DrawEnemy(Enemy *e) {
@@ -1614,6 +1798,45 @@ static void DrawEnemy(Enemy *e) {
             // Inner highlight
             Color inner = {255, 255, 255, 100};
             DrawCircleV(screen, hs * 0.3f, inner);
+            break;
+        }
+        case ENEMY_HORNET: {
+            // Wasp/hornet shape - elongated body with stinger
+            // Body (elongated oval made of triangles)
+            Color bodyColor = color;
+            if (e->laserCharging || e->laserFiring) {
+                // Flash when charging/firing
+                float flash = sinf(g_game.bgTime * 15.0f) * 0.5f + 0.5f;
+                bodyColor = (Color){
+                    (unsigned char)(color.r + (255 - color.r) * flash * 0.3f),
+                    (unsigned char)(color.g + (255 - color.g) * flash * 0.3f),
+                    (unsigned char)(color.b + (255 - color.b) * flash * 0.3f),
+                    255
+                };
+            }
+
+            // Main body - horizontal oval
+            DrawCircleV(screen, hs * 0.8f, bodyColor);
+            // Rear segment (larger)
+            DrawCircleV((Vector2){screen.x - hs * 0.5f, screen.y}, hs * 0.6f, bodyColor);
+            // Stinger
+            Vector2 dir = Normalize((Vector2){g_game.player.pos.x - e->pos.x, g_game.player.pos.y - e->pos.y});
+            float facing = atan2f(-dir.y, -dir.x);  // Face away from player (rear toward player)
+            DrawTriangle(
+                (Vector2){screen.x + cosf(facing) * hs * 1.4f, screen.y + sinf(facing) * hs * 1.4f},
+                (Vector2){screen.x + cosf(facing - 0.4f) * hs * 0.6f, screen.y + sinf(facing - 0.4f) * hs * 0.6f},
+                (Vector2){screen.x + cosf(facing + 0.4f) * hs * 0.6f, screen.y + sinf(facing + 0.4f) * hs * 0.6f},
+                bodyColor);
+
+            // Wings (translucent)
+            Color wingColor = {200, 200, 255, 100};
+            DrawCircleV((Vector2){screen.x - hs * 0.2f, screen.y - hs * 0.8f}, hs * 0.5f, wingColor);
+            DrawCircleV((Vector2){screen.x - hs * 0.2f, screen.y + hs * 0.8f}, hs * 0.5f, wingColor);
+
+            // Stripes (dark bands)
+            Color stripe = {40, 30, 0, 255};
+            DrawRectangle((int)(screen.x - hs * 0.15f), (int)(screen.y - hs * 0.5f), (int)(hs * 0.15f), (int)(hs), stripe);
+            DrawRectangle((int)(screen.x + hs * 0.2f), (int)(screen.y - hs * 0.3f), (int)(hs * 0.1f), (int)(hs * 0.6f), stripe);
             break;
         }
         case ENEMY_BRUTE: {
@@ -1681,6 +1904,96 @@ static void DrawEnemy(Enemy *e) {
 static void DrawEnemies(void) {
     for (int i = 0; i < MAX_ENEMIES; i++) {
         if (g_game.enemies[i].active) DrawEnemy(&g_game.enemies[i]);
+    }
+}
+
+// Draw hornet laser beams (warning lines when charging, solid beams when firing)
+static void DrawHornetLasers(void) {
+    for (int i = 0; i < MAX_ENEMIES; i++) {
+        Enemy *e = &g_game.enemies[i];
+        if (!e->active || e->type != ENEMY_HORNET) continue;
+        if (!e->laserCharging && !e->laserFiring) continue;
+
+        Vector2 screenStart = WorldToScreen(e->pos);
+        float laserLength = 600.0f;
+        Vector2 worldEnd = {
+            e->pos.x + cosf(e->laserAngle) * laserLength,
+            e->pos.y + sinf(e->laserAngle) * laserLength
+        };
+        Vector2 screenEnd = WorldToScreen(worldEnd);
+
+        if (e->laserCharging) {
+            // Warning phase: pulsing dashed line
+            float chargeProgress = 1.0f - (e->laserChargeTimer / HORNET_LASER_CHARGE_TIME);
+            float pulse = sinf(g_game.bgTime * 12.0f) * 0.5f + 0.5f;
+
+            // Draw dashed warning line
+            Color warnColor = COLOR_HORNET_LASER;
+            warnColor.a = (unsigned char)(80 + 80 * pulse);
+
+            // Draw segments
+            int segments = 20;
+            float segLen = 1.0f / segments;
+            for (int s = 0; s < segments; s++) {
+                // Only draw odd segments (dashed effect)
+                if (s % 2 == 0) continue;
+
+                // Increase visible segments as charge progresses
+                float visibleProgress = chargeProgress * 1.5f;  // Slight overshoot
+                if ((float)s / segments > visibleProgress) continue;
+
+                float t1 = s * segLen;
+                float t2 = (s + 1) * segLen;
+                Vector2 p1 = {
+                    screenStart.x + (screenEnd.x - screenStart.x) * t1,
+                    screenStart.y + (screenEnd.y - screenStart.y) * t1
+                };
+                Vector2 p2 = {
+                    screenStart.x + (screenEnd.x - screenStart.x) * t2,
+                    screenStart.y + (screenEnd.y - screenStart.y) * t2
+                };
+                DrawLineEx(p1, p2, 2.0f + pulse, warnColor);
+            }
+
+            // Bright dot at hornet when about to fire
+            if (chargeProgress > 0.7f) {
+                float bright = (chargeProgress - 0.7f) / 0.3f;
+                Color brightColor = {255, 200, 150, (unsigned char)(200 * bright)};
+                DrawCircleV(screenStart, 8 + pulse * 4, brightColor);
+            }
+        } else if (e->laserFiring) {
+            // Active laser: bright solid beam
+            float fireProgress = 1.0f - (e->laserActiveTimer / HORNET_LASER_DURATION);
+
+            // Outer glow
+            Color glowColor = COLOR_HORNET_LASER;
+            glowColor.a = (unsigned char)(100 * (1.0f - fireProgress * 0.5f));
+            DrawLineEx(screenStart, screenEnd, HORNET_LASER_WIDTH * 2.5f, glowColor);
+
+            // Core beam
+            Color coreColor = {255, 255, 200, 255};  // Bright yellow-white core
+            DrawLineEx(screenStart, screenEnd, HORNET_LASER_WIDTH, coreColor);
+
+            // Inner bright line
+            Color innerColor = {255, 255, 255, 255};
+            DrawLineEx(screenStart, screenEnd, HORNET_LASER_WIDTH * 0.4f, innerColor);
+
+            // Sparks along the beam
+            float sparkTime = g_game.bgTime * 20.0f;
+            for (int s = 0; s < 5; s++) {
+                float t = fmodf(sparkTime + s * 0.2f, 1.0f);
+                Vector2 sparkPos = {
+                    screenStart.x + (screenEnd.x - screenStart.x) * t,
+                    screenStart.y + (screenEnd.y - screenStart.y) * t
+                };
+                Color sparkColor = {255, 255, 255, (unsigned char)(150 * (1.0f - t))};
+                DrawCircleV(sparkPos, 3, sparkColor);
+            }
+
+            // Impact flash at origin
+            Color flashColor = {255, 220, 150, (unsigned char)(150 * (1.0f - fireProgress))};
+            DrawCircleV(screenStart, 10 + sinf(g_game.bgTime * 30.0f) * 3, flashColor);
+        }
     }
 }
 
@@ -3501,12 +3814,120 @@ static void DrawActiveBuffs(void) {
     }
 }
 
+// Draw red danger glow on screen edges for nearby off-screen enemies
+static void DrawDangerGlow(void) {
+    // Left edge
+    if (g_dangerGlow[0] > 0.01f) {
+        float intensity = g_dangerGlow[0];
+        float pulse = 0.7f + 0.3f * sinf(g_game.bgTime * 8.0f);
+        intensity *= pulse;
+
+        // Gradient from edge
+        for (int i = 0; i < 40; i++) {
+            float alpha = intensity * (1.0f - i / 40.0f);
+            Color c = {255, 50, 50, (unsigned char)(100 * alpha)};
+            DrawRectangle(i, 0, 1, g_screenHeight, c);
+        }
+    }
+
+    // Right edge
+    if (g_dangerGlow[1] > 0.01f) {
+        float intensity = g_dangerGlow[1];
+        float pulse = 0.7f + 0.3f * sinf(g_game.bgTime * 8.0f + 1.0f);
+        intensity *= pulse;
+
+        for (int i = 0; i < 40; i++) {
+            float alpha = intensity * (1.0f - i / 40.0f);
+            Color c = {255, 50, 50, (unsigned char)(100 * alpha)};
+            DrawRectangle(g_screenWidth - i - 1, 0, 1, g_screenHeight, c);
+        }
+    }
+
+    // Top edge
+    if (g_dangerGlow[2] > 0.01f) {
+        float intensity = g_dangerGlow[2];
+        float pulse = 0.7f + 0.3f * sinf(g_game.bgTime * 8.0f + 2.0f);
+        intensity *= pulse;
+
+        for (int i = 0; i < 30; i++) {
+            float alpha = intensity * (1.0f - i / 30.0f);
+            Color c = {255, 50, 50, (unsigned char)(100 * alpha)};
+            DrawRectangle(0, i, g_screenWidth, 1, c);
+        }
+    }
+
+    // Bottom edge
+    if (g_dangerGlow[3] > 0.01f) {
+        float intensity = g_dangerGlow[3];
+        float pulse = 0.7f + 0.3f * sinf(g_game.bgTime * 8.0f + 3.0f);
+        intensity *= pulse;
+
+        for (int i = 0; i < 30; i++) {
+            float alpha = intensity * (1.0f - i / 30.0f);
+            Color c = {255, 50, 50, (unsigned char)(100 * alpha)};
+            DrawRectangle(0, g_screenHeight - i - 1, g_screenWidth, 1, c);
+        }
+    }
+}
+
 static void DrawHUD(void) {
     Player *player = &g_game.player;
 
-    DrawRectangle(10, 10, 200, 16, COLOR_HP_BG);
-    DrawRectangle(10, 10, (int)(200 * (float)player->hp / player->maxHp), 16, COLOR_HP_BAR);
-    DrawRectangleLines(10, 10, 200, 16, COLOR_TEXT);
+    // Track HP changes for damage flash
+    float hpRatio = (float)player->hp / player->maxHp;
+    if (player->hp < g_hpPrevValue) {
+        g_hpFlash = 1.0f;  // Trigger flash on damage
+    }
+    g_hpPrevValue = (float)player->hp;
+
+    // HP bar dimensions with shake on damage
+    int hpBarX = 10 + (int)(g_hpFlash * sinf(g_game.bgTime * 40) * 3);
+    int hpBarY = 10;
+    int hpBarW = 200;
+    int hpBarH = 16;
+
+    // Low HP pulsing glow
+    bool lowHP = hpRatio < LOW_HP_THRESHOLD;
+    if (lowHP) {
+        float pulse = 0.5f + 0.5f * sinf(g_lowHpPulse * 6.0f);  // Fast pulse
+        Color dangerGlow = {255, 50, 50, (unsigned char)(100 * pulse)};
+        DrawCircleGradient(hpBarX + hpBarW / 2, hpBarY + hpBarH / 2, 120, dangerGlow, BLANK);
+    }
+
+    // HP bar background
+    DrawRectangle(hpBarX, hpBarY, hpBarW, hpBarH, COLOR_HP_BG);
+
+    // HP bar fill with color based on health
+    Color hpColor = COLOR_HP_BAR;
+    if (lowHP) {
+        // Pulse between red and dark red when low
+        float pulse = 0.5f + 0.5f * sinf(g_lowHpPulse * 8.0f);
+        hpColor.r = (unsigned char)(150 + 105 * pulse);
+        hpColor.g = (unsigned char)(20 + 30 * pulse);
+        hpColor.b = (unsigned char)(20 + 30 * pulse);
+    }
+    int hpFillW = (int)(hpBarW * hpRatio);
+    DrawRectangle(hpBarX, hpBarY, hpFillW, hpBarH, hpColor);
+
+    // Damage flash overlay (white flash on HP bar)
+    if (g_hpFlash > 0) {
+        Color flashColor = {255, 255, 255, (unsigned char)(180 * g_hpFlash)};
+        DrawRectangle(hpBarX, hpBarY, hpFillW, hpBarH, flashColor);
+    }
+
+    // HP bar border
+    Color borderColor = lowHP ? (Color){255, 100, 100, 255} : COLOR_TEXT;
+    DrawRectangleLines(hpBarX, hpBarY, hpBarW, hpBarH, borderColor);
+
+    // HP text indicator when damaged
+    if (g_hpFlash > 0.3f) {
+        char hpText[16];
+        snprintf(hpText, sizeof(hpText), "%d/%d", player->hp, player->maxHp);
+        Font hpFont = LlzFontGet(LLZ_FONT_UI, 12);
+        int htw = (int)MeasureTextEx(hpFont, hpText, 12, 1).x;
+        Color hpTextColor = {255, 255, 255, (unsigned char)(255 * (g_hpFlash - 0.3f) / 0.7f)};
+        DrawTextEx(hpFont, hpText, (Vector2){hpBarX + hpBarW / 2 - htw / 2, hpBarY + 2}, 12, 1, hpTextColor);
+    }
 
     // XP bar with pulse effect
     float pulse = g_game.xpBarPulse;
@@ -3759,83 +4180,528 @@ static void DrawLevelUpScreen(void) {
 }
 
 static void DrawWeaponSelect(void) {
-    DrawRectangle(0, 0, g_screenWidth, g_screenHeight, COLOR_BG);
-
-    const char *title = "SELECT STARTING WEAPON";
-    int tw = (int)MeasureTextEx(g_font, title, 32, 1).x;
-    DrawTextEx(g_font, title, (Vector2){g_screenWidth / 2 - tw / 2, 60}, 32, 1, COLOR_PLAYER);
-
-    int boxW = 140, boxH = 100, spacing = 15;
-    int numStarting = STARTING_WEAPON_COUNT;
-    int totalW = numStarting * boxW + (numStarting - 1) * spacing;
-    int startX = g_screenWidth / 2 - totalW / 2;
-    int y = 140;
-
-    Color weaponColors[] = {COLOR_MELEE, COLOR_BULLET, COLOR_WAVE, COLOR_ORBIT, COLOR_LIGHTNING};
-
-    for (int i = 0; i < numStarting; i++) {
-        int x = startX + i * (boxW + spacing);
-        Color bgColor = COLOR_UI_BG;
-        Color borderColor = (i == g_game.weaponSelectIndex) ? COLOR_UPGRADE_SEL : COLOR_TEXT_DIM;
-
-        DrawRectangle(x, y, boxW, boxH, bgColor);
-        DrawRectangleLinesEx((Rectangle){x, y, boxW, boxH}, 2, borderColor);
-
-        // Weapon icon
-        DrawCircleV((Vector2){x + boxW / 2, y + 30}, 15, weaponColors[i]);
-
-        int nw = (int)MeasureTextEx(g_font, WEAPON_NAMES[i], 18, 1).x;
-        DrawTextEx(g_font, WEAPON_NAMES[i], (Vector2){x + boxW / 2 - nw / 2, y + 55}, 18, 1, COLOR_TEXT);
-        DrawTextEx(g_font, WEAPON_DESCS[i], (Vector2){x + 5, y + 78}, 10, 1, COLOR_TEXT_DIM);
+    // Draw SDK animated background
+    if (g_bgSystemInitialized) {
+        LlzBackgroundDraw();
+    } else {
+        DrawRectangle(0, 0, g_screenWidth, g_screenHeight, COLOR_BG);
     }
 
-    const char *hint = "Scroll: Select  Click: Confirm";
-    int hw = (int)MeasureTextEx(g_font, hint, 14, 1).x;
-    DrawTextEx(g_font, hint, (Vector2){g_screenWidth / 2 - hw / 2, 260}, 14, 1, COLOR_TEXT_DIM);
+    // Dark overlay gradient for carousel area contrast
+    DrawRectangleGradientV(0, 60, g_screenWidth, g_screenHeight - 100,
+                           (Color){10, 12, 20, 180}, (Color){20, 22, 35, 180});
 
-    const char *hint2 = "More weapons can be unlocked during gameplay!";
-    int hw2 = (int)MeasureTextEx(g_font, hint2, 12, 1).x;
-    DrawTextEx(g_font, hint2, (Vector2){g_screenWidth / 2 - hw2 / 2, 280}, 12, 1, COLOR_XP_BAR);
+    float centerX = g_screenWidth / 2.0f;
+    float centerY = g_screenHeight / 2.0f;
+    float entrance = EaseOutBack(g_weaponSelectEntrance);
+
+    // Title with glow (larger, more prominent)
+    const char *title = "SELECT WEAPON";
+    int titleFontSize = 48;
+    Font titleFont = LlzFontGet(LLZ_FONT_UI, titleFontSize);
+    int tw = (int)MeasureTextEx(titleFont, title, titleFontSize, 1).x;
+    float titleY = 15 - (1.0f - entrance) * 40;
+
+    // Title glow pulse
+    float glowPulse = (sinf(g_game.bgTime * 3.0f) + 1.0f) * 0.5f;
+    Color titleGlow = COLOR_PLAYER;
+    titleGlow.a = (unsigned char)((60 + 40 * glowPulse) * entrance);
+    DrawCircleGradient((int)centerX, (int)(titleY + 24), 250 * entrance, titleGlow, BLANK);
+
+    // Title shadow and text
+    Color shadow = {0, 0, 0, (unsigned char)(180 * entrance)};
+    DrawTextEx(titleFont, title, (Vector2){centerX - tw / 2 + 2, titleY + 2}, titleFontSize, 1, shadow);
+    DrawTextEx(titleFont, title, (Vector2){centerX - tw / 2, titleY}, titleFontSize, 1, titleGlow);
+    DrawTextEx(titleFont, title, (Vector2){centerX - tw / 2, titleY}, titleFontSize, 1, COLOR_PLAYER);
+
+    // Weapon card data
+    LlzGemColor weaponGems[] = {LLZ_GEM_RUBY, LLZ_GEM_TOPAZ, LLZ_GEM_AMETHYST, LLZ_GEM_SAPPHIRE, LLZ_GEM_DIAMOND};
+    LlzShapeType weaponShapes[] = {LLZ_SHAPE_TRIANGLE, LLZ_SHAPE_CIRCLE, LLZ_SHAPE_STAR, LLZ_SHAPE_HEXAGON, LLZ_SHAPE_TALL_DIAMOND};
+
+    // Card dimensions (large like Bejeweled)
+    float baseCardWidth = 160;
+    float baseCardHeight = 220;
+    float cardSpacing = 140;
+
+    // Sort cards by distance for proper z-ordering (farthest first)
+    int drawOrder[STARTING_WEAPON_COUNT];
+    float distances[STARTING_WEAPON_COUNT];
+    for (int i = 0; i < STARTING_WEAPON_COUNT; i++) {
+        float offset = (float)i - g_weaponCarouselPos;
+        distances[i] = fabsf(offset);
+        drawOrder[i] = i;
+    }
+    for (int i = 0; i < STARTING_WEAPON_COUNT - 1; i++) {
+        for (int j = i + 1; j < STARTING_WEAPON_COUNT; j++) {
+            if (distances[drawOrder[i]] < distances[drawOrder[j]]) {
+                int temp = drawOrder[i];
+                drawOrder[i] = drawOrder[j];
+                drawOrder[j] = temp;
+            }
+        }
+    }
+
+    // Draw cards in sorted order (back to front)
+    for (int d = 0; d < STARTING_WEAPON_COUNT; d++) {
+        int i = drawOrder[d];
+
+        // Calculate position offset from center
+        float offset = (float)i - g_weaponCarouselPos;
+        float absOffset = fabsf(offset);
+
+        // Scale based on distance from center (center=1.0, far=0.55)
+        float scale;
+        if (absOffset < 0.1f) {
+            scale = 1.0f;
+        } else if (absOffset < 1.5f) {
+            scale = 1.0f - 0.3f * absOffset;
+        } else {
+            scale = 0.55f;
+        }
+
+        // Entrance animation scale
+        float cardEntrance = Clampf((g_weaponSelectEntrance - 0.1f) * 2.0f, 0, 1);
+        scale *= EaseOutBack(cardEntrance);
+
+        // Selected card pulse
+        bool isSelected = (i == g_game.weaponSelectIndex);
+        float selPulse = isSelected ? (sinf(g_game.bgTime * 6.0f) + 1.0f) * 0.5f * 0.05f : 0.0f;
+        scale += selPulse;
+
+        // Alpha based on distance
+        float alpha = 1.0f;
+        if (absOffset > 1.5f) {
+            alpha = 0.4f;
+        } else if (absOffset > 0.5f) {
+            alpha = 1.0f - 0.4f * (absOffset - 0.5f);
+        }
+        alpha *= entrance;
+
+        // Card position
+        float cardWidth = baseCardWidth * scale;
+        float cardHeight = baseCardHeight * scale;
+        float cardX = centerX + offset * cardSpacing - cardWidth / 2.0f;
+        float cardY = centerY - cardHeight / 2.0f + 15;
+
+        // Glow effect for selected card
+        float glowIntensity = g_weaponCardGlow[i];
+        if (glowIntensity > 0.01f) {
+            Color glowColor = LlzGetGemColor(weaponGems[i]);
+            float gPulse = (sinf(g_game.bgTime * 6.0f) + 1.0f) * 0.5f;
+            glowColor.a = (unsigned char)((80 + 60 * gPulse) * glowIntensity * alpha);
+            DrawRectangleRounded((Rectangle){cardX - 10, cardY - 10, cardWidth + 20, cardHeight + 20},
+                                0.12f, 8, glowColor);
+        }
+
+        // Card background
+        Color cardBg = isSelected ? (Color){45, 55, 80, (unsigned char)(255 * alpha)}
+                                  : (Color){30, 35, 50, (unsigned char)(255 * alpha)};
+        DrawRectangleRounded((Rectangle){cardX, cardY, cardWidth, cardHeight}, 0.12f, 8, cardBg);
+
+        // Card border
+        Color borderColor = LlzGetGemColor(weaponGems[i]);
+        borderColor.a = (unsigned char)((isSelected ? 255 : 120) * alpha);
+        DrawRectangleRoundedLines((Rectangle){cardX, cardY, cardWidth, cardHeight}, 0.12f, 8, borderColor);
+
+        // Weapon name at top
+        float nameY = cardY + 20 * scale;
+        int nameFontSize = (int)(28 * scale);
+        if (nameFontSize < 12) nameFontSize = 12;
+        Font nameFont = LlzFontGet(LLZ_FONT_UI, nameFontSize);
+        Vector2 nameSize = MeasureTextEx(nameFont, WEAPON_NAMES[i], nameFontSize, 1);
+        Color nameColor = LlzGetGemColor(weaponGems[i]);
+        nameColor.a = (unsigned char)(255 * alpha);
+        DrawTextEx(nameFont, WEAPON_NAMES[i], (Vector2){cardX + cardWidth / 2 - nameSize.x / 2, nameY}, nameFontSize, 1, nameColor);
+
+        // Large weapon icon (gem shape) in center
+        float iconY = cardY + cardHeight * 0.45f;
+        float iconSize = 45 * scale;
+        float iconBob = isSelected ? sinf(g_game.bgTime * 2.5f) * 4.0f : 0.0f;
+        LlzDrawGemShape(weaponShapes[i], cardX + cardWidth / 2, iconY + iconBob, iconSize, weaponGems[i]);
+
+        // Inner highlight on gem
+        Color innerColor = LlzGetGemColorLight(weaponGems[i]);
+        innerColor.a = (unsigned char)((isSelected ? 180 : 100) * alpha);
+        DrawCircleV((Vector2){cardX + cardWidth / 2 - 8 * scale, iconY - 8 * scale + iconBob}, 6 * scale, innerColor);
+
+        // Description at bottom
+        if (alpha > 0.3f) {
+            float descY = cardY + cardHeight * 0.72f;
+            int descFontSize = (int)(16 * scale);
+            if (descFontSize < 10) descFontSize = 10;
+            Font descFont = LlzFontGet(LLZ_FONT_UI, descFontSize);
+            Vector2 descSize = MeasureTextEx(descFont, WEAPON_DESCS[i], descFontSize, 1);
+            Color descColor = isSelected ? (Color){240, 240, 250, (unsigned char)(255 * alpha)}
+                                         : (Color){180, 185, 200, (unsigned char)(200 * alpha)};
+            DrawTextEx(descFont, WEAPON_DESCS[i], (Vector2){cardX + cardWidth / 2 - descSize.x / 2, descY}, descFontSize, 1, descColor);
+        }
+    }
+
+    // Instructions at bottom
+    float instrAlpha = Clampf((g_weaponSelectEntrance - 0.4f) * 3.0f, 0, 1);
+    const char *instructions = "SCROLL TO SELECT  -  PRESS TO START";
+    int instrFontSize = 18;
+    Font instrFont = LlzFontGet(LLZ_FONT_UI, instrFontSize);
+    Vector2 instrSize = MeasureTextEx(instrFont, instructions, instrFontSize, 1);
+    float instrPulse = 150 + 105 * sinf(g_game.bgTime * 2.5f);
+    Color instrColor = {240, 240, 250, (unsigned char)(instrPulse * instrAlpha)};
+    DrawTextEx(instrFont, instructions, (Vector2){centerX - instrSize.x / 2, g_screenHeight - 45}, instrFontSize, 1, instrColor);
+
+    // Weapon indicator dots
+    float dotY = g_screenHeight - 75;
+    float dotSpacing = 20;
+    float totalDotWidth = (STARTING_WEAPON_COUNT - 1) * dotSpacing;
+    float dotStartX = centerX - totalDotWidth / 2.0f;
+
+    for (int i = 0; i < STARTING_WEAPON_COUNT; i++) {
+        float dotX = dotStartX + i * dotSpacing;
+        bool isSelected = (i == g_game.weaponSelectIndex);
+        Color dotColor = isSelected ? LlzGetGemColor(weaponGems[i]) : (Color){80, 85, 100, 200};
+        float dotSize = isSelected ? 6.0f : 4.0f;
+        dotColor.a = (unsigned char)(dotColor.a * instrAlpha);
+        DrawCircleV((Vector2){dotX, dotY}, dotSize, dotColor);
+    }
+
+    // Hint about unlocking more
+    const char *hint2 = "More weapons unlock during gameplay!";
+    Font hint2Font = LlzFontGet(LLZ_FONT_UI, 14);
+    int hw2 = (int)MeasureTextEx(hint2Font, hint2, 14, 1).x;
+    Color hint2Color = COLOR_XP_BAR;
+    hint2Color.a = (unsigned char)(180 * instrAlpha);
+    DrawTextEx(hint2Font, hint2, (Vector2){centerX - hw2 / 2, g_screenHeight - 22}, 14, 1, hint2Color);
 }
 
 static void DrawMenu(void) {
-    DrawRectangle(0, 0, g_screenWidth, g_screenHeight, COLOR_BG);
-
-    const char *title = "LLZ SURVIVORS";
-    int tw = (int)MeasureTextEx(g_font, title, 48, 1).x;
-    DrawTextEx(g_font, title, (Vector2){g_screenWidth / 2 - tw / 2, 100}, 48, 1, COLOR_PLAYER);
-
-    const char *options[] = {"Start Game", "Exit"};
-    int y = 220;
-    for (int i = 0; i < 2; i++) {
-        Color c = (i == g_game.menuIndex) ? COLOR_UPGRADE_SEL : COLOR_TEXT_DIM;
-        int ow = (int)MeasureTextEx(g_font, options[i], 28, 1).x;
-        DrawTextEx(g_font, options[i], (Vector2){g_screenWidth / 2 - ow / 2, y + i * 50}, 28, 1, c);
-        if (i == g_game.menuIndex) DrawRectangle(g_screenWidth / 2 - ow / 2 - 20, y + i * 50 + 8, 10, 10, c);
+    // Draw SDK animated background
+    if (g_bgSystemInitialized) {
+        LlzBackgroundDraw();
+    } else {
+        DrawRectangle(0, 0, g_screenWidth, g_screenHeight, COLOR_BG);
     }
 
+    // Entrance animation easing
+    float entrance = EaseOutBack(g_menuEntranceTime);
+
+    // Title with glow effect
+    const char *title = "LLZ SURVIVORS";
+    Font titleFont = LlzFontGet(LLZ_FONT_UI, 48);
+    int tw = (int)MeasureTextEx(titleFont, title, 48, 1).x;
+    float titleY = 100 - (1.0f - entrance) * 50;  // Slide in from top
+
+    // Pulsing glow behind title
+    float glowIntensity = 0.5f + 0.5f * sinf(g_menuTitleGlow * 2.0f);
+    Color glowColor = COLOR_PLAYER;
+    glowColor.a = (unsigned char)(100 * glowIntensity * entrance);
+    DrawCircleGradient(g_screenWidth / 2, (int)(titleY + 20), 200 * entrance, glowColor, BLANK);
+
+    // Secondary outer glow
+    Color outerGlow = LlzGetGemColor(LLZ_GEM_SAPPHIRE);
+    outerGlow.a = (unsigned char)(40 * glowIntensity * entrance);
+    DrawCircleGradient(g_screenWidth / 2, (int)(titleY + 20), 300 * entrance, outerGlow, BLANK);
+
+    // Title shadow
+    Color shadow = {0, 0, 0, (unsigned char)(150 * entrance)};
+    DrawTextEx(titleFont, title, (Vector2){g_screenWidth / 2 - tw / 2 + 3, titleY + 3}, 48, 1, shadow);
+
+    // Title text
+    Color titleColor = COLOR_PLAYER;
+    titleColor.a = (unsigned char)(255 * entrance);
+    DrawTextEx(titleFont, title, (Vector2){g_screenWidth / 2 - tw / 2, titleY}, 48, 1, titleColor);
+
+    // Menu options with hover animations
+    const char *options[] = {"Start Game", "Exit"};
+    int baseY = 220;
+    for (int i = 0; i < 2; i++) {
+        // Staggered entrance (second button delays slightly)
+        float buttonEntrance = Clampf((g_menuEntranceTime - i * 0.1f) * 2.0f, 0, 1);
+        buttonEntrance = EaseOutBack(buttonEntrance);
+
+        float scale = g_menuButtonScale[i];
+        int fontSize = (int)(28 * scale);
+        Font btnFont = LlzFontGet(LLZ_FONT_UI, fontSize);
+        int ow = (int)MeasureTextEx(btnFont, options[i], fontSize, 1).x;
+
+        float offsetX = (1.0f - buttonEntrance) * -100;  // Slide in from left
+        int x = g_screenWidth / 2 - ow / 2 + (int)offsetX;
+        int y = baseY + i * 55;
+
+        bool selected = (i == g_game.menuIndex);
+
+        // Selection glow
+        if (selected && buttonEntrance > 0.5f) {
+            float selGlow = 0.6f + 0.4f * sinf(g_menuTitleGlow * 4.0f);
+            Color selColor = COLOR_UPGRADE_SEL;
+            selColor.a = (unsigned char)(60 * selGlow * buttonEntrance);
+            DrawCircleGradient(g_screenWidth / 2 + (int)offsetX, y + fontSize / 2, 80 * scale, selColor, BLANK);
+        }
+
+        // Text shadow
+        Color btnShadow = {0, 0, 0, (unsigned char)(120 * buttonEntrance)};
+        DrawTextEx(btnFont, options[i], (Vector2){x + 2, y + 2}, fontSize, 1, btnShadow);
+
+        // Text
+        Color c = selected ? COLOR_UPGRADE_SEL : COLOR_TEXT_DIM;
+        c.a = (unsigned char)(255 * buttonEntrance);
+        DrawTextEx(btnFont, options[i], (Vector2){x, y}, fontSize, 1, c);
+
+        // Selection indicator (animated gem)
+        if (selected) {
+            float indicatorBob = sinf(g_menuTitleGlow * 3.0f) * 3.0f;
+            LlzDrawGemShape(LLZ_SHAPE_DIAMOND, x - 25, y + fontSize / 2 + indicatorBob, 8 * scale, LLZ_GEM_SAPPHIRE);
+        }
+    }
+
+    // Controls hint with fade-in
+    float hintAlpha = Clampf((g_menuEntranceTime - 0.5f) * 2.0f, 0, 1);
     const char *controls = "Scroll: Aim | Select: Toggle Move | Back: Exit";
-    int cw = (int)MeasureTextEx(g_font, controls, 14, 1).x;
-    DrawTextEx(g_font, controls, (Vector2){g_screenWidth / 2 - cw / 2, g_screenHeight - 50}, 14, 1, COLOR_TEXT_DIM);
+    Font hintFont = LlzFontGet(LLZ_FONT_UI, 14);
+    int cw = (int)MeasureTextEx(hintFont, controls, 14, 1).x;
+    Color hintColor = COLOR_TEXT_DIM;
+    hintColor.a = (unsigned char)(200 * hintAlpha);
+    DrawTextEx(hintFont, controls, (Vector2){g_screenWidth / 2 - cw / 2, g_screenHeight - 50}, 14, 1, hintColor);
 }
 
 static void DrawGameOver(void) {
-    DrawRectangle(0, 0, g_screenWidth, g_screenHeight, (Color){0, 0, 0, 200});
+    // Dark overlay with entrance fade
+    float entrance = EaseOutQuad(g_gameOverEntrance);
+    Color overlayColor = {0, 0, 0, (unsigned char)(220 * entrance)};
+    DrawRectangle(0, 0, g_screenWidth, g_screenHeight, overlayColor);
 
+    // Title with dramatic entrance
     const char *title = "GAME OVER";
-    int tw = (int)MeasureTextEx(g_font, title, 48, 1).x;
-    DrawTextEx(g_font, title, (Vector2){g_screenWidth / 2 - tw / 2, 80}, 48, 1, COLOR_WALKER);
+    Font titleFont = LlzFontGet(LLZ_FONT_UI, 48);
+    int tw = (int)MeasureTextEx(titleFont, title, 48, 1).x;
 
-    char buf[64]; int y = 180;
-    snprintf(buf, sizeof(buf), "Survived: %d:%02d", (int)g_game.gameTime / 60, (int)g_game.gameTime % 60);
-    DrawTextEx(g_font, buf, (Vector2){g_screenWidth / 2 - (int)MeasureTextEx(g_font, buf, 24, 1).x / 2, y}, 24, 1, COLOR_TEXT);
-    snprintf(buf, sizeof(buf), "Kills: %d", g_game.killCount);
-    DrawTextEx(g_font, buf, (Vector2){g_screenWidth / 2 - (int)MeasureTextEx(g_font, buf, 24, 1).x / 2, y + 40}, 24, 1, COLOR_TEXT);
-    snprintf(buf, sizeof(buf), "Wave: %d  Level: %d", g_game.highestWave + 1, g_game.player.level);
-    DrawTextEx(g_font, buf, (Vector2){g_screenWidth / 2 - (int)MeasureTextEx(g_font, buf, 24, 1).x / 2, y + 80}, 24, 1, COLOR_TEXT);
+    // Title slides down with scale effect
+    float titleProgress = Clampf(g_gameOverEntrance * 2.0f, 0, 1);
+    float titleScale = 0.5f + 0.5f * EaseOutBack(titleProgress);
+    float titleY = 80 - (1.0f - titleProgress) * 50;
 
-    DrawTextEx(g_font, "Press any button to continue",
-               (Vector2){g_screenWidth / 2 - 120, g_screenHeight - 60}, 18, 1, COLOR_TEXT_DIM);
+    // Pulsing red glow behind title
+    float glowPulse = 0.5f + 0.5f * sinf(g_game.bgTime * 3.0f);
+    Color titleGlow = COLOR_WALKER;
+    titleGlow.a = (unsigned char)(80 * glowPulse * titleProgress);
+    DrawCircleGradient(g_screenWidth / 2, (int)(titleY + 20), 200 * titleScale, titleGlow, BLANK);
+
+    // Title shadow
+    Color shadow = {0, 0, 0, (unsigned char)(200 * titleProgress)};
+    int scaledSize = (int)(48 * titleScale);
+    int scaledWidth = (int)(tw * titleScale);
+    DrawTextEx(titleFont, title, (Vector2){g_screenWidth / 2 - scaledWidth / 2 + 3, titleY + 3}, scaledSize, 1, shadow);
+
+    // Title text
+    Color titleColor = COLOR_WALKER;
+    titleColor.a = (unsigned char)(255 * titleProgress);
+    DrawTextEx(titleFont, title, (Vector2){g_screenWidth / 2 - scaledWidth / 2, titleY}, scaledSize, 1, titleColor);
+
+    // Stats with count-up animation
+    int statsY = 160;
+    Font statsFont = LlzFontGet(LLZ_FONT_UI, 24);
+    char buf[64];
+
+    // Stat 1: Time survived
+    float stat1Progress = Clampf((g_statCountUp - 0.0f) * 3.0f, 0, 1);
+    if (stat1Progress > 0) {
+        int displayMins = (int)(g_displayedTime) / 60;
+        int displaySecs = (int)(g_displayedTime) % 60;
+        snprintf(buf, sizeof(buf), "Survived: %d:%02d", displayMins, displaySecs);
+
+        // Slide in from left
+        float offsetX = (1.0f - EaseOutQuad(stat1Progress)) * -100;
+        int bw = (int)MeasureTextEx(statsFont, buf, 24, 1).x;
+        Color statColor = COLOR_TEXT;
+        statColor.a = (unsigned char)(255 * stat1Progress);
+
+        // Gem icon
+        if (stat1Progress > 0.5f) {
+            LlzDrawGemShape(LLZ_SHAPE_CIRCLE, g_screenWidth / 2 - bw / 2 - 25 + offsetX, statsY + 12, 8, LLZ_GEM_EMERALD);
+        }
+        DrawTextEx(statsFont, buf, (Vector2){g_screenWidth / 2 - bw / 2 + offsetX, statsY}, 24, 1, statColor);
+    }
+
+    // Stat 2: Kills
+    float stat2Progress = Clampf((g_statCountUp - 0.15f) * 3.0f, 0, 1);
+    if (stat2Progress > 0) {
+        snprintf(buf, sizeof(buf), "Kills: %d", g_displayedKills);
+
+        float offsetX = (1.0f - EaseOutQuad(stat2Progress)) * 100;  // From right
+        int bw = (int)MeasureTextEx(statsFont, buf, 24, 1).x;
+        Color statColor = COLOR_TEXT;
+        statColor.a = (unsigned char)(255 * stat2Progress);
+
+        if (stat2Progress > 0.5f) {
+            LlzDrawGemShape(LLZ_SHAPE_TRIANGLE, g_screenWidth / 2 - bw / 2 - 25 + offsetX, statsY + 52, 8, LLZ_GEM_RUBY);
+        }
+        DrawTextEx(statsFont, buf, (Vector2){g_screenWidth / 2 - bw / 2 + offsetX, statsY + 40}, 24, 1, statColor);
+    }
+
+    // Stat 3: Wave and Level
+    float stat3Progress = Clampf((g_statCountUp - 0.3f) * 3.0f, 0, 1);
+    if (stat3Progress > 0) {
+        snprintf(buf, sizeof(buf), "Wave: %d  Level: %d", g_game.highestWave + 1, g_game.player.level);
+
+        float offsetX = (1.0f - EaseOutQuad(stat3Progress)) * -100;
+        int bw = (int)MeasureTextEx(statsFont, buf, 24, 1).x;
+        Color statColor = COLOR_TEXT;
+        statColor.a = (unsigned char)(255 * stat3Progress);
+
+        if (stat3Progress > 0.5f) {
+            LlzDrawGemShape(LLZ_SHAPE_STAR, g_screenWidth / 2 - bw / 2 - 25 + offsetX, statsY + 92, 8, LLZ_GEM_TOPAZ);
+        }
+        DrawTextEx(statsFont, buf, (Vector2){g_screenWidth / 2 - bw / 2 + offsetX, statsY + 80}, 24, 1, statColor);
+    }
+
+    // Continue prompt (fades in last)
+    float promptProgress = Clampf((g_statCountUp - 0.6f) * 2.5f, 0, 1);
+    if (promptProgress > 0) {
+        Font promptFont = LlzFontGet(LLZ_FONT_UI, 18);
+        const char *prompt = "Press any button to continue";
+        int pw = (int)MeasureTextEx(promptFont, prompt, 18, 1).x;
+
+        // Pulsing alpha
+        float pulse = 0.6f + 0.4f * sinf(g_game.bgTime * 3.0f);
+        Color promptColor = COLOR_TEXT_DIM;
+        promptColor.a = (unsigned char)(200 * promptProgress * pulse);
+
+        DrawTextEx(promptFont, prompt, (Vector2){g_screenWidth / 2 - pw / 2, g_screenHeight - 60}, 18, 1, promptColor);
+    }
+}
+
+static void DrawVictory(void) {
+    // Gold-tinted overlay with entrance fade
+    float entrance = EaseOutQuad(g_gameOverEntrance);
+    Color overlayColor = {20, 15, 0, (unsigned char)(220 * entrance)};
+    DrawRectangle(0, 0, g_screenWidth, g_screenHeight, overlayColor);
+
+    // Animated gold particles in background
+    float time = g_game.bgTime;
+    for (int i = 0; i < 20; i++) {
+        float x = fmodf(i * 47.0f + time * 30.0f, g_screenWidth + 40) - 20;
+        float y = fmodf(i * 31.0f + time * 20.0f + i * 17.0f, g_screenHeight + 40) - 20;
+        float size = 3.0f + sinf(time * 2.0f + i) * 2.0f;
+        float alpha = (0.3f + 0.3f * sinf(time * 3.0f + i * 0.5f)) * entrance;
+        Color starColor = {255, 215, 0, (unsigned char)(150 * alpha)};
+        DrawCircleV((Vector2){x, y}, size, starColor);
+    }
+
+    // "VICTORY!" title with dramatic entrance
+    const char *title = "VICTORY!";
+    Font titleFont = LlzFontGet(LLZ_FONT_UI, 56);
+    int tw = (int)MeasureTextEx(titleFont, title, 56, 1).x;
+
+    float titleProgress = Clampf(g_gameOverEntrance * 2.0f, 0, 1);
+    float titleScale = 0.5f + 0.5f * EaseOutBack(titleProgress);
+    float titleY = 60 - (1.0f - titleProgress) * 60;
+
+    // Pulsing gold glow behind title
+    float glowPulse = 0.5f + 0.5f * sinf(g_game.bgTime * 4.0f);
+    Color titleGlow = {255, 215, 0, (unsigned char)(120 * glowPulse * titleProgress)};
+    DrawCircleGradient(g_screenWidth / 2, (int)(titleY + 28), 280 * titleScale, titleGlow, BLANK);
+
+    // Secondary outer glow (white)
+    Color outerGlow = {255, 255, 200, (unsigned char)(60 * glowPulse * titleProgress)};
+    DrawCircleGradient(g_screenWidth / 2, (int)(titleY + 28), 350 * titleScale, outerGlow, BLANK);
+
+    // Title shadow
+    Color shadow = {0, 0, 0, (unsigned char)(200 * titleProgress)};
+    int scaledSize = (int)(56 * titleScale);
+    int scaledWidth = (int)(tw * titleScale);
+    DrawTextEx(titleFont, title, (Vector2){g_screenWidth / 2 - scaledWidth / 2 + 3, titleY + 3}, scaledSize, 1, shadow);
+
+    // Title text (gold)
+    Color titleColor = {255, 215, 0, (unsigned char)(255 * titleProgress)};
+    DrawTextEx(titleFont, title, (Vector2){g_screenWidth / 2 - scaledWidth / 2, titleY}, scaledSize, 1, titleColor);
+
+    // Subtitle
+    float subProgress = Clampf((g_gameOverEntrance - 0.2f) * 3.0f, 0, 1);
+    if (subProgress > 0) {
+        const char *subtitle = "LEVEL 20 REACHED!";
+        Font subFont = LlzFontGet(LLZ_FONT_UI, 24);
+        int sw = (int)MeasureTextEx(subFont, subtitle, 24, 1).x;
+        Color subColor = {255, 255, 200, (unsigned char)(255 * subProgress)};
+        DrawTextEx(subFont, subtitle, (Vector2){g_screenWidth / 2 - sw / 2, titleY + 60}, 24, 1, subColor);
+    }
+
+    // Stats with count-up animation (reusing game over animation system)
+    int statsY = 160;
+    Font statsFont = LlzFontGet(LLZ_FONT_UI, 24);
+    char buf[64];
+
+    // Stat 1: Time survived
+    float stat1Progress = Clampf((g_statCountUp - 0.0f) * 3.0f, 0, 1);
+    if (stat1Progress > 0) {
+        int displayMins = (int)(g_displayedTime) / 60;
+        int displaySecs = (int)(g_displayedTime) % 60;
+        snprintf(buf, sizeof(buf), "Completed in: %d:%02d", displayMins, displaySecs);
+
+        float offsetX = (1.0f - EaseOutQuad(stat1Progress)) * -100;
+        int bw = (int)MeasureTextEx(statsFont, buf, 24, 1).x;
+        Color statColor = {255, 255, 200, (unsigned char)(255 * stat1Progress)};
+
+        if (stat1Progress > 0.5f) {
+            LlzDrawGemShape(LLZ_SHAPE_CIRCLE, g_screenWidth / 2 - bw / 2 - 25 + offsetX, statsY + 12, 8, LLZ_GEM_TOPAZ);
+        }
+        DrawTextEx(statsFont, buf, (Vector2){g_screenWidth / 2 - bw / 2 + offsetX, statsY}, 24, 1, statColor);
+    }
+
+    // Stat 2: Kills
+    float stat2Progress = Clampf((g_statCountUp - 0.15f) * 3.0f, 0, 1);
+    if (stat2Progress > 0) {
+        snprintf(buf, sizeof(buf), "Enemies Slain: %d", g_displayedKills);
+
+        float offsetX = (1.0f - EaseOutQuad(stat2Progress)) * 100;
+        int bw = (int)MeasureTextEx(statsFont, buf, 24, 1).x;
+        Color statColor = {255, 255, 200, (unsigned char)(255 * stat2Progress)};
+
+        if (stat2Progress > 0.5f) {
+            LlzDrawGemShape(LLZ_SHAPE_TRIANGLE, g_screenWidth / 2 - bw / 2 - 25 + offsetX, statsY + 52, 8, LLZ_GEM_RUBY);
+        }
+        DrawTextEx(statsFont, buf, (Vector2){g_screenWidth / 2 - bw / 2 + offsetX, statsY + 40}, 24, 1, statColor);
+    }
+
+    // Stat 3: Highest Wave
+    float stat3Progress = Clampf((g_statCountUp - 0.3f) * 3.0f, 0, 1);
+    if (stat3Progress > 0) {
+        snprintf(buf, sizeof(buf), "Highest Wave: %d", g_game.highestWave + 1);
+
+        float offsetX = (1.0f - EaseOutQuad(stat3Progress)) * -100;
+        int bw = (int)MeasureTextEx(statsFont, buf, 24, 1).x;
+        Color statColor = {255, 255, 200, (unsigned char)(255 * stat3Progress)};
+
+        if (stat3Progress > 0.5f) {
+            LlzDrawGemShape(LLZ_SHAPE_STAR, g_screenWidth / 2 - bw / 2 - 25 + offsetX, statsY + 92, 8, LLZ_GEM_DIAMOND);
+        }
+        DrawTextEx(statsFont, buf, (Vector2){g_screenWidth / 2 - bw / 2 + offsetX, statsY + 80}, 24, 1, statColor);
+    }
+
+    // Victory gem display (row of gems)
+    float gemProgress = Clampf((g_statCountUp - 0.5f) * 2.0f, 0, 1);
+    if (gemProgress > 0.3f) {
+        int gemY = statsY + 130;
+        LlzGemColor gems[] = {LLZ_GEM_RUBY, LLZ_GEM_TOPAZ, LLZ_GEM_EMERALD, LLZ_GEM_SAPPHIRE, LLZ_GEM_AMETHYST};
+        for (int i = 0; i < 5; i++) {
+            float delay = i * 0.1f;
+            float gemAlpha = Clampf((gemProgress - 0.3f - delay) * 4.0f, 0, 1);
+            if (gemAlpha > 0) {
+                float bob = sinf(g_game.bgTime * 3.0f + i * 0.8f) * 3.0f;
+                float gemX = g_screenWidth / 2 - 80 + i * 40;
+                LlzDrawGemShape(LLZ_SHAPE_DIAMOND, gemX, gemY + bob, 12 * gemAlpha, gems[i]);
+            }
+        }
+    }
+
+    // Continue prompt (fades in last)
+    float promptProgress = Clampf((g_statCountUp - 0.7f) * 2.5f, 0, 1);
+    if (promptProgress > 0) {
+        Font promptFont = LlzFontGet(LLZ_FONT_UI, 18);
+        const char *prompt = "Press any button to return to menu";
+        int pw = (int)MeasureTextEx(promptFont, prompt, 18, 1).x;
+
+        float pulse = 0.6f + 0.4f * sinf(g_game.bgTime * 3.0f);
+        Color promptColor = {255, 215, 0, (unsigned char)(200 * promptProgress * pulse)};
+
+        DrawTextEx(promptFont, prompt, (Vector2){g_screenWidth / 2 - pw / 2, g_screenHeight - 50}, 18, 1, promptColor);
+    }
 }
 
 static void DrawBackground(void) {
@@ -3872,7 +4738,13 @@ static void HandleMenuInput(const LlzInputState *input) {
     else if (input->scrollDelta < -0.5f || input->upPressed) g_game.menuIndex = (g_game.menuIndex + 1) % 2;
 
     if (input->selectPressed || input->tap) {
-        if (g_game.menuIndex == 0) g_game.state = GAME_STATE_WEAPON_SELECT;
+        if (g_game.menuIndex == 0) {
+            g_game.state = GAME_STATE_WEAPON_SELECT;
+            g_weaponSelectEntrance = 0;  // Reset weapon select entrance animation
+            g_weaponCarouselPos = (float)g_game.weaponSelectIndex;  // Start at current selection
+            g_weaponCarouselTarget = g_weaponCarouselPos;
+            memset(g_weaponCardGlow, 0, sizeof(g_weaponCardGlow));
+        }
         else g_wantsClose = true;
     }
     if (input->backReleased) g_wantsClose = true;
@@ -3890,7 +4762,10 @@ static void HandleWeaponSelectInput(const LlzInputState *input) {
         GameReset();
         g_game.state = GAME_STATE_PLAYING;
     }
-    if (input->backReleased) g_game.state = GAME_STATE_MENU;
+    if (input->backReleased) {
+        g_game.state = GAME_STATE_MENU;
+        g_menuEntranceTime = 0;  // Reset menu entrance animation
+    }
 }
 
 static void HandleLevelUpInput(const LlzInputState *input) {
@@ -3960,12 +4835,24 @@ static void HandlePlayInput(const LlzInputState *input) {
 
 static void HandlePausedInput(const LlzInputState *input) {
     if (input->selectPressed || input->tap) g_game.state = GAME_STATE_PLAYING;
-    if (input->backReleased) g_game.state = GAME_STATE_MENU;
+    if (input->backReleased) {
+        g_game.state = GAME_STATE_MENU;
+        g_menuEntranceTime = 0;  // Reset menu entrance animation
+    }
 }
 
 static void HandleGameOverInput(const LlzInputState *input) {
-    if (input->selectPressed || input->tap || input->backReleased)
+    if (input->selectPressed || input->tap || input->backReleased) {
         g_game.state = GAME_STATE_MENU;
+        g_menuEntranceTime = 0;  // Reset menu entrance animation
+    }
+}
+
+static void HandleVictoryInput(const LlzInputState *input) {
+    if (input->selectPressed || input->tap || input->backReleased) {
+        g_game.state = GAME_STATE_MENU;
+        g_menuEntranceTime = 0;  // Reset menu entrance animation
+    }
 }
 
 // =============================================================================
@@ -3983,6 +4870,23 @@ void GameInit(int width, int height) {
     memset(&g_game, 0, sizeof(g_game));
     g_game.state = GAME_STATE_MENU;
     g_game.startingWeapon = WEAPON_DISTANCE;
+
+    // Initialize SDK animated background
+    LlzBackgroundInit(width, height);
+    LlzBackgroundSetStyle(LLZ_BG_STYLE_CONSTELLATION, false);  // Nice starfield for menu
+    LlzBackgroundSetColors((Color){30, 50, 80, 255}, (Color){0, 200, 200, 255});  // Cyan theme
+    g_bgSystemInitialized = true;
+
+    // Reset menu animation state
+    g_menuTitleGlow = 0.0f;
+    g_menuEntranceTime = 0.0f;
+    g_menuButtonScale[0] = g_menuButtonScale[1] = 1.0f;
+    g_weaponSelectEntrance = 0.0f;
+    g_weaponCarouselPos = 0.0f;
+    g_weaponCarouselTarget = 0.0f;
+    memset(g_weaponCardGlow, 0, sizeof(g_weaponCardGlow));
+    g_gameOverEntrance = 0.0f;
+    g_statCountUp = 0.0f;
 
     printf("[LLZSURVIVORS] Initialized %dx%d, World: %dx%d\n", width, height, WORLD_WIDTH, WORLD_HEIGHT);
 }
@@ -4072,6 +4976,74 @@ void GameReset(void) {
 
 void GameUpdate(const LlzInputState *input, float dt) {
     g_game.bgTime += dt;
+
+    // Update SDK animated background
+    if (g_bgSystemInitialized) {
+        LlzBackgroundUpdate(dt);
+    }
+
+    // Update Phase 3 menu animation timers
+    g_menuTitleGlow += dt;
+    g_lowHpPulse += dt;
+
+    // Menu entrance animation
+    if (g_game.state == GAME_STATE_MENU && g_menuEntranceTime < 1.0f) {
+        g_menuEntranceTime += dt * 2.0f;
+        if (g_menuEntranceTime > 1.0f) g_menuEntranceTime = 1.0f;
+    }
+
+    // Weapon select entrance animation
+    if (g_game.state == GAME_STATE_WEAPON_SELECT && g_weaponSelectEntrance < 1.0f) {
+        g_weaponSelectEntrance += dt * 2.5f;
+        if (g_weaponSelectEntrance > 1.0f) g_weaponSelectEntrance = 1.0f;
+    }
+
+    // Update weapon carousel animation (smooth carousel like Bejeweled)
+    if (g_game.state == GAME_STATE_WEAPON_SELECT) {
+        g_weaponCarouselTarget = (float)g_game.weaponSelectIndex;
+        float diff = g_weaponCarouselTarget - g_weaponCarouselPos;
+        g_weaponCarouselPos += diff * 10.0f * dt;  // Smooth ease-out
+        if (fabsf(diff) < 0.01f) g_weaponCarouselPos = g_weaponCarouselTarget;
+
+        // Update glow intensity for each weapon card
+        for (int i = 0; i < STARTING_WEAPON_COUNT; i++) {
+            float targetGlow = (i == g_game.weaponSelectIndex) ? 1.0f : 0.0f;
+            g_weaponCardGlow[i] += (targetGlow - g_weaponCardGlow[i]) * 8.0f * dt;
+        }
+    }
+
+    // Game over / Victory entrance and stat count-up animation
+    if (g_game.state == GAME_STATE_GAME_OVER || g_game.state == GAME_STATE_VICTORY) {
+        if (g_gameOverEntrance < 1.0f) {
+            g_gameOverEntrance += dt * 2.5f;
+            if (g_gameOverEntrance > 1.0f) g_gameOverEntrance = 1.0f;
+        }
+        if (g_gameOverEntrance > 0.3f && g_statCountUp < 1.0f) {
+            g_statCountUp += dt * 1.5f;
+            if (g_statCountUp > 1.0f) g_statCountUp = 1.0f;
+            // Animate displayed values
+            g_displayedKills = (int)(g_game.killCount * g_statCountUp);
+            g_displayedTime = g_game.gameTime * g_statCountUp;
+        }
+    }
+
+    // Update button hover scales for menu
+    for (int i = 0; i < 2; i++) {
+        float targetScale = (i == g_game.menuIndex) ? 1.15f : 1.0f;
+        g_menuButtonScale[i] += (targetScale - g_menuButtonScale[i]) * dt * 10.0f;
+    }
+
+    // Update HP flash (triggered when HP decreases)
+    if (g_hpFlash > 0) {
+        g_hpFlash -= dt * 4.0f;
+        if (g_hpFlash < 0) g_hpFlash = 0;
+    }
+
+    // Update danger glow (fade out if no enemies nearby)
+    for (int i = 0; i < 4; i++) {
+        g_dangerGlow[i] *= (1.0f - dt * 3.0f);
+        if (g_dangerGlow[i] < 0.01f) g_dangerGlow[i] = 0;
+    }
 
     // Update juice effect timers (always update, independent of game state)
     if (g_hitstopTimer > 0) {
@@ -4165,6 +5137,7 @@ void GameUpdate(const LlzInputState *input, float dt) {
         case GAME_STATE_LEVEL_UP: HandleLevelUpInput(input); break;
         case GAME_STATE_PAUSED: HandlePausedInput(input); break;
         case GAME_STATE_GAME_OVER: HandleGameOverInput(input); break;
+        case GAME_STATE_VICTORY: HandleVictoryInput(input); break;
     }
 }
 
@@ -4181,6 +5154,7 @@ void GameDraw(void) {
             DrawXPGems();
             DrawPotions();
             DrawEnemies();
+            DrawHornetLasers();  // Laser beams on top of enemies
             DrawDyingEnemies();  // Death animations over enemies
             DrawProjectiles();
             DrawSeekers();
@@ -4195,6 +5169,7 @@ void GameDraw(void) {
             DrawTextPopups();
             DrawHUD();
             DrawSpawnWarnings();  // Edge indicators for incoming enemies
+            DrawDangerGlow();     // Red glow on edges for nearby off-screen enemies
             DrawUIParticles();  // Draw over HUD
 
             // Announcements
@@ -4245,6 +5220,7 @@ void GameDraw(void) {
                 DrawTextEx(g_font, "Select: Resume | Back: Menu", (Vector2){g_screenWidth / 2 - 100, g_screenHeight / 2 + 40}, 18, 1, COLOR_TEXT_DIM);
             }
             if (g_game.state == GAME_STATE_GAME_OVER) DrawGameOver();
+            if (g_game.state == GAME_STATE_VICTORY) DrawVictory();
             break;
     }
 
@@ -4252,6 +5228,12 @@ void GameDraw(void) {
 }
 
 void GameShutdown(void) {
+    // Shutdown SDK background
+    if (g_bgSystemInitialized) {
+        LlzBackgroundShutdown();
+        g_bgSystemInitialized = false;
+    }
+
     g_wantsClose = false;
     printf("[LLZSURVIVORS] Shutdown\n");
 }

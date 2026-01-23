@@ -160,6 +160,19 @@ extern "C" {
 #define BOSS_DAMAGE 40
 #define BOSS_XP 150
 
+// Hornet - ranged laser enemy (Wave 8)
+#define HORNET_SIZE 16.0f
+#define HORNET_SPEED 60.0f
+#define HORNET_BASE_HP 2
+#define HORNET_DAMAGE 5           // Contact damage (low)
+#define HORNET_XP 35
+#define HORNET_ATTACK_RANGE 250.0f    // Stops at this distance to attack
+#define HORNET_LASER_DAMAGE 25        // Laser is powerful!
+#define HORNET_LASER_CHARGE_TIME 1.5f // Warning time before laser fires
+#define HORNET_LASER_DURATION 0.8f    // How long laser stays active
+#define HORNET_LASER_COOLDOWN 3.0f    // Time between laser attacks
+#define HORNET_LASER_WIDTH 6.0f       // Width of active laser beam
+
 // HP scaling: HP = BASE_HP + (gameTime * HP_SCALE_RATE)
 #define HP_SCALE_RATE 0.15f
 
@@ -210,6 +223,8 @@ extern "C" {
 #define COLOR_TANK          (Color){160, 80, 200, 255}
 #define COLOR_SWARM         (Color){150, 255, 150, 255}   // Green swarm
 #define COLOR_ELITE         (Color){255, 100, 100, 255}   // Bright red elite
+#define COLOR_HORNET        (Color){255, 200, 50, 255}    // Yellow/orange hornet
+#define COLOR_HORNET_LASER  (Color){255, 100, 100, 255}   // Red laser
 #define COLOR_BRUTE         (Color){100, 60, 40, 255}     // Brown brute
 #define COLOR_BOSS          (Color){255, 50, 200, 255}    // Magenta boss
 #define COLOR_ENEMY_EYE     (Color){255, 255, 255, 255}
@@ -271,7 +286,8 @@ typedef enum {
     GAME_STATE_PLAYING,
     GAME_STATE_LEVEL_UP,
     GAME_STATE_PAUSED,
-    GAME_STATE_GAME_OVER
+    GAME_STATE_GAME_OVER,
+    GAME_STATE_VICTORY      // Win by reaching level 20!
 } GameState;
 
 typedef enum {
@@ -281,6 +297,7 @@ typedef enum {
     // Wave 5+ enemies (progressively unlocked)
     ENEMY_SWARM,    // Wave 5: tiny, fast, spawns in groups
     ENEMY_ELITE,    // Wave 7: upgraded walker, more HP
+    ENEMY_HORNET,   // Wave 8: ranged laser attacker
     ENEMY_BRUTE,    // Wave 10: slow heavy hitter
     ENEMY_BOSS,     // Wave 15: large, powerful, rare
     ENEMY_TYPE_COUNT
@@ -548,6 +565,13 @@ typedef struct {
     int xpValue;
     bool active;
     float hitFlash;
+    // Hornet laser state
+    float laserCooldown;      // Time until can fire again
+    float laserChargeTimer;   // Charging up (warning phase)
+    float laserActiveTimer;   // Laser is firing
+    float laserAngle;         // Direction laser is aimed
+    bool laserCharging;       // Currently charging
+    bool laserFiring;         // Currently firing
 } Enemy;
 
 typedef struct {
