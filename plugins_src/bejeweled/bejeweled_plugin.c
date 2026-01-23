@@ -248,6 +248,21 @@ static int g_levelUpLevel = 0;
 static float g_screenFlashTimer = 0.0f;
 static Color g_screenFlashColor = {255, 255, 255, 0};
 
+/* CASCADE RUSH mode state */
+static float g_rushTimeBonusDisplay = 0.0f;     /* Time bonus to display (+X.Xs) */
+static float g_rushTimeBonusTimer = 0.0f;       /* Timer for fading time bonus */
+static float g_rushZonePulse = 0.0f;            /* Animation pulse for rush zone */
+static int g_lastCascadeLevelForBonus = 0;      /* Track cascade for time bonuses */
+
+/* GEM SURGE mode state */
+static float g_surgeLinePulse = 0.0f;           /* Animation pulse for surge lines */
+static float g_surgeTimeBonusDisplay = 0.0f;    /* Time bonus to display (+X.Xs) */
+static float g_surgeTimeBonusTimer = 0.0f;      /* Timer for fading time bonus */
+static int g_surgeLastWave = 1;                 /* Track wave changes for celebrations */
+static float g_surgeWaveCompleteTimer = 0.0f;   /* Wave completion celebration timer */
+static int g_surgeWaveCompleteLevel = 0;        /* Which wave was completed */
+static float g_surgeLineSpawnTimer = 0.0f;      /* Timer for spawning new surge lines */
+
 /* Title screen state */
 static float g_titleTimer = 0.0f;
 static float g_titlePulse = 0.0f;
@@ -402,9 +417,31 @@ static void SpawnMatchParticles(int x, int y, int gemType) {
 
     Color baseColor = GetGemBaseColor(gemType);
 
-    /* Spawn simple burst - reduced for performance */
-    SpawnParticles(sx, sy, baseColor, 4);
-    SpawnParticles(sx, sy, WHITE, 2);
+    /* Base particle count - increased in CASCADE RUSH mode based on cascade level */
+    int baseParticles = 4;
+    int whiteParticles = 2;
+
+    if (GetCurrentGameMode() == GAME_MODE_CASCADE_RUSH) {
+        int cascade = GetCascadeLevel();
+        if (cascade >= 2) {
+            /* More particles for higher cascades */
+            baseParticles = 4 + cascade * 2;
+            whiteParticles = 2 + cascade;
+
+            /* Cap to avoid performance issues */
+            if (baseParticles > 12) baseParticles = 12;
+            if (whiteParticles > 6) whiteParticles = 6;
+        }
+
+        /* Extra green particles inside rush zone */
+        if (IsInsideRushZone(x, y)) {
+            SpawnParticles(sx, sy, (Color){100, 255, 150, 255}, 3);
+        }
+    }
+
+    /* Spawn burst */
+    SpawnParticles(sx, sy, baseColor, baseParticles);
+    SpawnParticles(sx, sy, WHITE, whiteParticles);
 }
 
 static void UpdateParticles(float deltaTime) {
@@ -1239,23 +1276,47 @@ static void SpawnComboAnnouncement(int comboLevel) {
             ann->life = 0.0f;
             ann->maxLife = 1.5f + (comboLevel >= 5 ? 0.5f : 0.0f);
 
-            /* Text based on combo level */
-            int textIdx = (comboLevel > 7) ? 7 : comboLevel;
-            snprintf(ann->text, sizeof(ann->text), "%s", COMBO_TEXTS[textIdx]);
+            /* Special announcement for CASCADE RUSH zone capture (comboLevel = 10) */
+            if (comboLevel == 10 && GetCurrentGameMode() == GAME_MODE_CASCADE_RUSH) {
+                snprintf(ann->text, sizeof(ann->text), "ZONE CAPTURED!");
+                ann->color = (Color){100, 255, 150, 255};
+                ann->scale = 1.8f;
+                ann->maxLife = 2.0f;
+            }
+            /* Special announcement for GEM SURGE wave complete (comboLevel = 11) */
+            else if (comboLevel == 11 && GetCurrentGameMode() == GAME_MODE_GEM_SURGE) {
+                snprintf(ann->text, sizeof(ann->text), "WAVE COMPLETE!");
+                ann->color = (Color){150, 100, 255, 255};  /* Purple */
+                ann->scale = 2.0f;
+                ann->maxLife = 2.5f;
+            }
+            /* Special announcement for GEM SURGE line trigger (comboLevel = 12) */
+            else if (comboLevel == 12 && GetCurrentGameMode() == GAME_MODE_GEM_SURGE) {
+                snprintf(ann->text, sizeof(ann->text), "SURGE!");
+                ann->color = (Color){100, 200, 255, 255};  /* Cyan */
+                ann->scale = 1.6f;
+                ann->maxLife = 1.5f;
+            }
+            else {
+                /* Text based on combo level */
+                int textIdx = (comboLevel > 7) ? 7 : comboLevel;
+                snprintf(ann->text, sizeof(ann->text), "%s", COMBO_TEXTS[textIdx]);
+                ann->color = COMBO_COLORS[textIdx];
+                ann->scale = 1.0f + (comboLevel - 2) * 0.15f;
+
+                /* Rainbow effect for max combo */
+                if (comboLevel >= 7) {
+                    ann->color = (Color){255, 255, 255, 255};
+                }
+            }
 
             /* Position - center of board with slight randomness */
             ann->x = g_boardX + g_boardSize / 2.0f + (float)GetRandomValue(-30, 30);
             ann->y = g_boardY + g_boardSize / 2.0f - 50;
 
-            /* Visual properties based on combo level */
-            ann->scale = 1.0f + (comboLevel - 2) * 0.15f;
+            /* Visual properties */
             ann->rotation = (float)GetRandomValue(-10, 10);
-            ann->color = COMBO_COLORS[textIdx];
 
-            /* Rainbow effect for max combo */
-            if (comboLevel >= 7) {
-                ann->color = (Color){255, 255, 255, 255};
-            }
             break;
         }
     }
@@ -1679,7 +1740,7 @@ static void DrawTitleScreen(void) {
 
 /* Mode descriptions for 5 game modes */
 static const char* MODE_NAMES[] = {
-    "CLASSIC", "BLITZ", "TWIST", "CASCADE RUSH", "GEM SURGE"
+    "CLASSIC", "BLITZ", "TWIST", "RUSH", "SURGE"
 };
 static const char* MODE_DESCRIPTIONS[] = {
     "NO TIME LIMIT",
@@ -2071,7 +2132,87 @@ static void DrawBoard(void) {
         }
     }
 
+    /* Draw GEM SURGE lines BEHIND gems (glowing horizontal/vertical bands) */
+    if (GetCurrentGameMode() == GAME_MODE_GEM_SURGE) {
+        for (int i = 0; i < 8; i++) {  /* SURGE_MAX_LINES = 8 */
+            bool isHorizontal, isActive;
+            int position;
+            float lineTimeRemaining;
+
+            isActive = GetSurgeLineInfo(i, &isHorizontal, &position, &lineTimeRemaining);
+            if (!isActive) continue;
+
+            /* Calculate urgency (0 = full time, 1 = about to expire) */
+            float urgency = 1.0f - (lineTimeRemaining / SURGE_LINE_DURATION);
+            float pulse = (sinf(g_surgeLinePulse + i * 0.5f) + 1.0f) * 0.5f;
+
+            /* Color based on urgency */
+            Color lineColor, glowColor;
+            if (urgency < 0.5f) {
+                /* Cyan/blue - plenty of time */
+                lineColor = (Color){100, 200, 255, (unsigned char)(120 + 40 * pulse)};
+                glowColor = (Color){100, 200, 255, (unsigned char)(30 + 20 * pulse)};
+            } else if (urgency < 0.8f) {
+                /* Yellow/orange - warning */
+                lineColor = (Color){255, 200, 100, (unsigned char)(140 + 40 * pulse)};
+                glowColor = (Color){255, 200, 100, (unsigned char)(40 + 20 * pulse)};
+            } else {
+                /* Red - urgent, faster pulse */
+                float fastPulse = (sinf(g_surgeLinePulse * 3.0f) + 1.0f) * 0.5f;
+                lineColor = (Color){255, 100, 100, (unsigned char)(160 + 40 * fastPulse)};
+                glowColor = (Color){255, 100, 100, (unsigned char)(50 + 30 * fastPulse)};
+            }
+
+            float bx = g_boardX + g_shakeOffset.x;
+            float by = g_boardY + g_shakeOffset.y;
+
+            if (isHorizontal) {
+                /* Horizontal line across row */
+                float y = by + position * g_cellSize + g_cellSize / 2.0f;
+
+                /* Outer glow */
+                DrawRectangle((int)(bx - 6), (int)(y - 18), (int)(g_boardSize + 12), 36, glowColor);
+
+                /* Main line */
+                DrawRectangle((int)bx, (int)(y - 4), (int)g_boardSize, 8, lineColor);
+
+                /* Energy flow particles */
+                for (int p = 0; p < 4; p++) {
+                    float particleX = bx + fmodf(g_surgeLinePulse * 150.0f + p * g_boardSize / 4.0f, g_boardSize);
+                    Color particleColor = {255, 255, 255, (unsigned char)(100 + 60 * pulse)};
+                    DrawCircle((int)particleX, (int)y, 3 + 2 * pulse, particleColor);
+                }
+
+                /* Line countdown bar at edge */
+                float countdownWidth = (g_boardSize - 20) * (lineTimeRemaining / SURGE_LINE_DURATION);
+                DrawRectangle((int)(bx + 10), (int)(y + 12), (int)countdownWidth, 3, lineColor);
+            } else {
+                /* Vertical line down column */
+                float x = bx + position * g_cellSize + g_cellSize / 2.0f;
+
+                /* Outer glow */
+                DrawRectangle((int)(x - 18), (int)(by - 6), 36, (int)(g_boardSize + 12), glowColor);
+
+                /* Main line */
+                DrawRectangle((int)(x - 4), (int)by, 8, (int)g_boardSize, lineColor);
+
+                /* Energy flow particles */
+                for (int p = 0; p < 4; p++) {
+                    float particleY = by + fmodf(g_surgeLinePulse * 150.0f + p * g_boardSize / 4.0f, g_boardSize);
+                    Color particleColor = {255, 255, 255, (unsigned char)(100 + 60 * pulse)};
+                    DrawCircle((int)x, (int)particleY, 3 + 2 * pulse, particleColor);
+                }
+
+                /* Line countdown bar at edge */
+                float countdownHeight = (g_boardSize - 20) * (lineTimeRemaining / SURGE_LINE_DURATION);
+                DrawRectangle((int)(x + 12), (int)(by + 10), 3, (int)countdownHeight, lineColor);
+            }
+        }
+    }
+
     /* PASS 2: Draw gems (on top of glows) */
+    int featuredGem = (GetCurrentGameMode() == GAME_MODE_GEM_SURGE) ? GetFeaturedGemType() : 0;
+
     for (int y = 0; y < BOARD_HEIGHT; y++) {
         for (int x = 0; x < BOARD_WIDTH; x++) {
             int gemType = GetBoardGem(x, y);
@@ -2101,6 +2242,26 @@ static void DrawBoard(void) {
                 }
             }
 
+            /* GEM SURGE: Draw golden glow behind featured gem type */
+            if (featuredGem > 0 && gemType == featuredGem && !anim->isRemoving) {
+                float pulse = (sinf(g_shimmerTime * 4.0f) + 1.0f) * 0.5f;
+                float glowSize = g_cellSize * 0.55f * scale * (1.0f + pulse * 0.15f);
+
+                /* Golden glow layers */
+                Color goldGlow1 = {255, 215, 100, (unsigned char)(50 + 30 * pulse)};
+                Color goldGlow2 = {255, 215, 100, (unsigned char)(30 + 20 * pulse)};
+                DrawCircle((int)cx, (int)cy, glowSize * 1.3f, goldGlow2);
+                DrawCircle((int)cx, (int)cy, glowSize, goldGlow1);
+
+                /* Small sparkle effect */
+                if (pulse > 0.8f) {
+                    float sparkleAngle = g_shimmerTime * 2.0f + x * 0.7f + y * 1.1f;
+                    float sparkleX = cx + cosf(sparkleAngle) * glowSize * 0.6f;
+                    float sparkleY = cy + sinf(sparkleAngle) * glowSize * 0.6f;
+                    DrawCircle((int)sparkleX, (int)sparkleY, 3 * scale, (Color){255, 255, 255, 200});
+                }
+            }
+
             DrawGem(gemType, cx, cy, g_cellSize, scale, alpha);
         }
     }
@@ -2114,6 +2275,97 @@ static void DrawBoard(void) {
     /* Draw hint if active */
     if (g_showHint && g_hintX1 >= 0) {
         DrawHintHighlight(g_hintX1, g_hintY1, g_hintX2, g_hintY2);
+    }
+
+    /* Draw CASCADE RUSH zone (3x3 pulsing zone) */
+    if (GetCurrentGameMode() == GAME_MODE_CASCADE_RUSH) {
+        int zoneX, zoneY;
+        bool zoneActive;
+        float zoneTimeRemaining, zoneMaxDuration;
+        GetRushZoneInfo(&zoneX, &zoneY, &zoneActive, &zoneTimeRemaining, &zoneMaxDuration);
+
+        if (zoneActive && zoneMaxDuration > 0) {
+            /* Get screen coordinates for zone corners */
+            float zx1, zy1, zx2, zy2;
+            GridToScreen(zoneX, zoneY, &zx1, &zy1);
+            GridToScreen(zoneX + 3, zoneY + 3, &zx2, &zy2);
+
+            /* Adjust for cell center -> cell corner */
+            zx1 -= g_cellSize / 2.0f;
+            zy1 -= g_cellSize / 2.0f;
+            zx2 -= g_cellSize / 2.0f;
+            zy2 -= g_cellSize / 2.0f;
+
+            /* Pulsing animation intensity */
+            float pulse = (sinf(g_rushZonePulse) + 1.0f) * 0.5f;
+
+            /* Urgency based on percentage of time remaining */
+            float timePercent = zoneTimeRemaining / zoneMaxDuration;
+
+            /* Zone fill color (semi-transparent) */
+            float urgency = 1.0f - timePercent;
+            unsigned char fillAlpha = (unsigned char)(30 + pulse * 30 + urgency * 40);
+            Color zoneFillColor;
+            if (timePercent > 0.5f) {
+                /* Green zone - plenty of time (>50%) */
+                zoneFillColor = (Color){50, 255, 100, fillAlpha};
+            } else if (timePercent > 0.2f) {
+                /* Yellow zone - warning (20-50%) */
+                zoneFillColor = (Color){255, 200, 50, fillAlpha};
+            } else {
+                /* Red zone - urgent! (<20%) */
+                zoneFillColor = (Color){255, 50, 50, (unsigned char)(fillAlpha + 30)};
+            }
+
+            /* Draw fill */
+            DrawRectangle((int)zx1, (int)zy1, (int)(zx2 - zx1), (int)(zy2 - zy1), zoneFillColor);
+
+            /* Zone border - pulsing glow */
+            unsigned char borderAlpha = (unsigned char)(150 + pulse * 105);
+            Color borderColor;
+            if (timePercent > 0.5f) {
+                borderColor = (Color){100, 255, 150, borderAlpha};
+            } else if (timePercent > 0.2f) {
+                borderColor = (Color){255, 220, 100, borderAlpha};
+            } else {
+                borderColor = (Color){255, 100, 100, borderAlpha};
+            }
+
+            /* Draw multiple border layers for glow effect */
+            float borderThickness = 3.0f + pulse * 2.0f;
+            DrawRectangleLinesEx(
+                (Rectangle){zx1, zy1, zx2 - zx1, zy2 - zy1},
+                borderThickness, borderColor);
+
+            /* Outer glow */
+            Color glowColor = borderColor;
+            glowColor.a = (unsigned char)(60 + pulse * 40);
+            DrawRectangleLinesEx(
+                (Rectangle){zx1 - 3, zy1 - 3, (zx2 - zx1) + 6, (zy2 - zy1) + 6},
+                2, glowColor);
+
+            /* Corner accents */
+            float cornerSize = g_cellSize * 0.4f;
+            Color cornerColor = borderColor;
+            cornerColor.a = 255;
+
+            /* Top-left corner */
+            DrawLineEx((Vector2){zx1, zy1}, (Vector2){zx1 + cornerSize, zy1}, 4, cornerColor);
+            DrawLineEx((Vector2){zx1, zy1}, (Vector2){zx1, zy1 + cornerSize}, 4, cornerColor);
+            /* Top-right corner */
+            DrawLineEx((Vector2){zx2, zy1}, (Vector2){zx2 - cornerSize, zy1}, 4, cornerColor);
+            DrawLineEx((Vector2){zx2, zy1}, (Vector2){zx2, zy1 + cornerSize}, 4, cornerColor);
+            /* Bottom-left corner */
+            DrawLineEx((Vector2){zx1, zy2}, (Vector2){zx1 + cornerSize, zy2}, 4, cornerColor);
+            DrawLineEx((Vector2){zx1, zy2}, (Vector2){zx1, zy2 - cornerSize}, 4, cornerColor);
+            /* Bottom-right corner */
+            DrawLineEx((Vector2){zx2, zy2}, (Vector2){zx2 - cornerSize, zy2}, 4, cornerColor);
+            DrawLineEx((Vector2){zx2, zy2}, (Vector2){zx2, zy2 - cornerSize}, 4, cornerColor);
+
+            /* Zone timer indicator - small bar at bottom of zone */
+            float timerBarWidth = (zx2 - zx1) * timePercent;
+            DrawRectangle((int)zx1, (int)(zy2 + 2), (int)timerBarWidth, 4, borderColor);
+        }
     }
 
     /* Draw cursor in idle state */
@@ -2235,8 +2487,236 @@ static void DrawHUD(void) {
         DrawTextEx(g_font, "BLITZ", (Vector2){timerPanel.x + 38, timerPanel.y + 42}, 10, 1, timerBorder);
     }
 
-    /* Mode indicator - below level panel for non-Blitz modes */
-    if (currentMode != GAME_MODE_BLITZ) {
+    /* CASCADE RUSH timer - center top with rush zone indicator */
+    if (currentMode == GAME_MODE_CASCADE_RUSH) {
+        float timeRemaining = GetTimeRemaining();
+        Rectangle timerPanel = {g_screenWidth / 2.0f - 80, 8, 160, 56};
+
+        /* Timer background with urgency-based color */
+        Color timerBg = COLOR_BOARD_BG;
+        Color timerBorder = {60, 65, 80, 255};
+        Color timerText = COLOR_TEXT;
+
+        if (timeRemaining <= 5.0f && timeRemaining > 0) {
+            /* Urgent - red pulsing */
+            float urgencyPulse = (sinf(g_animTimer * 12.0f) + 1.0f) * 0.5f;
+            timerBg = (Color){80 + (int)(50 * urgencyPulse), 20, 20, 255};
+            timerBorder = (Color){255, 80, 80, 255};
+            timerText = (Color){255, (unsigned char)(100 + 155 * urgencyPulse), (unsigned char)(100 + 155 * urgencyPulse), 255};
+        } else if (timeRemaining <= 15.0f) {
+            /* Warning - yellow */
+            timerBorder = (Color){255, 200, 50, 255};
+            timerText = (Color){255, 220, 100, 255};
+        } else {
+            /* Normal - green (CASCADE RUSH color) */
+            timerBorder = (Color){100, 255, 150, 255};
+            timerText = (Color){100, 255, 150, 255};
+        }
+
+        DrawRectangleRounded(timerPanel, 0.2f, 8, timerBg);
+        DrawRectangleRoundedLines(timerPanel, 0.2f, 8, timerBorder);
+
+        /* Timer value */
+        int seconds = (int)timeRemaining;
+        int tenths = (int)((timeRemaining - seconds) * 10);
+        char timerStr[32];
+        if (timeRemaining <= 10.0f) {
+            snprintf(timerStr, sizeof(timerStr), "%d.%d", seconds, tenths);
+        } else {
+            snprintf(timerStr, sizeof(timerStr), "%d", seconds);
+        }
+
+        int timerFontSize = 36;
+        Vector2 timerSize = MeasureTextEx(g_accentFont, timerStr, timerFontSize, 1);
+        float timerX = timerPanel.x + (timerPanel.width - timerSize.x) / 2.0f;
+        DrawTextEx(g_accentFont, timerStr, (Vector2){timerX, timerPanel.y + 4}, timerFontSize, 1, timerText);
+
+        /* "RUSH" label */
+        DrawTextEx(g_font, "RUSH", (Vector2){timerPanel.x + 52, timerPanel.y + 42}, 10, 1, timerBorder);
+
+        /* Time bonus display (floats up when time is added) */
+        if (g_rushTimeBonusTimer > 0) {
+            float bonusAlpha = g_rushTimeBonusTimer / 1.5f;
+            float bonusY = timerPanel.y + timerPanel.height + 5 - (1.5f - g_rushTimeBonusTimer) * 30.0f;
+
+            char bonusStr[32];
+            snprintf(bonusStr, sizeof(bonusStr), "+%.1fs", g_rushTimeBonusDisplay);
+
+            Color bonusColor = {100, 255, 150, (unsigned char)(255 * bonusAlpha)};
+            int bonusFontSize = 20;
+            Vector2 bonusSize = MeasureTextEx(g_accentFont, bonusStr, bonusFontSize, 1);
+            float bonusX = timerPanel.x + (timerPanel.width - bonusSize.x) / 2.0f;
+
+            DrawTextEx(g_accentFont, bonusStr, (Vector2){bonusX + 1, bonusY + 1}, bonusFontSize, 1, (Color){0, 0, 0, (unsigned char)(180 * bonusAlpha)});
+            DrawTextEx(g_accentFont, bonusStr, (Vector2){bonusX, bonusY}, bonusFontSize, 1, bonusColor);
+        }
+
+        /* Rush zones captured indicator */
+        int zonesCaptured = GetRushZonesCaptured();
+        if (zonesCaptured > 0) {
+            char zonesStr[32];
+            snprintf(zonesStr, sizeof(zonesStr), "ZONES: %d", zonesCaptured);
+            DrawTextEx(g_font, zonesStr, (Vector2){timerPanel.x + timerPanel.width + 8, timerPanel.y + 18}, 14, 1, (Color){100, 255, 150, 200});
+        }
+    }
+
+    /* GEM SURGE HUD - wave progress, timer, featured gem */
+    if (currentMode == GAME_MODE_GEM_SURGE) {
+        float timeRemaining = GetTimeRemaining();
+
+        /* Main timer panel - center top */
+        Rectangle timerPanel = {g_screenWidth / 2.0f - 70, 8, 140, 56};
+
+        /* Timer background with urgency-based color */
+        Color timerBg = COLOR_BOARD_BG;
+        Color timerBorder = {60, 65, 80, 255};
+        Color timerText = COLOR_TEXT;
+
+        if (timeRemaining <= 5.0f && timeRemaining > 0) {
+            /* Urgent - red pulsing */
+            float urgencyPulse = (sinf(g_animTimer * 12.0f) + 1.0f) * 0.5f;
+            timerBg = (Color){80 + (int)(50 * urgencyPulse), 20, 40, 255};
+            timerBorder = (Color){255, 80, 120, 255};
+            timerText = (Color){255, (unsigned char)(100 + 155 * urgencyPulse), (unsigned char)(150 + 105 * urgencyPulse), 255};
+        } else if (timeRemaining <= 15.0f) {
+            /* Warning - yellow/orange */
+            timerBorder = (Color){255, 180, 80, 255};
+            timerText = (Color){255, 200, 100, 255};
+        } else {
+            /* Normal - purple/magenta (GEM SURGE color) */
+            timerBorder = (Color){200, 100, 255, 255};
+            timerText = (Color){200, 150, 255, 255};
+        }
+
+        DrawRectangleRounded(timerPanel, 0.2f, 8, timerBg);
+        DrawRectangleRoundedLines(timerPanel, 0.2f, 8, timerBorder);
+
+        /* Timer value */
+        int seconds = (int)timeRemaining;
+        int tenths = (int)((timeRemaining - seconds) * 10);
+        char timerStr[32];
+        if (timeRemaining <= 10.0f) {
+            snprintf(timerStr, sizeof(timerStr), "%d.%d", seconds, tenths);
+        } else {
+            snprintf(timerStr, sizeof(timerStr), "%d", seconds);
+        }
+
+        int timerFontSize = 34;
+        Vector2 timerSize = MeasureTextEx(g_accentFont, timerStr, timerFontSize, 1);
+        float timerX = timerPanel.x + (timerPanel.width - timerSize.x) / 2.0f;
+        DrawTextEx(g_accentFont, timerStr, (Vector2){timerX, timerPanel.y + 4}, timerFontSize, 1, timerText);
+
+        /* "SURGE" label */
+        DrawTextEx(g_font, "SURGE", (Vector2){timerPanel.x + 50, timerPanel.y + 42}, 10, 1, timerBorder);
+
+        /* Time bonus display */
+        if (g_surgeTimeBonusTimer > 0) {
+            float bonusAlpha = g_surgeTimeBonusTimer / 2.0f;
+            float bonusY = timerPanel.y + timerPanel.height + 5 - (2.0f - g_surgeTimeBonusTimer) * 25.0f;
+
+            char bonusStr[32];
+            snprintf(bonusStr, sizeof(bonusStr), "+%.0fs", g_surgeTimeBonusDisplay);
+
+            Color bonusColor = {200, 150, 255, (unsigned char)(255 * bonusAlpha)};
+            int bonusFontSize = 20;
+            Vector2 bonusSize = MeasureTextEx(g_accentFont, bonusStr, bonusFontSize, 1);
+            float bonusX = timerPanel.x + (timerPanel.width - bonusSize.x) / 2.0f;
+
+            DrawTextEx(g_accentFont, bonusStr, (Vector2){bonusX + 1, bonusY + 1}, bonusFontSize, 1, (Color){0, 0, 0, (unsigned char)(180 * bonusAlpha)});
+            DrawTextEx(g_accentFont, bonusStr, (Vector2){bonusX, bonusY}, bonusFontSize, 1, bonusColor);
+        }
+
+        /* Wave and progress panel - left of timer */
+        Rectangle wavePanel = {timerPanel.x - 115, 8, 105, 56};
+        DrawRectangleRounded(wavePanel, 0.2f, 8, COLOR_BOARD_BG);
+        DrawRectangleRoundedLines(wavePanel, 0.2f, 8, (Color){150, 100, 255, 200});
+
+        /* Wave number */
+        char waveStr[32];
+        int currentWave = GetCurrentWave();
+        snprintf(waveStr, sizeof(waveStr), "WAVE %d", currentWave);
+        DrawTextEx(g_font, waveStr, (Vector2){wavePanel.x + 10, wavePanel.y + 6}, 16, 1, (Color){200, 150, 255, 255});
+
+        /* Progress bar */
+        int waveScore = GetWaveScore();
+        int waveTarget = GetWaveTarget();
+        float progress = (waveTarget > 0) ? (float)waveScore / waveTarget : 0.0f;
+        if (progress > 1.0f) progress = 1.0f;
+
+        float barX = wavePanel.x + 8;
+        float barY = wavePanel.y + 28;
+        float barWidth = wavePanel.width - 16;
+        float barHeight = 8;
+
+        DrawRectangle((int)barX, (int)barY, (int)barWidth, (int)barHeight, (Color){30, 25, 45, 255});
+        Color progressColor = LerpColor((Color){100, 80, 180, 255}, (Color){200, 150, 255, 255}, progress);
+        DrawRectangle((int)barX, (int)barY, (int)(barWidth * progress), (int)barHeight, progressColor);
+
+        /* Progress glow when nearly complete */
+        if (progress > 0.8f) {
+            float glowPulse = (sinf(g_animTimer * 8.0f) + 1.0f) * 0.5f;
+            Color glowColor = {200, 150, 255, (unsigned char)(60 * glowPulse)};
+            DrawRectangle((int)barX - 2, (int)barY - 2, (int)(barWidth * progress) + 4, (int)barHeight + 4, glowColor);
+        }
+
+        /* Progress text */
+        char progressStr[32];
+        snprintf(progressStr, sizeof(progressStr), "%d/%d", waveScore, waveTarget);
+        DrawTextEx(g_font, progressStr, (Vector2){wavePanel.x + 10, wavePanel.y + 40}, 12, 1, COLOR_TEXT_MUTED);
+
+        /* Featured gem panel - right of timer */
+        Rectangle featuredPanel = {timerPanel.x + timerPanel.width + 10, 8, 90, 56};
+        DrawRectangleRounded(featuredPanel, 0.2f, 8, COLOR_BOARD_BG);
+
+        int featuredGem = GetFeaturedGemType();
+        Color featuredColor = GetGemBaseColor(featuredGem);
+
+        /* Golden border for featured panel */
+        Color goldBorder = {255, 215, 100, 200};
+        DrawRectangleRoundedLines(featuredPanel, 0.2f, 8, goldBorder);
+
+        /* "FEATURED" label */
+        DrawTextEx(g_font, "FEATURED", (Vector2){featuredPanel.x + 14, featuredPanel.y + 4}, 10, 1, goldBorder);
+
+        /* Draw featured gem preview */
+        float gemX = featuredPanel.x + featuredPanel.width / 2.0f;
+        float gemY = featuredPanel.y + 35;
+        float gemSize = 22.0f;
+
+        /* Golden glow behind gem */
+        float pulse = (sinf(g_animTimer * 4.0f) + 1.0f) * 0.5f;
+        Color glowColor = {255, 215, 100, (unsigned char)(80 + 40 * pulse)};
+        DrawCircle((int)gemX, (int)gemY, gemSize * 1.3f, glowColor);
+
+        /* Draw the gem shape */
+        LlzShapeType shape = GEM_TO_SDK_SHAPE[featuredGem];
+        LlzGemColor gemColor = GEM_TO_SDK_COLOR[featuredGem];
+        LlzDrawGemShape(shape, gemX, gemY, gemSize * 0.7f, gemColor);
+
+        /* "2X" badge */
+        DrawTextEx(g_font, "2X", (Vector2){featuredPanel.x + featuredPanel.width - 22, featuredPanel.y + 42}, 12, 1, goldBorder);
+
+        /* Wave complete celebration overlay */
+        if (g_surgeWaveCompleteTimer > 0) {
+            float alpha = g_surgeWaveCompleteTimer / 2.0f;
+            if (alpha > 1.0f) alpha = 1.0f;
+
+            /* Celebration text */
+            char celebrateStr[32];
+            snprintf(celebrateStr, sizeof(celebrateStr), "WAVE %d COMPLETE!", g_surgeWaveCompleteLevel);
+            int fontSize = 36;
+            Vector2 textSize = MeasureTextEx(g_accentFont, celebrateStr, fontSize, 1);
+            float cx = g_boardX + g_boardSize / 2.0f - textSize.x / 2.0f;
+            float cy = g_boardY + g_boardSize / 2.0f - 30;
+
+            Color textColor = {200, 150, 255, (unsigned char)(255 * alpha)};
+            DrawTextEx(g_accentFont, celebrateStr, (Vector2){cx + 2, cy + 2}, fontSize, 1, (Color){0, 0, 0, (unsigned char)(180 * alpha)});
+            DrawTextEx(g_accentFont, celebrateStr, (Vector2){cx, cy}, fontSize, 1, textColor);
+        }
+    }
+
+    /* Mode indicator - below level panel for non-Blitz/non-CascadeRush/non-GemSurge modes */
+    if (currentMode != GAME_MODE_BLITZ && currentMode != GAME_MODE_CASCADE_RUSH && currentMode != GAME_MODE_GEM_SURGE) {
         const char* modeLabel = (currentMode == GAME_MODE_TWIST) ? "TWIST" : "CLASSIC";
         Color modeColor = MODE_COLORS[currentMode];
         modeColor.a = 180;
@@ -2411,6 +2891,79 @@ static void UpdateAnimations(float deltaTime) {
         }
     }
 
+    /* Update CASCADE RUSH mode */
+    if (mode == GAME_MODE_CASCADE_RUSH && GetGameState() != GAME_STATE_GAME_OVER) {
+        /* Update rush zone pulse animation */
+        g_rushZonePulse += deltaTime * 5.0f;
+
+        /* Update time bonus display timer */
+        if (g_rushTimeBonusTimer > 0) {
+            g_rushTimeBonusTimer -= deltaTime;
+        }
+
+        /* Update CASCADE RUSH timers (handles zone spawning, timing, etc.) */
+        if (!UpdateCascadeRush(deltaTime)) {
+            /* Time expired - game over */
+            SetGameState(GAME_STATE_GAME_OVER);
+            TriggerShake(15.0f);
+        }
+    }
+
+    /* Update GEM SURGE mode */
+    if (mode == GAME_MODE_GEM_SURGE && GetGameState() != GAME_STATE_GAME_OVER) {
+        /* Update surge line pulse animation */
+        g_surgeLinePulse += deltaTime * 4.0f;
+
+        /* Update time bonus display timer */
+        if (g_surgeTimeBonusTimer > 0) {
+            g_surgeTimeBonusTimer -= deltaTime;
+        }
+
+        /* Update wave completion celebration timer */
+        if (g_surgeWaveCompleteTimer > 0) {
+            g_surgeWaveCompleteTimer -= deltaTime;
+        }
+
+        /* Spawn new surge lines periodically when below max */
+        if (GetSurgeActiveLineCount() < 3) {
+            g_surgeLineSpawnTimer -= deltaTime;
+            if (g_surgeLineSpawnTimer <= 0) {
+                SpawnSurgeLine();
+                g_surgeLineSpawnTimer = 4.0f + (float)(rand() % 30) / 10.0f;  /* 4-7 seconds */
+            }
+        }
+
+        /* Check for wave completion */
+        int currentWave = GetCurrentWave();
+        if (currentWave > g_surgeLastWave) {
+            /* Wave completed! Trigger celebration */
+            g_surgeWaveCompleteTimer = 2.0f;
+            g_surgeWaveCompleteLevel = g_surgeLastWave;
+            g_surgeLastWave = currentWave;
+
+            /* Visual celebration */
+            g_screenFlashTimer = 0.5f;
+            g_screenFlashColor = (Color){150, 100, 255, 100};  /* Purple flash */
+            TriggerShake(12.0f);
+
+            /* Time bonus display */
+            float timeBonus = 15.0f - (currentWave - 2) * 2.0f;
+            if (timeBonus < 5.0f) timeBonus = 5.0f;
+            g_surgeTimeBonusDisplay = timeBonus;
+            g_surgeTimeBonusTimer = 2.0f;
+
+            /* Spawn celebration announcement */
+            SpawnComboAnnouncement(11);  /* Special "WAVE COMPLETE!" announcement */
+        }
+
+        /* Update GEM SURGE timers */
+        if (!UpdateGemSurge(deltaTime)) {
+            /* Time expired - game over */
+            SetGameState(GAME_STATE_GAME_OVER);
+            TriggerShake(15.0f);
+        }
+    }
+
     /* Update background animation */
     g_bgGridOffset += deltaTime * 15.0f;
     g_bgPulseIntensity *= (1.0f - deltaTime * 2.0f);  /* Decay pulse */
@@ -2455,6 +3008,20 @@ static void UpdateAnimations(float deltaTime) {
     if (currentCascade > g_lastCascadeLevel && currentCascade >= 2) {
         SpawnComboAnnouncement(currentCascade);
         TriggerCascadeFlash(currentCascade);
+
+        /* CASCADE RUSH: Add time bonus for cascades */
+        if (mode == GAME_MODE_CASCADE_RUSH) {
+            float timeBonus = AddCascadeTimeBonus(currentCascade);
+            g_rushTimeBonusDisplay = timeBonus;
+            g_rushTimeBonusTimer = 1.5f;
+
+            /* Extra visual feedback - screen flash green */
+            g_screenFlashTimer = 0.3f;
+            g_screenFlashColor = (Color){50, 255, 100, 80};
+
+            /* Stronger shake for higher cascades */
+            TriggerShake(5.0f + currentCascade * 3.0f);
+        }
     }
     g_lastCascadeLevel = currentCascade;
 
@@ -2570,6 +3137,123 @@ static void UpdateAnimations(float deltaTime) {
 
                             /* Shake based on match size */
                             TriggerShake(3.0f + count * 1.5f);
+
+                            /* CASCADE RUSH: Check if match occurred inside rush zone */
+                            if (GetCurrentGameMode() == GAME_MODE_CASCADE_RUSH) {
+                                int zoneX, zoneY;
+                                bool zoneActive;
+                                float zoneTime;
+                                GetRushZoneInfo(&zoneX, &zoneY, &zoneActive, &zoneTime, NULL);
+
+                                if (zoneActive) {
+                                    /* Check if any matched gem was inside the zone */
+                                    bool matchedInZone = false;
+                                    for (int gy = 0; gy < BOARD_HEIGHT && !matchedInZone; gy++) {
+                                        for (int gx = 0; gx < BOARD_WIDTH && !matchedInZone; gx++) {
+                                            GemAnimation *a = GetGemAnimation(gx, gy);
+                                            if (a && a->isRemoving && IsInsideRushZone(gx, gy)) {
+                                                matchedInZone = true;
+                                            }
+                                        }
+                                    }
+
+                                    if (matchedInZone) {
+                                        /* Capture the zone! */
+                                        CaptureRushZone();
+
+                                        /* Add 25 seconds to the clock */
+                                        AddTime(25.0f);
+
+                                        /* Big visual celebration */
+                                        g_screenFlashTimer = 0.5f;
+                                        g_screenFlashColor = (Color){100, 255, 150, 120};
+                                        TriggerShake(15.0f);
+
+                                        /* Zone capture bonus time display */
+                                        g_rushTimeBonusDisplay = 25.0f;
+                                        g_rushTimeBonusTimer = 2.0f;
+
+                                        /* Spawn big score popup at zone center */
+                                        float zsx, zsy;
+                                        GridToScreen(zoneX + 1, zoneY + 1, &zsx, &zsy);
+                                        SpawnScorePopup(zsx, zsy - 20, RUSH_ZONE_SCORE_BONUS, (Color){100, 255, 150, 255});
+
+                                        /* Combo announcement */
+                                        SpawnComboAnnouncement(10);  /* High level for "ZONE CAPTURED!" */
+                                    }
+                                }
+                            }
+
+                            /* GEM SURGE: Check if match occurred on an active surge line */
+                            if (GetCurrentGameMode() == GAME_MODE_GEM_SURGE) {
+                                /* Check each active surge line */
+                                for (int lineIdx = 0; lineIdx < 8; lineIdx++) {
+                                    bool isHorizontal;
+                                    int position;
+                                    float lineTime;
+
+                                    if (!GetSurgeLineInfo(lineIdx, &isHorizontal, &position, &lineTime)) {
+                                        continue;  /* Line not active */
+                                    }
+
+                                    /* Check if any matched gem was on this line */
+                                    bool matchedOnLine = false;
+                                    for (int gy = 0; gy < BOARD_HEIGHT && !matchedOnLine; gy++) {
+                                        for (int gx = 0; gx < BOARD_WIDTH && !matchedOnLine; gx++) {
+                                            GemAnimation *a = GetGemAnimation(gx, gy);
+                                            if (a && a->isRemoving) {
+                                                if ((isHorizontal && gy == position) ||
+                                                    (!isHorizontal && gx == position)) {
+                                                    matchedOnLine = true;
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    if (matchedOnLine) {
+                                        /* Trigger the surge line! */
+                                        int surgeScore = TriggerSurgeLine(lineIdx);
+
+                                        /* Add 7 seconds to the clock */
+                                        AddTime(7.0f);
+
+                                        /* Add to wave score */
+                                        AddToWaveScore(surgeScore);
+
+                                        /* Time bonus display */
+                                        g_surgeTimeBonusDisplay = 7.0f;
+                                        g_surgeTimeBonusTimer = 1.5f;
+
+                                        /* Visual effects */
+                                        g_screenFlashTimer = 0.3f;
+                                        g_screenFlashColor = (Color){100, 200, 255, 100};  /* Cyan flash */
+                                        TriggerShake(10.0f);
+
+                                        /* Spawn particles along the line */
+                                        float bx = g_boardX;
+                                        float by = g_boardY;
+                                        for (int p = 0; p < 8; p++) {
+                                            float px, py;
+                                            if (isHorizontal) {
+                                                px = bx + (p + 0.5f) * g_cellSize;
+                                                py = by + position * g_cellSize + g_cellSize / 2.0f;
+                                            } else {
+                                                px = bx + position * g_cellSize + g_cellSize / 2.0f;
+                                                py = by + (p + 0.5f) * g_cellSize;
+                                            }
+                                            SpawnParticles(px, py, (Color){150, 220, 255, 255}, 3);
+                                        }
+
+                                        /* Score popup */
+                                        float popX = bx + g_boardSize / 2.0f;
+                                        float popY = by + (isHorizontal ? position * g_cellSize + g_cellSize / 2.0f : g_boardSize / 2.0f);
+                                        SpawnScorePopup(popX, popY, surgeScore, (Color){100, 200, 255, 255});
+
+                                        /* Combo announcement */
+                                        SpawnComboAnnouncement(12);  /* "SURGE!" announcement */
+                                    }
+                                }
+                            }
                         }
 
                         IncrementCascade();

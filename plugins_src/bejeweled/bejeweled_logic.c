@@ -193,6 +193,7 @@ typedef struct {
     bool rushZoneActive;
     int rushZoneX, rushZoneY;
     float rushZoneTimer;
+    float rushZoneMaxDuration;  /* Max duration for this zone (for progress bar) */
     float rushZoneSpawnTimer;
     int rushZonesCaptured;
     float timeAddedFromCascades;
@@ -1249,6 +1250,11 @@ void UpdateTime(float deltaTime)
     }
 }
 
+void AddTime(float seconds)
+{
+    g_game.timeRemaining += seconds;
+}
+
 /**
  * Get cascade level
  */
@@ -2170,7 +2176,19 @@ void SpawnRushZone(void)
     g_game.rushZoneY = rand() % (BOARD_HEIGHT - 2);
 
     g_game.rushZoneActive = true;
-    g_game.rushZoneTimer = RUSH_ZONE_DURATION;
+
+    /* Calculate zone duration based on level: 10 seconds base, 0.9x per level */
+    float baseDuration = 10.0f;
+    int level = g_game.level;
+    float duration = baseDuration;
+    for (int i = 1; i < level; i++) {
+        duration *= 0.9f;
+    }
+    /* Minimum duration of 3 seconds */
+    if (duration < 3.0f) duration = 3.0f;
+    g_game.rushZoneTimer = duration;
+    g_game.rushZoneMaxDuration = duration;
+
     g_game.rushZoneSpawnTimer = RUSH_ZONE_SPAWN_INTERVAL;
 }
 
@@ -2238,12 +2256,13 @@ bool IsInsideRushZone(int x, int y)
  * @param active Output: true if rush zone is active
  * @param timeRemaining Output: time remaining on rush zone
  */
-void GetRushZoneInfo(int *x, int *y, bool *active, float *timeRemaining)
+void GetRushZoneInfo(int *x, int *y, bool *active, float *timeRemaining, float *maxDuration)
 {
     if (x) *x = g_game.rushZoneX;
     if (y) *y = g_game.rushZoneY;
     if (active) *active = g_game.rushZoneActive;
     if (timeRemaining) *timeRemaining = g_game.rushZoneTimer;
+    if (maxDuration) *maxDuration = g_game.rushZoneMaxDuration;
 }
 
 /**

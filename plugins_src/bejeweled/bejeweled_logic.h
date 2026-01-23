@@ -299,6 +299,12 @@ float GetTimeRemaining(void);
 void UpdateTime(float deltaTime);
 
 /**
+ * Add time to the clock.
+ * @param seconds Amount of time to add in seconds
+ */
+void AddTime(float seconds);
+
+/**
  * Get current cascade level.
  */
 int GetCascadeLevel(void);
@@ -563,7 +569,7 @@ bool IsInsideRushZone(int x, int y);
  * @param active Output: true if rush zone is active
  * @param timeRemaining Output: time remaining on rush zone
  */
-void GetRushZoneInfo(int *x, int *y, bool *active, float *timeRemaining);
+void GetRushZoneInfo(int *x, int *y, bool *active, float *timeRemaining, float *maxDuration);
 
 /**
  * Add time bonus for cascade matches.
