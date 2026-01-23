@@ -173,6 +173,81 @@ extern "C" {
 #define HORNET_LASER_COOLDOWN 3.0f    // Time between laser attacks
 #define HORNET_LASER_WIDTH 6.0f       // Width of active laser beam
 
+// =============================================================================
+// BULLET HELL ENEMIES (Wave 12+)
+// =============================================================================
+
+// Spinner - fires spiral bullet patterns, vulnerable when eye opens
+#define SPINNER_SIZE 24.0f
+#define SPINNER_SPEED 35.0f
+#define SPINNER_BASE_HP 4
+#define SPINNER_DAMAGE 15
+#define SPINNER_XP 60
+#define SPINNER_ATTACK_RANGE 200.0f
+#define SPINNER_BULLET_DAMAGE 12
+#define SPINNER_BULLET_SPEED 120.0f
+#define SPINNER_BULLETS_PER_WAVE 8      // Bullets fired per rotation
+#define SPINNER_FIRE_RATE 0.15f         // Time between bullets in barrage
+#define SPINNER_BARRAGE_COUNT 16        // Total bullets per barrage
+#define SPINNER_COOLDOWN 2.5f           // Rest between barrages (vulnerable!)
+#define SPINNER_VULNERABLE_TIME 1.5f    // How long eye stays open
+
+// Mirror - creates decoys, only real one takes damage
+#define MIRROR_SIZE 20.0f
+#define MIRROR_SPEED 45.0f
+#define MIRROR_BASE_HP 3
+#define MIRROR_DAMAGE 12
+#define MIRROR_XP 55
+#define MIRROR_DECOY_COUNT 2            // Number of fake copies
+#define MIRROR_SPLIT_COOLDOWN 4.0f      // Time between splits
+#define MIRROR_REVEAL_TIME 0.8f         // Brief reveal of real one
+#define MIRROR_DECOY_DURATION 6.0f      // How long decoys last
+
+// Shielder - rotating shield blocks damage from one direction
+#define SHIELDER_SIZE 26.0f
+#define SHIELDER_SPEED 40.0f
+#define SHIELDER_BASE_HP 5
+#define SHIELDER_DAMAGE 18
+#define SHIELDER_XP 65
+#define SHIELDER_SHIELD_ARC 120.0f      // Degrees of coverage
+#define SHIELDER_ROTATE_SPEED 1.5f      // Radians per second
+#define SHIELDER_CHARGE_SPEED 150.0f    // Speed during charge attack
+#define SHIELDER_CHARGE_COOLDOWN 3.0f
+#define SHIELDER_CHARGE_DURATION 0.8f
+
+// Bomber - drops delayed explosive mines
+#define BOMBER_SIZE 22.0f
+#define BOMBER_SPEED 50.0f
+#define BOMBER_BASE_HP 3
+#define BOMBER_DAMAGE 10
+#define BOMBER_XP 50
+#define BOMBER_MINE_DAMAGE 20
+#define BOMBER_MINE_RADIUS 60.0f
+#define BOMBER_MINE_DELAY 2.0f          // Time before mine explodes
+#define BOMBER_DROP_COOLDOWN 1.5f
+#define BOMBER_MINES_PER_DROP 3
+#define BOMBER_VULNERABLE_AFTER_DROP 1.0f  // Stunned after dropping
+
+// Phaser - phases in/out, only damageable when visible
+#define PHASER_SIZE 18.0f
+#define PHASER_SPEED 70.0f
+#define PHASER_BASE_HP 3
+#define PHASER_DAMAGE 15
+#define PHASER_XP 55
+#define PHASER_BULLET_DAMAGE 10
+#define PHASER_BULLET_SPEED 150.0f
+#define PHASER_PHASE_DURATION 2.0f      // Time spent phased out
+#define PHASER_VISIBLE_DURATION 1.5f    // Time spent visible (vulnerable)
+#define PHASER_BULLETS_ON_APPEAR 6      // Burst when becoming visible
+#define PHASER_TELEPORT_RANGE 150.0f    // Distance to teleport
+
+// Enemy bullet system
+#define MAX_ENEMY_BULLETS 64
+#define ENEMY_BULLET_SIZE 5.0f
+
+// Mine system
+#define MAX_MINES 16
+
 // HP scaling: HP = BASE_HP + (gameTime * HP_SCALE_RATE)
 #define HP_SCALE_RATE 0.15f
 
@@ -227,6 +302,17 @@ extern "C" {
 #define COLOR_HORNET_LASER  (Color){255, 100, 100, 255}   // Red laser
 #define COLOR_BRUTE         (Color){100, 60, 40, 255}     // Brown brute
 #define COLOR_BOSS          (Color){255, 50, 200, 255}    // Magenta boss
+// Bullet hell enemies
+#define COLOR_SPINNER       (Color){200, 100, 255, 255}   // Purple spinner
+#define COLOR_SPINNER_EYE   (Color){255, 50, 50, 255}     // Red eye when vulnerable
+#define COLOR_MIRROR        (Color){180, 220, 255, 255}   // Light blue mirror
+#define COLOR_MIRROR_REAL   (Color){255, 200, 100, 255}   // Gold when revealed
+#define COLOR_SHIELDER      (Color){80, 180, 80, 255}     // Green shielder
+#define COLOR_SHIELD        (Color){100, 255, 200, 255}   // Cyan shield
+#define COLOR_BOMBER        (Color){180, 80, 50, 255}     // Dark orange bomber
+#define COLOR_MINE          (Color){255, 100, 50, 255}    // Orange mine
+#define COLOR_PHASER        (Color){150, 100, 200, 180}   // Translucent purple phaser
+#define COLOR_ENEMY_BULLET  (Color){255, 150, 150, 255}   // Pink enemy bullets
 #define COLOR_ENEMY_EYE     (Color){255, 255, 255, 255}
 
 // Weapons
@@ -299,7 +385,13 @@ typedef enum {
     ENEMY_ELITE,    // Wave 7: upgraded walker, more HP
     ENEMY_HORNET,   // Wave 8: ranged laser attacker
     ENEMY_BRUTE,    // Wave 10: slow heavy hitter
+    // Bullet hell enemies (Wave 12+)
+    ENEMY_SPINNER,  // Wave 12: spiral bullet patterns, vulnerable eye
+    ENEMY_MIRROR,   // Wave 13: creates decoys, find the real one
+    ENEMY_SHIELDER, // Wave 14: rotating shield, hit from behind
     ENEMY_BOSS,     // Wave 15: large, powerful, rare
+    ENEMY_BOMBER,   // Wave 16: drops delayed mines
+    ENEMY_PHASER,   // Wave 18: phases in/out, teleports
     ENEMY_TYPE_COUNT
 } EnemyType;
 
@@ -572,7 +664,51 @@ typedef struct {
     float laserAngle;         // Direction laser is aimed
     bool laserCharging;       // Currently charging
     bool laserFiring;         // Currently firing
+    // Spinner state
+    float spinAngle;          // Current rotation angle
+    float attackTimer;        // Cooldown/fire timer
+    int bulletsFired;         // Count in current barrage
+    bool isVulnerable;        // Eye is open
+    float vulnerableTimer;    // Time remaining vulnerable
+    // Mirror state
+    bool isDecoy;             // This is a fake copy
+    int realEnemyIdx;         // Index of the real mirror (for decoys)
+    float revealTimer;        // Timer for brief reveal
+    float splitTimer;         // Cooldown for creating decoys
+    // Shielder state
+    float shieldAngle;        // Direction shield is facing
+    bool isCharging;          // Doing charge attack
+    float chargeTimer;        // Charge cooldown/duration
+    Vector2 chargeDir;        // Direction of charge
+    // Bomber state
+    float dropTimer;          // Mine drop cooldown
+    float stunnedTimer;       // Vulnerable after dropping
+    // Phaser state
+    float phaseTimer;         // Phase in/out timer
+    bool isPhased;            // Currently phased out (invulnerable)
+    float visibility;         // 0-1 for rendering alpha
 } Enemy;
+
+// Enemy bullet (for bullet hell patterns)
+typedef struct {
+    Vector2 pos;
+    Vector2 vel;
+    int damage;
+    float size;
+    bool active;
+    Color color;
+} EnemyBullet;
+
+// Mine (dropped by bomber)
+typedef struct {
+    Vector2 pos;
+    float timer;              // Time until explosion
+    float radius;
+    int damage;
+    bool active;
+    bool exploding;           // Currently in explosion animation
+    float explodeTimer;       // Explosion animation timer
+} Mine;
 
 typedef struct {
     Vector2 pos;
@@ -695,6 +831,10 @@ typedef struct {
     Enemy enemies[MAX_ENEMIES];
     XPGem xpGems[MAX_XP_GEMS];
     Potion potions[MAX_POTIONS];
+
+    // Enemy projectiles (bullet hell)
+    EnemyBullet enemyBullets[MAX_ENEMY_BULLETS];
+    Mine mines[MAX_MINES];
 
     // Player inventory
     InventoryPotion inventory[MAX_INVENTORY_POTIONS];
