@@ -134,6 +134,32 @@ extern "C" {
 #define TANK_DAMAGE 20
 #define TANK_XP 25
 
+// New enemy types (Wave 5+)
+#define SWARM_SIZE 10.0f
+#define SWARM_SPEED 75.0f
+#define SWARM_BASE_HP 1
+#define SWARM_DAMAGE 3
+#define SWARM_XP 5
+#define SWARM_SPAWN_COUNT 5  // Spawns in groups
+
+#define ELITE_SIZE 22.0f
+#define ELITE_SPEED 55.0f
+#define ELITE_BASE_HP 3
+#define ELITE_DAMAGE 15
+#define ELITE_XP 30
+
+#define BRUTE_SIZE 35.0f
+#define BRUTE_SPEED 25.0f
+#define BRUTE_BASE_HP 5
+#define BRUTE_DAMAGE 30
+#define BRUTE_XP 50
+
+#define BOSS_SIZE 50.0f
+#define BOSS_SPEED 20.0f
+#define BOSS_BASE_HP 15
+#define BOSS_DAMAGE 40
+#define BOSS_XP 150
+
 // HP scaling: HP = BASE_HP + (gameTime * HP_SCALE_RATE)
 #define HP_SCALE_RATE 0.15f
 
@@ -182,6 +208,10 @@ extern "C" {
 #define COLOR_WALKER        (Color){220, 60, 60, 255}
 #define COLOR_FAST          (Color){255, 220, 50, 255}
 #define COLOR_TANK          (Color){160, 80, 200, 255}
+#define COLOR_SWARM         (Color){150, 255, 150, 255}   // Green swarm
+#define COLOR_ELITE         (Color){255, 100, 100, 255}   // Bright red elite
+#define COLOR_BRUTE         (Color){100, 60, 40, 255}     // Brown brute
+#define COLOR_BOSS          (Color){255, 50, 200, 255}    // Magenta boss
 #define COLOR_ENEMY_EYE     (Color){255, 255, 255, 255}
 
 // Weapons
@@ -247,7 +277,13 @@ typedef enum {
 typedef enum {
     ENEMY_WALKER = 0,
     ENEMY_FAST,
-    ENEMY_TANK
+    ENEMY_TANK,
+    // Wave 5+ enemies (progressively unlocked)
+    ENEMY_SWARM,    // Wave 5: tiny, fast, spawns in groups
+    ENEMY_ELITE,    // Wave 7: upgraded walker, more HP
+    ENEMY_BRUTE,    // Wave 10: slow heavy hitter
+    ENEMY_BOSS,     // Wave 15: large, powerful, rare
+    ENEMY_TYPE_COUNT
 } EnemyType;
 
 typedef enum {

@@ -19,6 +19,115 @@ static int g_screenHeight = SCREEN_HEIGHT;
 static bool g_wantsClose = false;
 static Font g_font;
 
+// =============================================================================
+// JUICE/POLISH EFFECT STATE
+// =============================================================================
+
+// Hitstop (brief freeze on kills)
+static float g_hitstopTimer = 0.0f;
+#define HITSTOP_DURATION 0.025f  // ~25ms freeze frame
+
+// Level up celebration
+static float g_levelUpCelebration = 0.0f;  // Timer for celebration effects
+static float g_levelUpFreeze = 0.0f;       // Time freeze during level up
+static Vector2 g_levelUpPos = {0};         // Position of level up burst
+#define LEVEL_UP_FREEZE_DURATION 0.15f     // Brief pause on level up
+#define LEVEL_UP_BURST_PARTICLES 24        // Radial burst count
+
+// Damage vignette (red screen edges on hit)
+static float g_damageVignette = 0.0f;      // Intensity of vignette
+#define VIGNETTE_FADE_SPEED 3.0f           // How fast vignette fades
+
+// Last crit tracking for colored damage numbers
+static bool g_lastHitWasCrit = false;
+
+// =============================================================================
+// PHASE 2 JUICE EFFECTS
+// =============================================================================
+
+// Kill streak system
+static int g_killStreak = 0;               // Current consecutive kills
+static float g_killStreakTimer = 0.0f;     // Time since last kill
+static float g_killStreakDisplay = 0.0f;   // Display timer for milestone
+static int g_killStreakMilestone = 0;      // Last milestone hit
+#define KILL_STREAK_TIMEOUT 2.0f           // Streak resets after this
+#define KILL_STREAK_DISPLAY_TIME 1.5f      // How long to show milestone
+
+// Kill streak milestones
+static const int KILL_MILESTONES[] = {5, 10, 25, 50, 100, 200};
+static const char *KILL_MILESTONE_NAMES[] = {"KILLING SPREE!", "RAMPAGE!", "UNSTOPPABLE!", "GODLIKE!", "LEGENDARY!", "IMMORTAL!"};
+#define NUM_KILL_MILESTONES 6
+
+// Wave celebration
+static int g_lastWave = 0;                 // Track wave changes
+static float g_waveCelebration = 0.0f;     // Celebration animation timer
+#define WAVE_CELEBRATION_TIME 2.0f
+
+// Enemy death animation pool
+#define MAX_DYING_ENEMIES 16
+typedef struct {
+    Vector2 pos;
+    EnemyType type;
+    float size;
+    float timer;
+    float maxTime;
+    Color color;
+    bool active;
+} DyingEnemy;
+static DyingEnemy g_dyingEnemies[MAX_DYING_ENEMIES];
+#define DEATH_ANIM_TIME 0.25f
+
+// Spawn warning indicators
+#define MAX_SPAWN_WARNINGS 8
+typedef struct {
+    Vector2 worldPos;       // Where enemy will spawn
+    float timer;            // Time until spawn
+    float maxTime;
+    EnemyType type;
+    bool active;
+} SpawnWarning;
+static SpawnWarning g_spawnWarnings[MAX_SPAWN_WARNINGS];
+#define SPAWN_WARNING_TIME 0.8f
+
+// =============================================================================
+// ENEMY POOL PROGRESSION SYSTEM
+// =============================================================================
+
+// Tracks which enemy types are in the spawn pool
+static bool g_enemyPoolUnlocked[ENEMY_TYPE_COUNT] = {true, false, false, false, false, false, false};
+// Base enemies: Walker always unlocked, Fast at wave 1, Tank at wave 3
+
+// Enemy introduction announcement
+static float g_enemyIntroTimer = 0.0f;
+static EnemyType g_enemyIntroType = ENEMY_WALKER;
+static bool g_enemyIntroActive = false;
+#define ENEMY_INTRO_TIME 3.0f
+
+// Enemy unlock waves
+static const int ENEMY_UNLOCK_WAVES[] = {
+    0,   // WALKER - always
+    1,   // FAST - wave 1
+    3,   // TANK - wave 3
+    5,   // SWARM - wave 5
+    7,   // ELITE - wave 7
+    10,  // BRUTE - wave 10
+    15   // BOSS - wave 15
+};
+
+static const char *ENEMY_NAMES[] = {
+    "WALKER", "SPEEDSTER", "TANK", "SWARM", "ELITE", "BRUTE", "BOSS"
+};
+
+static const char *ENEMY_DESCRIPTIONS[] = {
+    "Basic enemy",
+    "Fast and nimble",
+    "Slow but tough",
+    "Tiny and numerous",
+    "Enhanced warrior",
+    "Heavy hitter",
+    "Massive threat"
+};
+
 // Forward declarations
 static void GenerateUpgradeChoices(void);
 static int FindNearestEnemy(Vector2 pos, float range);
@@ -192,6 +301,30 @@ static float AngleDiff(float a, float b) {
 }
 
 // =============================================================================
+// EASING FUNCTIONS (for juicy animations)
+// =============================================================================
+
+static float EaseOutBack(float t) {
+    const float c1 = 1.70158f;
+    const float c3 = c1 + 1.0f;
+    return 1.0f + c3 * powf(t - 1.0f, 3.0f) + c1 * powf(t - 1.0f, 2.0f);
+}
+
+static float EaseOutElastic(float t) {
+    if (t == 0 || t == 1) return t;
+    const float c4 = (2.0f * PI) / 3.0f;
+    return powf(2.0f, -10.0f * t) * sinf((t * 10.0f - 0.75f) * c4) + 1.0f;
+}
+
+static float EaseOutQuad(float t) {
+    return 1.0f - (1.0f - t) * (1.0f - t);
+}
+
+static float EaseInOutCubic(float t) {
+    return t < 0.5f ? 4.0f * t * t * t : 1.0f - powf(-2.0f * t + 2.0f, 3.0f) / 2.0f;
+}
+
+// =============================================================================
 // CAMERA SYSTEM
 // =============================================================================
 
@@ -227,9 +360,11 @@ static void UpdateGameCamera(float dt) {
 static float GetDamageMultiplier(void) {
     float mult = g_game.player.damageMultiplier;
     if (g_game.buffs[POTION_DAMAGE].active) mult *= 2.0f;
-    // Apply crit chance
+    // Apply crit chance and track for visual feedback
+    g_lastHitWasCrit = false;
     if (g_game.player.critChance > 0 && GetRandomValue(0, 100) < (int)g_game.player.critChance) {
         mult *= 2.0f;
+        g_lastHitWasCrit = true;
     }
     return mult;
 }
@@ -389,6 +524,408 @@ static void DrawParticles(void) {
         DrawTriangle(pts[0], pts[1], pts[2], c);
         DrawTriangle(pts[0], pts[2], pts[3], c);
     }
+}
+
+// =============================================================================
+// DYING ENEMY ANIMATIONS
+// =============================================================================
+
+static void SpawnDyingEnemy(Vector2 pos, EnemyType type, float size, Color color) {
+    for (int i = 0; i < MAX_DYING_ENEMIES; i++) {
+        DyingEnemy *de = &g_dyingEnemies[i];
+        if (!de->active) {
+            de->pos = pos;
+            de->type = type;
+            de->size = size;
+            de->timer = DEATH_ANIM_TIME;
+            de->maxTime = DEATH_ANIM_TIME;
+            de->color = color;
+            de->active = true;
+            return;
+        }
+    }
+}
+
+static void UpdateDyingEnemies(float dt) {
+    for (int i = 0; i < MAX_DYING_ENEMIES; i++) {
+        DyingEnemy *de = &g_dyingEnemies[i];
+        if (!de->active) continue;
+
+        de->timer -= dt;
+        if (de->timer <= 0) de->active = false;
+    }
+}
+
+static void DrawDyingEnemies(void) {
+    for (int i = 0; i < MAX_DYING_ENEMIES; i++) {
+        DyingEnemy *de = &g_dyingEnemies[i];
+        if (!de->active) continue;
+        if (!IsOnScreen(de->pos, de->size * 2)) continue;
+
+        Vector2 screen = WorldToScreen(de->pos);
+        float progress = 1.0f - (de->timer / de->maxTime);
+
+        // Scale down with EaseOutBack for bouncy effect
+        float scale = 1.0f - EaseOutQuad(progress);
+        float currentSize = de->size * scale;
+        if (currentSize < 1.0f) continue;
+
+        // Fade out
+        Color color = de->color;
+        color.a = (unsigned char)(255 * (1.0f - progress));
+
+        // Rotate as it dies
+        float rotation = progress * PI * 2.0f;
+
+        float hs = currentSize / 2;
+        switch (de->type) {
+            case ENEMY_WALKER: {
+                // Rotating square
+                for (int j = 0; j < 4; j++) {
+                    float a1 = rotation + j * PI / 2.0f;
+                    float a2 = rotation + (j + 1) * PI / 2.0f;
+                    DrawTriangle(screen,
+                        (Vector2){screen.x + cosf(a1) * hs * 1.4f, screen.y + sinf(a1) * hs * 1.4f},
+                        (Vector2){screen.x + cosf(a2) * hs * 1.4f, screen.y + sinf(a2) * hs * 1.4f}, color);
+                }
+                break;
+            }
+            case ENEMY_FAST: {
+                // Spinning triangle
+                DrawTriangle(
+                    (Vector2){screen.x + cosf(rotation) * hs, screen.y + sinf(rotation) * hs},
+                    (Vector2){screen.x + cosf(rotation + 2.1f) * hs, screen.y + sinf(rotation + 2.1f) * hs},
+                    (Vector2){screen.x + cosf(rotation - 2.1f) * hs, screen.y + sinf(rotation - 2.1f) * hs}, color);
+                break;
+            }
+            case ENEMY_TANK: {
+                // Shrinking hexagon
+                for (int j = 0; j < 6; j++) {
+                    float a1 = rotation + j * PI / 3.0f;
+                    float a2 = rotation + (j + 1) * PI / 3.0f;
+                    DrawTriangle(screen,
+                        (Vector2){screen.x + cosf(a1) * hs, screen.y + sinf(a1) * hs},
+                        (Vector2){screen.x + cosf(a2) * hs, screen.y + sinf(a2) * hs}, color);
+                }
+                break;
+            }
+        }
+    }
+}
+
+// =============================================================================
+// SPAWN WARNING SYSTEM
+// =============================================================================
+
+static void SpawnWarningIndicator(Vector2 worldPos, EnemyType type) {
+    for (int i = 0; i < MAX_SPAWN_WARNINGS; i++) {
+        SpawnWarning *sw = &g_spawnWarnings[i];
+        if (!sw->active) {
+            sw->worldPos = worldPos;
+            sw->type = type;
+            sw->timer = SPAWN_WARNING_TIME;
+            sw->maxTime = SPAWN_WARNING_TIME;
+            sw->active = true;
+            return;
+        }
+    }
+}
+
+static void UpdateSpawnWarnings(float dt) {
+    for (int i = 0; i < MAX_SPAWN_WARNINGS; i++) {
+        SpawnWarning *sw = &g_spawnWarnings[i];
+        if (!sw->active) continue;
+
+        sw->timer -= dt;
+        if (sw->timer <= 0) sw->active = false;
+    }
+}
+
+static void DrawSpawnWarnings(void) {
+    for (int i = 0; i < MAX_SPAWN_WARNINGS; i++) {
+        SpawnWarning *sw = &g_spawnWarnings[i];
+        if (!sw->active) continue;
+
+        // Calculate screen edge position
+        Vector2 screenPos = WorldToScreen(sw->worldPos);
+
+        // Clamp to screen edges with margin
+        float margin = 30.0f;
+        bool offScreen = false;
+
+        if (screenPos.x < margin) { screenPos.x = margin; offScreen = true; }
+        if (screenPos.x > g_screenWidth - margin) { screenPos.x = g_screenWidth - margin; offScreen = true; }
+        if (screenPos.y < margin) { screenPos.y = margin; offScreen = true; }
+        if (screenPos.y > g_screenHeight - margin) { screenPos.y = g_screenHeight - margin; offScreen = true; }
+
+        if (!offScreen) continue;  // Don't show if on screen
+
+        float progress = 1.0f - (sw->timer / sw->maxTime);
+        float pulse = 0.5f + 0.5f * sinf(progress * PI * 8.0f);
+
+        // Get enemy color
+        Color color;
+        switch (sw->type) {
+            case ENEMY_WALKER: color = COLOR_WALKER; break;
+            case ENEMY_FAST: color = COLOR_FAST; break;
+            case ENEMY_TANK: color = COLOR_TANK; break;
+        }
+        color.a = (unsigned char)(200 * pulse);
+
+        // Draw warning indicator (pulsing triangle pointing toward spawn)
+        float size = 12.0f + 4.0f * pulse;
+        Vector2 dir = Normalize((Vector2){
+            sw->worldPos.x - g_game.camera.pos.x,
+            sw->worldPos.y - g_game.camera.pos.y
+        });
+        float angle = atan2f(dir.y, dir.x);
+
+        DrawTriangle(
+            (Vector2){screenPos.x + cosf(angle) * size, screenPos.y + sinf(angle) * size},
+            (Vector2){screenPos.x + cosf(angle + 2.5f) * size * 0.6f, screenPos.y + sinf(angle + 2.5f) * size * 0.6f},
+            (Vector2){screenPos.x + cosf(angle - 2.5f) * size * 0.6f, screenPos.y + sinf(angle - 2.5f) * size * 0.6f},
+            color);
+
+        // Outer glow
+        Color glowColor = color;
+        glowColor.a = (unsigned char)(80 * pulse);
+        DrawCircleV(screenPos, size + 5.0f, glowColor);
+    }
+}
+
+// =============================================================================
+// KILL STREAK SYSTEM
+// =============================================================================
+
+static void RegisterKill(void) {
+    g_killStreak++;
+    g_killStreakTimer = KILL_STREAK_TIMEOUT;
+
+    // Check for milestone
+    for (int i = NUM_KILL_MILESTONES - 1; i >= 0; i--) {
+        if (g_killStreak == KILL_MILESTONES[i]) {
+            g_killStreakMilestone = i;
+            g_killStreakDisplay = KILL_STREAK_DISPLAY_TIME;
+
+            // Celebration effects
+            g_game.screenFlash = 0.4f;
+            g_game.screenFlashColor = (Color){255, 200, 50, 100};
+            g_game.screenShake = 0.25f;
+
+            // Radial burst from player
+            for (int j = 0; j < 16; j++) {
+                float angle = (float)j / 16.0f * PI * 2.0f;
+                float speed = 150.0f + RandomFloat(0, 50);
+                Vector2 vel = {cosf(angle) * speed, sinf(angle) * speed};
+                SpawnParticle(g_game.player.pos, vel, (Color){255, 215, 0, 255}, RandomFloat(4, 7), 0.5f);
+            }
+            break;
+        }
+    }
+}
+
+static void UpdateKillStreak(float dt) {
+    if (g_killStreakTimer > 0) {
+        g_killStreakTimer -= dt;
+        if (g_killStreakTimer <= 0) {
+            g_killStreak = 0;  // Reset streak
+        }
+    }
+
+    if (g_killStreakDisplay > 0) {
+        g_killStreakDisplay -= dt;
+    }
+}
+
+static void DrawKillStreakAnnouncement(void) {
+    if (g_killStreakDisplay <= 0) return;
+
+    float alpha = Clampf(g_killStreakDisplay / 0.3f, 0, 1);  // Fade out in last 0.3s
+    float progress = 1.0f - (g_killStreakDisplay / KILL_STREAK_DISPLAY_TIME);
+    float scale = EaseOutBack(fminf(progress * 3.0f, 1.0f));  // Pop in effect
+
+    const char *text = KILL_MILESTONE_NAMES[g_killStreakMilestone];
+    float fontSize = 36 * scale;
+    int textWidth = (int)MeasureTextEx(g_font, text, fontSize, 1).x;
+
+    Color textColor = {255, 215, 0, (unsigned char)(255 * alpha)};
+    Color shadowColor = {0, 0, 0, (unsigned char)(180 * alpha)};
+
+    float x = g_screenWidth / 2.0f - textWidth / 2.0f;
+    float y = 120.0f;
+
+    // Shadow
+    DrawTextEx(g_font, text, (Vector2){x + 2, y + 2}, fontSize, 1, shadowColor);
+    // Main text
+    DrawTextEx(g_font, text, (Vector2){x, y}, fontSize, 1, textColor);
+
+    // Streak count below
+    char countText[32];
+    snprintf(countText, sizeof(countText), "%d KILLS", g_killStreak);
+    float countFontSize = 18 * scale;
+    int countWidth = (int)MeasureTextEx(g_font, countText, countFontSize, 1).x;
+    Color countColor = {255, 255, 255, (unsigned char)(200 * alpha)};
+    DrawTextEx(g_font, countText, (Vector2){g_screenWidth / 2.0f - countWidth / 2.0f, y + fontSize + 5}, countFontSize, 1, countColor);
+}
+
+// =============================================================================
+// WAVE CELEBRATION
+// =============================================================================
+
+static void TriggerWaveCelebration(int newWave) {
+    g_waveCelebration = WAVE_CELEBRATION_TIME;
+    g_lastWave = newWave;
+
+    // Screen effects
+    g_game.screenFlash = 0.3f;
+    g_game.screenFlashColor = (Color){100, 200, 255, 80};
+
+    // Spawn celebration particles around screen edges
+    for (int i = 0; i < 20; i++) {
+        float x = RandomFloat(0, WORLD_WIDTH);
+        float y = RandomFloat(0, WORLD_HEIGHT);
+        // Keep near player
+        x = g_game.player.pos.x + RandomFloat(-300, 300);
+        y = g_game.player.pos.y + RandomFloat(-200, 200);
+
+        Vector2 vel = {RandomFloat(-30, 30), RandomFloat(-60, -30)};
+        Color c = (i % 2 == 0) ? COLOR_XP_BAR : (Color){255, 255, 255, 255};
+        SpawnParticle((Vector2){x, y}, vel, c, RandomFloat(3, 6), RandomFloat(0.5f, 1.0f));
+    }
+}
+
+static void DrawWaveCelebration(void) {
+    if (g_waveCelebration <= 0) return;
+
+    float alpha = Clampf(g_waveCelebration / 0.5f, 0, 1);
+    float progress = 1.0f - (g_waveCelebration / WAVE_CELEBRATION_TIME);
+    float scale = EaseOutElastic(fminf(progress * 2.0f, 1.0f));
+
+    char text[32];
+    snprintf(text, sizeof(text), "WAVE %d", g_lastWave + 1);
+    float fontSize = 42 * scale;
+    int textWidth = (int)MeasureTextEx(g_font, text, fontSize, 1).x;
+
+    Color textColor = {100, 200, 255, (unsigned char)(255 * alpha)};
+    Color shadowColor = {0, 0, 0, (unsigned char)(180 * alpha)};
+
+    float x = g_screenWidth / 2.0f - textWidth / 2.0f;
+    float y = 80.0f;
+
+    DrawTextEx(g_font, text, (Vector2){x + 2, y + 2}, fontSize, 1, shadowColor);
+    DrawTextEx(g_font, text, (Vector2){x, y}, fontSize, 1, textColor);
+}
+
+// =============================================================================
+// ENEMY INTRODUCTION SYSTEM
+// =============================================================================
+
+static Color GetEnemyColor(EnemyType type) {
+    switch (type) {
+        case ENEMY_WALKER: return COLOR_WALKER;
+        case ENEMY_FAST: return COLOR_FAST;
+        case ENEMY_TANK: return COLOR_TANK;
+        case ENEMY_SWARM: return COLOR_SWARM;
+        case ENEMY_ELITE: return COLOR_ELITE;
+        case ENEMY_BRUTE: return COLOR_BRUTE;
+        case ENEMY_BOSS: return COLOR_BOSS;
+        default: return WHITE;
+    }
+}
+
+static void UnlockEnemy(EnemyType type) {
+    if (type >= ENEMY_TYPE_COUNT) return;
+    if (g_enemyPoolUnlocked[type]) return;  // Already unlocked
+
+    g_enemyPoolUnlocked[type] = true;
+    g_enemyIntroType = type;
+    g_enemyIntroTimer = ENEMY_INTRO_TIME;
+    g_enemyIntroActive = true;
+
+    // Big celebration for new enemy unlock
+    g_game.screenFlash = 0.5f;
+    Color enemyColor = GetEnemyColor(type);
+    g_game.screenFlashColor = (Color){enemyColor.r, enemyColor.g, enemyColor.b, 100};
+    g_game.screenShake = 0.3f;
+
+    // Particles in enemy color
+    for (int i = 0; i < 20; i++) {
+        float angle = RandomFloat(0, PI * 2);
+        float speed = 100.0f + RandomFloat(0, 100);
+        Vector2 vel = {cosf(angle) * speed, sinf(angle) * speed};
+        Vector2 pos = {g_screenWidth / 2.0f + g_game.camera.pos.x - g_screenWidth / 2.0f,
+                       120.0f + g_game.camera.pos.y - g_screenHeight / 2.0f};
+        SpawnParticle(pos, vel, enemyColor, RandomFloat(4, 8), 0.8f);
+    }
+}
+
+static void CheckWaveUnlocks(int wave) {
+    for (int i = 0; i < ENEMY_TYPE_COUNT; i++) {
+        if (!g_enemyPoolUnlocked[i] && wave >= ENEMY_UNLOCK_WAVES[i]) {
+            UnlockEnemy((EnemyType)i);
+            break;  // Only unlock one per wave transition
+        }
+    }
+}
+
+static void DrawEnemyIntroduction(void) {
+    if (!g_enemyIntroActive || g_enemyIntroTimer <= 0) return;
+
+    float progress = 1.0f - (g_enemyIntroTimer / ENEMY_INTRO_TIME);
+    float alpha;
+
+    // Fade in for first 0.3s, hold, fade out for last 0.5s
+    if (progress < 0.1f) {
+        alpha = progress / 0.1f;
+    } else if (progress > 0.8f) {
+        alpha = (1.0f - progress) / 0.2f;
+    } else {
+        alpha = 1.0f;
+    }
+
+    // Pop-in scale effect
+    float scale = EaseOutBack(fminf(progress * 5.0f, 1.0f));
+
+    Color enemyColor = GetEnemyColor(g_enemyIntroType);
+    enemyColor.a = (unsigned char)(255 * alpha);
+
+    // Dark overlay
+    DrawRectangle(0, 50, g_screenWidth, 120, (Color){0, 0, 0, (unsigned char)(180 * alpha)});
+
+    // "NEW THREAT" header
+    const char *header = "NEW THREAT DETECTED";
+    float headerSize = 18 * scale;
+    int headerWidth = (int)MeasureTextEx(g_font, header, headerSize, 1).x;
+    Color headerColor = {255, 100, 100, (unsigned char)(255 * alpha)};
+    DrawTextEx(g_font, header, (Vector2){g_screenWidth / 2.0f - headerWidth / 2.0f, 60}, headerSize, 1, headerColor);
+
+    // Enemy name (big)
+    const char *name = ENEMY_NAMES[g_enemyIntroType];
+    float nameSize = 36 * scale;
+    int nameWidth = (int)MeasureTextEx(g_font, name, nameSize, 1).x;
+
+    // Glow behind name
+    Color glowColor = enemyColor;
+    glowColor.a = (unsigned char)(60 * alpha);
+    DrawRectangle((int)(g_screenWidth / 2.0f - nameWidth / 2.0f - 20), 85,
+                  nameWidth + 40, (int)(nameSize + 10), glowColor);
+
+    Color shadowColor = {0, 0, 0, (unsigned char)(200 * alpha)};
+    DrawTextEx(g_font, name, (Vector2){g_screenWidth / 2.0f - nameWidth / 2.0f + 2, 90 + 2}, nameSize, 1, shadowColor);
+    DrawTextEx(g_font, name, (Vector2){g_screenWidth / 2.0f - nameWidth / 2.0f, 90}, nameSize, 1, enemyColor);
+
+    // Description
+    const char *desc = ENEMY_DESCRIPTIONS[g_enemyIntroType];
+    float descSize = 14 * scale;
+    int descWidth = (int)MeasureTextEx(g_font, desc, descSize, 1).x;
+    Color descColor = {200, 200, 200, (unsigned char)(200 * alpha)};
+    DrawTextEx(g_font, desc, (Vector2){g_screenWidth / 2.0f - descWidth / 2.0f, 135}, descSize, 1, descColor);
+
+    // Pulsing border
+    float pulse = 0.5f + 0.5f * sinf(progress * PI * 8.0f);
+    Color borderColor = enemyColor;
+    borderColor.a = (unsigned char)(150 * alpha * pulse);
+    DrawRectangleLinesEx((Rectangle){10, 55, g_screenWidth - 20, 110}, 3, borderColor);
 }
 
 // =============================================================================
@@ -622,19 +1159,32 @@ static void UpdateXPGems(float dt) {
 
         if (gem->magnetized) {
             Vector2 dir = Normalize((Vector2){player->pos.x - gem->pos.x, player->pos.y - gem->pos.y});
-            gem->pos.x += dir.x * XP_GEM_MAGNET_SPEED * dt;
-            gem->pos.y += dir.y * XP_GEM_MAGNET_SPEED * dt;
 
-            // Trail particles while magnetized
-            if (GetRandomValue(0, 100) < 25) {
+            // Homing acceleration: speed increases as gem gets closer
+            // Start at base speed, accelerate up to 3x as it approaches
+            float distFactor = 1.0f - Clampf(dist / magnetRange, 0.0f, 1.0f);  // 0 at edge, 1 at player
+            float accelMult = 1.0f + distFactor * 2.0f;  // 1x to 3x speed
+
+            // Apply acceleration to velocity (for smooth acceleration feel)
+            float targetSpeed = XP_GEM_MAGNET_SPEED * accelMult;
+            gem->vel.x = Lerpf(gem->vel.x, dir.x * targetSpeed, dt * 8.0f);
+            gem->vel.y = Lerpf(gem->vel.y, dir.y * targetSpeed, dt * 8.0f);
+
+            gem->pos.x += gem->vel.x * dt;
+            gem->pos.y += gem->vel.y * dt;
+
+            // More trail particles when moving fast
+            int trailChance = 15 + (int)(distFactor * 30);  // 15-45% chance
+            if (GetRandomValue(0, 100) < trailChance) {
                 Color trailColor;
                 switch (gem->type) {
                     case XP_LARGE: trailColor = COLOR_XP_LARGE; break;
                     case XP_MEDIUM: trailColor = COLOR_XP_MEDIUM; break;
                     default: trailColor = COLOR_XP_SMALL; break;
                 }
-                trailColor.a = 150;
-                SpawnParticle(gem->pos, (Vector2){RandomFloat(-15, 15), RandomFloat(-15, 15)}, trailColor, 3.0f, 0.2f);
+                trailColor.a = (unsigned char)(100 + distFactor * 155);  // Brighter when faster
+                float trailSize = 2.0f + distFactor * 2.0f;
+                SpawnParticle(gem->pos, (Vector2){RandomFloat(-15, 15), RandomFloat(-15, 15)}, trailColor, trailSize, 0.2f);
             }
         } else {
             gem->pos.x += gem->vel.x * dt;
@@ -717,6 +1267,26 @@ static void UpdateXPGems(float dt) {
                 }
                 GenerateUpgradeChoices();
                 g_game.state = GAME_STATE_LEVEL_UP;
+
+                // Level up celebration effects!
+                g_levelUpCelebration = 1.0f;
+                g_levelUpFreeze = LEVEL_UP_FREEZE_DURATION;
+                g_levelUpPos = player->pos;
+
+                // Radial particle burst
+                for (int j = 0; j < LEVEL_UP_BURST_PARTICLES; j++) {
+                    float angle = (float)j / LEVEL_UP_BURST_PARTICLES * PI * 2.0f;
+                    float speed = 200.0f + RandomFloat(0, 100);
+                    Vector2 vel = {cosf(angle) * speed, sinf(angle) * speed};
+                    // Alternating gold and cyan particles
+                    Color pColor = (j % 2 == 0) ? (Color){255, 215, 0, 255} : COLOR_XP_BAR;
+                    SpawnParticle(player->pos, vel, pColor, RandomFloat(4, 8), 0.6f);
+                }
+
+                // Screen flash for level up
+                g_game.screenFlash = 0.5f;
+                g_game.screenFlashColor = (Color){255, 255, 200, 100};
+                g_game.screenShake = 0.2f;
             }
         }
     }
@@ -812,17 +1382,76 @@ static void SpawnEnemy(EnemyType type) {
                     e->size = TANK_SIZE; e->speed = TANK_SPEED * (1.0f + diff * 0.1f);
                     e->hp = e->maxHp = CalculateEnemyHP(TANK_BASE_HP) + (int)(g_game.gameTime * 0.1f);
                     e->damage = TANK_DAMAGE; e->xpValue = TANK_XP; break;
+                case ENEMY_SWARM:
+                    e->size = SWARM_SIZE; e->speed = SWARM_SPEED * (1.0f + diff * 0.25f);
+                    e->hp = e->maxHp = CalculateEnemyHP(SWARM_BASE_HP);
+                    e->damage = SWARM_DAMAGE; e->xpValue = SWARM_XP; break;
+                case ENEMY_ELITE:
+                    e->size = ELITE_SIZE; e->speed = ELITE_SPEED * (1.0f + diff * 0.15f);
+                    e->hp = e->maxHp = CalculateEnemyHP(ELITE_BASE_HP) + (int)(g_game.gameTime * 0.05f);
+                    e->damage = ELITE_DAMAGE; e->xpValue = ELITE_XP; break;
+                case ENEMY_BRUTE:
+                    e->size = BRUTE_SIZE; e->speed = BRUTE_SPEED * (1.0f + diff * 0.08f);
+                    e->hp = e->maxHp = CalculateEnemyHP(BRUTE_BASE_HP) + (int)(g_game.gameTime * 0.15f);
+                    e->damage = BRUTE_DAMAGE; e->xpValue = BRUTE_XP; break;
+                case ENEMY_BOSS:
+                    e->size = BOSS_SIZE; e->speed = BOSS_SPEED * (1.0f + diff * 0.05f);
+                    e->hp = e->maxHp = CalculateEnemyHP(BOSS_BASE_HP) + (int)(g_game.gameTime * 0.2f);
+                    e->damage = BOSS_DAMAGE; e->xpValue = BOSS_XP; break;
+                default: break;
             }
             return;
         }
     }
 }
 
+// Spawn swarm (multiple small enemies at once)
+static void SpawnSwarm(void) {
+    float baseAngle = RandomFloat(0, PI * 2);
+    float spawnDist = 500.0f + RandomFloat(0, 150);
+
+    for (int i = 0; i < SWARM_SPAWN_COUNT; i++) {
+        float angleOffset = (float)i / SWARM_SPAWN_COUNT * PI * 0.5f - PI * 0.25f;
+        float angle = baseAngle + angleOffset;
+
+        for (int j = 0; j < MAX_ENEMIES; j++) {
+            Enemy *e = &g_game.enemies[j];
+            if (!e->active) {
+                e->type = ENEMY_SWARM;
+                e->active = true;
+                e->hitFlash = 0;
+                e->pos.x = Clampf(g_game.player.pos.x + cosf(angle) * spawnDist, WORLD_PADDING, WORLD_WIDTH - WORLD_PADDING);
+                e->pos.y = Clampf(g_game.player.pos.y + sinf(angle) * spawnDist, WORLD_PADDING, WORLD_HEIGHT - WORLD_PADDING);
+                e->size = SWARM_SIZE;
+                e->speed = SWARM_SPEED * (1.0f + g_game.spawner.difficultyMultiplier * 0.25f);
+                e->hp = e->maxHp = CalculateEnemyHP(SWARM_BASE_HP);
+                e->damage = SWARM_DAMAGE;
+                e->xpValue = SWARM_XP;
+                break;
+            }
+        }
+    }
+}
+
 static void DamageEnemy(Enemy *e, int damage) {
     int finalDamage = (int)(damage * GetDamageMultiplier());
+    bool wasCrit = g_lastHitWasCrit;  // Capture crit state before next GetDamageMultiplier call
     e->hp -= finalDamage;
     e->hitFlash = 0.1f;
     SpawnParticleBurst(e->pos, 3, COLOR_PARTICLE_HIT, 60, 3);
+
+    // Spawn damage number popup with crit coloring
+    char dmgText[16];
+    if (wasCrit) {
+        snprintf(dmgText, sizeof(dmgText), "%d!", finalDamage);
+        // Gold/yellow color for crits, larger scale
+        SpawnTextPopup(e->pos, dmgText, (Color){255, 215, 0, 255}, 1.4f);
+        // Extra particles for crit hits
+        SpawnParticleBurst(e->pos, 5, (Color){255, 215, 0, 255}, 80, 4);
+    } else {
+        snprintf(dmgText, sizeof(dmgText), "%d", finalDamage);
+        SpawnTextPopup(e->pos, dmgText, WHITE, 1.0f);
+    }
 
     // Lifesteal: heal player for % of damage dealt
     if (g_game.player.lifesteal > 0) {
@@ -836,11 +1465,27 @@ static void DamageEnemy(Enemy *e, int damage) {
     }
 
     if (e->hp <= 0) {
+        // Get enemy color for death animation before deactivating
+        Color deathColor;
+        switch (e->type) {
+            case ENEMY_WALKER: deathColor = COLOR_WALKER; break;
+            case ENEMY_FAST: deathColor = COLOR_FAST; break;
+            case ENEMY_TANK: deathColor = COLOR_TANK; break;
+        }
+
+        // Spawn dying enemy animation
+        SpawnDyingEnemy(e->pos, e->type, e->size, deathColor);
+
         e->active = false;
         g_game.killCount++;
+        RegisterKill();  // Track kill streak
+
         SpawnParticleBurst(e->pos, 8, COLOR_PARTICLE_DIE, 100, 5);
         SpawnXPGem(e->pos, e->xpValue);
         g_game.screenShake = 0.1f;
+
+        // Hitstop: brief freeze on kill for impactful feel
+        g_hitstopTimer = HITSTOP_DURATION;
 
         if (GetRandomValue(0, 100) < POTION_DROP_CHANCE) {
             SpawnPotion(e->pos);
@@ -869,6 +1514,10 @@ static void DamagePlayer(int damage, Vector2 knockbackFrom) {
     player->invincibilityTimer = PLAYER_INVINCIBILITY_TIME;
     player->hurtFlash = 0.2f;
     g_game.screenShake = 0.15f;
+
+    // Red damage vignette - intensity based on damage taken
+    float vignetteIntensity = Clampf((float)finalDamage / 20.0f, 0.3f, 1.0f);
+    g_damageVignette = fmaxf(g_damageVignette, vignetteIntensity);
 
     // Knockback
     Vector2 knock = Normalize((Vector2){player->pos.x - knockbackFrom.x, player->pos.y - knockbackFrom.y});
@@ -920,20 +1569,17 @@ static void DrawEnemy(Enemy *e) {
     if (!IsOnScreen(e->pos, e->size)) return;
     Vector2 screen = WorldToScreen(e->pos);
 
-    Color color;
-    switch (e->type) {
-        case ENEMY_WALKER: color = COLOR_WALKER; break;
-        case ENEMY_FAST: color = COLOR_FAST; break;
-        case ENEMY_TANK: color = COLOR_TANK; break;
-    }
+    Color color = GetEnemyColor(e->type);
     if (e->hitFlash > 0) color = WHITE;
 
     float hs = e->size / 2;
     switch (e->type) {
         case ENEMY_WALKER:
+            // Square
             DrawRectangle((int)(screen.x - hs), (int)(screen.y - hs), (int)e->size, (int)e->size, color);
             break;
         case ENEMY_FAST: {
+            // Triangle pointing toward player
             Vector2 dir = Normalize((Vector2){g_game.player.pos.x - e->pos.x, g_game.player.pos.y - e->pos.y});
             float angle = atan2f(dir.y, dir.x);
             DrawTriangle(
@@ -943,6 +1589,7 @@ static void DrawEnemy(Enemy *e) {
             break;
         }
         case ENEMY_TANK:
+            // Hexagon
             for (int j = 0; j < 6; j++) {
                 float a1 = j * PI / 3.0f, a2 = (j + 1) * PI / 3.0f;
                 DrawTriangle(screen,
@@ -950,11 +1597,85 @@ static void DrawEnemy(Enemy *e) {
                     (Vector2){screen.x + cosf(a2) * hs, screen.y + sinf(a2) * hs}, color);
             }
             break;
+        case ENEMY_SWARM:
+            // Tiny circle
+            DrawCircleV(screen, hs, color);
+            break;
+        case ENEMY_ELITE: {
+            // Diamond with inner glow
+            Vector2 pts[4] = {
+                {screen.x, screen.y - hs * 1.2f},
+                {screen.x + hs, screen.y},
+                {screen.x, screen.y + hs * 1.2f},
+                {screen.x - hs, screen.y}
+            };
+            DrawTriangle(pts[0], pts[1], pts[2], color);
+            DrawTriangle(pts[0], pts[2], pts[3], color);
+            // Inner highlight
+            Color inner = {255, 255, 255, 100};
+            DrawCircleV(screen, hs * 0.3f, inner);
+            break;
+        }
+        case ENEMY_BRUTE: {
+            // Large octagon
+            for (int j = 0; j < 8; j++) {
+                float a1 = j * PI / 4.0f, a2 = (j + 1) * PI / 4.0f;
+                DrawTriangle(screen,
+                    (Vector2){screen.x + cosf(a1) * hs, screen.y + sinf(a1) * hs},
+                    (Vector2){screen.x + cosf(a2) * hs, screen.y + sinf(a2) * hs}, color);
+            }
+            // Darker inner circle for depth
+            Color darker = {(unsigned char)(color.r * 0.6f), (unsigned char)(color.g * 0.6f), (unsigned char)(color.b * 0.6f), 255};
+            DrawCircleV(screen, hs * 0.5f, darker);
+            break;
+        }
+        case ENEMY_BOSS: {
+            // Large star shape with glow
+            // Outer glow
+            Color glow = color;
+            glow.a = 60;
+            DrawCircleV(screen, hs * 1.3f, glow);
+
+            // Star points (8-pointed)
+            for (int j = 0; j < 8; j++) {
+                float a1 = j * PI / 4.0f;
+                float a2 = a1 + PI / 8.0f;
+                float a3 = a1 + PI / 4.0f;
+                Vector2 outer1 = {screen.x + cosf(a1) * hs, screen.y + sinf(a1) * hs};
+                Vector2 inner = {screen.x + cosf(a2) * hs * 0.5f, screen.y + sinf(a2) * hs * 0.5f};
+                Vector2 outer2 = {screen.x + cosf(a3) * hs, screen.y + sinf(a3) * hs};
+                DrawTriangle(screen, outer1, inner, color);
+                DrawTriangle(screen, inner, outer2, color);
+            }
+
+            // Crown/horn
+            DrawTriangle(
+                (Vector2){screen.x, screen.y - hs * 1.4f},
+                (Vector2){screen.x - hs * 0.3f, screen.y - hs * 0.8f},
+                (Vector2){screen.x + hs * 0.3f, screen.y - hs * 0.8f},
+                (Color){255, 215, 0, 255}  // Gold crown
+            );
+            break;
+        }
+        default: break;
     }
 
+    // Eyes (size varies by enemy)
+    float eyeSize = e->size >= 30 ? 3 : 2;
     float eyeOff = e->size * 0.2f;
-    DrawCircleV((Vector2){screen.x - eyeOff, screen.y - eyeOff * 0.5f}, 2, COLOR_ENEMY_EYE);
-    DrawCircleV((Vector2){screen.x + eyeOff, screen.y - eyeOff * 0.5f}, 2, COLOR_ENEMY_EYE);
+    if (e->type != ENEMY_SWARM) {  // Swarm too small for eyes
+        DrawCircleV((Vector2){screen.x - eyeOff, screen.y - eyeOff * 0.5f}, eyeSize, COLOR_ENEMY_EYE);
+        DrawCircleV((Vector2){screen.x + eyeOff, screen.y - eyeOff * 0.5f}, eyeSize, COLOR_ENEMY_EYE);
+    }
+
+    // HP bar for tough enemies
+    if ((e->type == ENEMY_BRUTE || e->type == ENEMY_BOSS) && e->hp < e->maxHp) {
+        float barWidth = e->size * 1.2f;
+        float barHeight = 4;
+        float hpPercent = (float)e->hp / e->maxHp;
+        DrawRectangle((int)(screen.x - barWidth / 2), (int)(screen.y + hs + 5), (int)barWidth, (int)barHeight, (Color){40, 40, 40, 200});
+        DrawRectangle((int)(screen.x - barWidth / 2), (int)(screen.y + hs + 5), (int)(barWidth * hpPercent), (int)barHeight, COLOR_HP_BAR);
+    }
 }
 
 static void DrawEnemies(void) {
@@ -2147,18 +2868,88 @@ static void UpdateSpawner(float dt) {
         if (s->spawnInterval < 0.3f) s->spawnInterval = 0.3f;
         s->difficultyMultiplier += 0.15f;
         if (s->wave > g_game.highestWave) g_game.highestWave = s->wave;
+
+        // Check for new enemy unlocks at this wave
+        CheckWaveUnlocks(s->wave);
+
+        // Wave celebration!
+        TriggerWaveCelebration(s->wave);
     }
 
     s->spawnTimer -= dt;
     if (s->spawnTimer <= 0) {
         s->spawnTimer = s->spawnInterval;
-        int roll = GetRandomValue(0, 100);
-        if (s->wave >= 3 && roll < 15) SpawnEnemy(ENEMY_TANK);
-        else if (s->wave >= 1 && roll < 40) SpawnEnemy(ENEMY_FAST);
-        else SpawnEnemy(ENEMY_WALKER);
 
+        // Build list of available enemy types from unlocked pool
+        EnemyType availableTypes[ENEMY_TYPE_COUNT];
+        int availableCount = 0;
+        for (int i = 0; i < ENEMY_TYPE_COUNT; i++) {
+            if (g_enemyPoolUnlocked[i]) {
+                availableTypes[availableCount++] = (EnemyType)i;
+            }
+        }
+
+        // Weighted random selection based on enemy type
+        int roll = GetRandomValue(0, 100);
+        EnemyType spawnType = ENEMY_WALKER;
+
+        // Boss has very low spawn chance (only if unlocked)
+        if (g_enemyPoolUnlocked[ENEMY_BOSS] && roll < 2) {
+            spawnType = ENEMY_BOSS;
+            // Boss always gets a warning
+            float spawnDist = 500.0f + RandomFloat(0, 200);
+            float angle = RandomFloat(0, PI * 2);
+            Vector2 spawnPos = {
+                Clampf(g_game.player.pos.x + cosf(angle) * spawnDist, WORLD_PADDING, WORLD_WIDTH - WORLD_PADDING),
+                Clampf(g_game.player.pos.y + sinf(angle) * spawnDist, WORLD_PADDING, WORLD_HEIGHT - WORLD_PADDING)
+            };
+            SpawnWarningIndicator(spawnPos, spawnType);
+        }
+        // Brute has low spawn chance
+        else if (g_enemyPoolUnlocked[ENEMY_BRUTE] && roll < 8) {
+            spawnType = ENEMY_BRUTE;
+        }
+        // Elite moderate chance
+        else if (g_enemyPoolUnlocked[ENEMY_ELITE] && roll < 18) {
+            spawnType = ENEMY_ELITE;
+        }
+        // Swarm spawns as group
+        else if (g_enemyPoolUnlocked[ENEMY_SWARM] && roll < 28) {
+            SpawnSwarm();
+            return;  // Swarm handles its own spawning
+        }
+        // Tank
+        else if (g_enemyPoolUnlocked[ENEMY_TANK] && roll < 40) {
+            spawnType = ENEMY_TANK;
+        }
+        // Fast
+        else if (g_enemyPoolUnlocked[ENEMY_FAST] && roll < 65) {
+            spawnType = ENEMY_FAST;
+        }
+        // Default to walker
+        else {
+            spawnType = ENEMY_WALKER;
+        }
+
+        // Calculate spawn position for warning
+        float spawnDist = 500.0f + RandomFloat(0, 200);
+        float angle = RandomFloat(0, PI * 2);
+        Vector2 spawnPos = {
+            Clampf(g_game.player.pos.x + cosf(angle) * spawnDist, WORLD_PADDING, WORLD_WIDTH - WORLD_PADDING),
+            Clampf(g_game.player.pos.y + sinf(angle) * spawnDist, WORLD_PADDING, WORLD_HEIGHT - WORLD_PADDING)
+        };
+
+        // Spawn warning indicator for dangerous enemies
+        if (spawnType == ENEMY_TANK || spawnType == ENEMY_BRUTE || spawnType == ENEMY_ELITE) {
+            SpawnWarningIndicator(spawnPos, spawnType);
+        }
+
+        SpawnEnemy(spawnType);
+
+        // Extra spawns at higher waves
         if (s->wave >= 2 && GetRandomValue(0, 100) < 30) SpawnEnemy(ENEMY_WALKER);
         if (s->wave >= 4 && GetRandomValue(0, 100) < 20) SpawnEnemy(ENEMY_FAST);
+        if (s->wave >= 8 && GetRandomValue(0, 100) < 15) SpawnSwarm();
     }
 }
 
@@ -3254,10 +4045,51 @@ void GameReset(void) {
     g_game.highestWave = 0;
     g_game.screenShake = 0;
     g_game.selectedPotion = 0;
+
+    // Reset juice effect state
+    g_hitstopTimer = 0;
+    g_levelUpFreeze = 0;
+    g_levelUpCelebration = 0;
+    g_damageVignette = 0;
+    g_lastHitWasCrit = false;
+
+    // Reset Phase 2 effect state
+    g_killStreak = 0;
+    g_killStreakTimer = 0;
+    g_killStreakDisplay = 0;
+    g_killStreakMilestone = 0;
+    g_lastWave = 0;
+    g_waveCelebration = 0;
+    memset(g_dyingEnemies, 0, sizeof(g_dyingEnemies));
+    memset(g_spawnWarnings, 0, sizeof(g_spawnWarnings));
+
+    // Reset enemy pool (Walker always unlocked, others start locked)
+    memset(g_enemyPoolUnlocked, 0, sizeof(g_enemyPoolUnlocked));
+    g_enemyPoolUnlocked[ENEMY_WALKER] = true;
+    g_enemyIntroTimer = 0;
+    g_enemyIntroActive = false;
 }
 
 void GameUpdate(const LlzInputState *input, float dt) {
     g_game.bgTime += dt;
+
+    // Update juice effect timers (always update, independent of game state)
+    if (g_hitstopTimer > 0) {
+        g_hitstopTimer -= dt;
+        if (g_hitstopTimer < 0) g_hitstopTimer = 0;
+    }
+    if (g_levelUpFreeze > 0) {
+        g_levelUpFreeze -= dt;
+        if (g_levelUpFreeze < 0) g_levelUpFreeze = 0;
+    }
+    if (g_levelUpCelebration > 0) {
+        g_levelUpCelebration -= dt * 2.0f;
+        if (g_levelUpCelebration < 0) g_levelUpCelebration = 0;
+    }
+    if (g_damageVignette > 0) {
+        g_damageVignette -= dt * VIGNETTE_FADE_SPEED;
+        if (g_damageVignette < 0) g_damageVignette = 0;
+    }
 
     if (g_game.screenShake > 0) {
         g_game.screenShake -= dt * 5.0f;
@@ -3288,12 +4120,38 @@ void GameUpdate(const LlzInputState *input, float dt) {
     UpdateTextPopups(dt);
     UpdateUIParticles(dt);
 
+    // Update Phase 2 effects (always, even when frozen)
+    UpdateDyingEnemies(dt);
+    UpdateSpawnWarnings(dt);
+    UpdateKillStreak(dt);
+    if (g_waveCelebration > 0) {
+        g_waveCelebration -= dt;
+        if (g_waveCelebration < 0) g_waveCelebration = 0;
+    }
+
+    // Enemy introduction timer
+    if (g_enemyIntroTimer > 0) {
+        g_enemyIntroTimer -= dt;
+        if (g_enemyIntroTimer <= 0) {
+            g_enemyIntroTimer = 0;
+            g_enemyIntroActive = false;
+        }
+    }
+
+    // Check for hitstop/freeze (skip game logic, but allow particles and effects)
+    bool frozen = g_hitstopTimer > 0 || g_levelUpFreeze > 0;
+
     switch (g_game.state) {
         case GAME_STATE_MENU: HandleMenuInput(input); break;
         case GAME_STATE_WEAPON_SELECT: HandleWeaponSelectInput(input); break;
         case GAME_STATE_PLAYING:
             HandlePlayInput(input);
             if (g_game.state != GAME_STATE_PLAYING) break;
+
+            // Skip game updates during hitstop/freeze, but always update particles
+            UpdateParticles(dt);
+            if (frozen) break;
+
             g_game.gameTime += dt;
             UpdatePlayer(input, dt);
             UpdateGameCamera(dt);
@@ -3302,7 +4160,6 @@ void GameUpdate(const LlzInputState *input, float dt) {
             UpdateEnemies(dt);
             UpdateXPGems(dt);
             UpdatePotions(dt);
-            UpdateParticles(dt);
             UpdateBuffs(dt);
             break;
         case GAME_STATE_LEVEL_UP: HandleLevelUpInput(input); break;
@@ -3324,6 +4181,7 @@ void GameDraw(void) {
             DrawXPGems();
             DrawPotions();
             DrawEnemies();
+            DrawDyingEnemies();  // Death animations over enemies
             DrawProjectiles();
             DrawSeekers();
             DrawBoomerangs();
@@ -3336,13 +4194,44 @@ void GameDraw(void) {
             DrawParticles();
             DrawTextPopups();
             DrawHUD();
+            DrawSpawnWarnings();  // Edge indicators for incoming enemies
             DrawUIParticles();  // Draw over HUD
+
+            // Announcements
+            DrawWaveCelebration();
+            DrawKillStreakAnnouncement();
+            DrawEnemyIntroduction();
 
             // Screen flash overlay
             if (g_game.screenFlash > 0) {
                 Color flashColor = g_game.screenFlashColor;
                 flashColor.a = (unsigned char)(80 * g_game.screenFlash);
                 DrawRectangle(0, 0, g_screenWidth, g_screenHeight, flashColor);
+            }
+
+            // Damage vignette (red edges when hurt)
+            if (g_damageVignette > 0) {
+                int vignetteWidth = 80;
+                unsigned char alpha = (unsigned char)(120 * g_damageVignette);
+                Color vignetteOuter = {180, 0, 0, alpha};
+                Color vignetteInner = {180, 0, 0, 0};
+
+                // Left edge
+                DrawRectangleGradientH(0, 0, vignetteWidth, g_screenHeight, vignetteOuter, vignetteInner);
+                // Right edge
+                DrawRectangleGradientH(g_screenWidth - vignetteWidth, 0, vignetteWidth, g_screenHeight, vignetteInner, vignetteOuter);
+                // Top edge
+                DrawRectangleGradientV(0, 0, g_screenWidth, vignetteWidth, vignetteOuter, vignetteInner);
+                // Bottom edge
+                DrawRectangleGradientV(0, g_screenHeight - vignetteWidth, g_screenWidth, vignetteWidth, vignetteInner, vignetteOuter);
+
+                // Corner overlays for more intense effect
+                unsigned char cornerAlpha = (unsigned char)(80 * g_damageVignette);
+                Color cornerOuter = {180, 0, 0, cornerAlpha};
+                DrawRectangleGradientEx((Rectangle){0, 0, vignetteWidth, vignetteWidth}, cornerOuter, vignetteInner, vignetteInner, vignetteInner);
+                DrawRectangleGradientEx((Rectangle){g_screenWidth - vignetteWidth, 0, vignetteWidth, vignetteWidth}, vignetteInner, cornerOuter, vignetteInner, vignetteInner);
+                DrawRectangleGradientEx((Rectangle){0, g_screenHeight - vignetteWidth, vignetteWidth, vignetteWidth}, vignetteInner, vignetteInner, vignetteInner, cornerOuter);
+                DrawRectangleGradientEx((Rectangle){g_screenWidth - vignetteWidth, g_screenHeight - vignetteWidth, vignetteWidth, vignetteWidth}, vignetteInner, vignetteInner, cornerOuter, vignetteInner);
             }
 
             if (g_game.state == GAME_STATE_LEVEL_UP) {
