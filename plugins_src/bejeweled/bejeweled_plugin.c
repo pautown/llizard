@@ -1618,8 +1618,8 @@ static void DrawTitleScreen(void) {
         }
     }
 
-    /* ====== SUBTITLE: "llizardOS Edition" ====== */
-    const char* subtitle = "llizardOS Edition";
+    /* ====== SUBTITLE: "LLIZARDOS EDITION" ====== */
+    const char* subtitle = "LLIZARDOS EDITION";
     int subtitleFontSize = 24;
     Vector2 subtitleSize = MeasureTextEx(g_font, subtitle, subtitleFontSize, 1);
     float subtitleX = centerX - subtitleSize.x / 2.0f;
@@ -1633,7 +1633,7 @@ static void DrawTitleScreen(void) {
     DrawTextEx(g_font, subtitle, (Vector2){subtitleX, subtitleY}, subtitleFontSize, 1, subtitleColor);
 
     /* ====== PRESS SELECT prompt with blinking ====== */
-    const char* prompt = "Press SELECT to Play";
+    const char* prompt = "PRESS SELECT TO PLAY";
     int promptFontSize = 20;
     Vector2 promptSize = MeasureTextEx(g_font, prompt, promptFontSize, 1);
     float promptX = centerX - promptSize.x / 2.0f;
@@ -1682,11 +1682,11 @@ static const char* MODE_NAMES[] = {
     "CLASSIC", "BLITZ", "TWIST", "CASCADE RUSH", "GEM SURGE"
 };
 static const char* MODE_DESCRIPTIONS[] = {
-    "No time limit",
-    "60 seconds",
-    "Rotate 2x2 gems",
-    "Cascade for time!",
-    "Wave-based action"
+    "NO TIME LIMIT",
+    "60 SECONDS",
+    "ROTATE 2X2 GEMS",
+    "CASCADE FOR TIME!",
+    "WAVE-BASED ACTION"
 };
 static const Color MODE_COLORS[] = {
     {100, 200, 255, 255},  /* Classic - Blue */
