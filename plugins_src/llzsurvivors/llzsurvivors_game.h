@@ -271,6 +271,21 @@ extern "C" {
 #define GRAZE_XP_BONUS 5                // XP per graze
 #define GRAZE_COOLDOWN 0.15f            // Cooldown per bullet to prevent spam
 
+// Kill combo system
+#define KILL_COMBO_TIMEOUT 2.5f         // Seconds until combo resets
+
+// Danger Zones
+#define MAX_DANGER_ZONES 3
+#define DANGER_ZONE_DURATION 15.0f
+#define DANGER_ZONE_WARNING 3.0f
+#define DANGER_ZONE_SPAWN_INTERVAL 25.0f
+#define DANGER_ZONE_MIN_PLAYER_DIST 200.0f
+#define DANGER_ZONE_BASE_RADIUS 80.0f
+#define DANGER_ZONE_DAMAGE_TICK 0.5f   // Damage tick interval for fire/electric
+#define DANGER_ZONE_FIRE_DAMAGE 8      // Damage per tick for fire
+#define DANGER_ZONE_ELECTRIC_DAMAGE 4  // Damage per tick for electric (but faster)
+#define DANGER_ZONE_SLOW_AMOUNT 0.5f   // Speed multiplier in slow zone
+
 // Potions
 #define MAX_POTIONS 32
 #define MAX_INVENTORY_POTIONS 5
@@ -373,6 +388,12 @@ extern "C" {
 #define COLOR_MINIMAP_XP    (Color){80, 255, 80, 180}
 #define COLOR_WORLD_BORDER  (Color){80, 40, 40, 255}
 
+// Danger Zones
+#define COLOR_DANGER_FIRE     (Color){255, 100, 50, 140}   // Orange/red fire
+#define COLOR_DANGER_SLOW     (Color){50, 150, 255, 140}   // Blue ice/slow
+#define COLOR_DANGER_ELECTRIC (Color){255, 255, 80, 140}   // Yellow electric
+#define COLOR_DANGER_WARNING  (Color){255, 200, 100, 100}  // Pulsing warning
+
 // =============================================================================
 // ENUMERATIONS
 // =============================================================================
@@ -387,6 +408,63 @@ typedef enum {
     GAME_STATE_GAME_OVER,
     GAME_STATE_VICTORY      // Win by reaching level 20!
 } GameState;
+
+// =============================================================================
+// KILL COMBO TIER SYSTEM
+// =============================================================================
+
+typedef enum {
+    COMBO_NONE = 0,      // < 5 kills
+    COMBO_NICE,          // 5-14
+    COMBO_GREAT,         // 15-29
+    COMBO_AMAZING,       // 30-49
+    COMBO_INCREDIBLE,    // 50-74
+    COMBO_UNSTOPPABLE,   // 75-99
+    COMBO_GODLIKE,       // 100+
+    COMBO_TIER_COUNT
+} ComboTier;
+
+typedef struct {
+    int minKills;
+    const char *name;
+    Color color;
+    float xpBonus;      // 1.0x to 2.0x
+    float damageBonus;  // 0% to 30%
+} ComboTierInfo;
+
+// Static combo tier definitions
+static const ComboTierInfo COMBO_TIERS[COMBO_TIER_COUNT] = {
+    {0,   "",            {255, 255, 255, 255}, 1.0f,  0.0f},   // COMBO_NONE
+    {5,   "NICE!",       {135, 206, 250, 255}, 1.1f,  0.05f},  // COMBO_NICE (sky blue)
+    {15,  "GREAT!",      {50, 205, 50, 255},   1.2f,  0.10f},  // COMBO_GREAT (lime green)
+    {30,  "AMAZING!",    {255, 215, 0, 255},   1.35f, 0.15f},  // COMBO_AMAZING (gold)
+    {50,  "INCREDIBLE!", {255, 165, 0, 255},   1.5f,  0.20f},  // COMBO_INCREDIBLE (orange)
+    {75,  "UNSTOPPABLE!",{255, 50, 50, 255},   1.75f, 0.25f},  // COMBO_UNSTOPPABLE (red)
+    {100, "GODLIKE!",    {255, 0, 255, 255},   2.0f,  0.30f},  // COMBO_GODLIKE (magenta)
+};
+
+// =============================================================================
+// KILL MILESTONE REWARDS SYSTEM
+// =============================================================================
+
+typedef enum {
+    MILESTONE_HEAL,           // +30 HP
+    MILESTONE_UPGRADE_POINT,  // +1 upgrade point
+    MILESTONE_DAMAGE_BUFF,    // +5% permanent damage
+    MILESTONE_SPEED_BUFF,     // +3% permanent speed
+    MILESTONE_MAGNET_PULSE,   // Vacuum all XP on screen
+    MILESTONE_NUKE,           // Damage all enemies on screen
+} MilestoneReward;
+
+typedef struct {
+    int killThreshold;
+    MilestoneReward reward;
+    const char *name;
+    const char *description;
+    bool claimed;
+} KillMilestone;
+
+#define MAX_MILESTONES 8
 
 typedef enum {
     WEAPON_MELEE = 0,     // Close range swipe
@@ -634,6 +712,24 @@ typedef enum {
     POTION_COUNT
 } PotionType;
 
+typedef enum {
+    DANGER_NONE = 0,
+    DANGER_FIRE,      // Periodic damage
+    DANGER_SLOW,      // Movement speed reduced
+    DANGER_ELECTRIC,  // Rapid small damage ticks
+} DangerZoneType;
+
+typedef struct {
+    Vector2 center;
+    float radius;
+    DangerZoneType type;
+    float timer;           // Time remaining
+    float xpMultiplier;    // 1.5x - 2.0x for kills inside
+    bool active;
+    float warningTimer;    // 3 sec warning before activation
+    float damageTimer;     // For damage tick tracking
+} DangerZone;
+
 // =============================================================================
 // DATA STRUCTURES
 // =============================================================================
@@ -798,6 +894,9 @@ typedef struct {
     int xpValue;
     bool active;
     float hitFlash;
+    // Cached direction to player (performance optimization)
+    float cachedAngle;       // Direction to player in radians
+    float cachedAngleTime;   // Game time when angle was calculated
     // Hornet laser state
     float laserCooldown;      // Time until can fire again
     float laserChargeTimer;   // Charging up (warning phase)
@@ -1034,6 +1133,24 @@ typedef struct {
     float grazeFlash;         // Visual flash timer for graze
     int grazeCombo;           // Consecutive grazes
     float grazeComboTimer;    // Reset combo if no graze
+
+    // Kill combo system (tiered bonuses)
+    int killCombo;            // Current kill combo count
+    float killComboTimer;     // 2.5 sec timeout
+    ComboTier comboTier;      // Current tier (COMBO_NONE to COMBO_GODLIKE)
+    ComboTier prevComboTier;  // Previous tier (for detecting tier changes)
+    float comboTierFlash;     // Flash when tier changes
+    int highestCombo;         // Best combo this run
+
+    // Danger Zones
+    DangerZone dangerZones[MAX_DANGER_ZONES];
+    float dangerZoneSpawnTimer;
+
+    // Kill milestone rewards
+    KillMilestone milestones[MAX_MILESTONES];
+    int nextMilestoneIdx;
+    float milestoneFlash;
+    float milestoneCelebrationTimer;
 } Game;
 
 // =============================================================================

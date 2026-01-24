@@ -132,6 +132,9 @@ static bool g_bgSystemInitialized = false;
 // Forward declaration for utility function used by spatial grid
 static float Distance(Vector2 a, Vector2 b);
 
+// Forward declaration for danger zone XP multiplier (used in DamageEnemy before defined)
+static float GetDangerZoneXPMultiplier(Vector2 pos);
+
 // =============================================================================
 // SPATIAL GRID COLLISION SYSTEM
 // =============================================================================
@@ -644,6 +647,12 @@ static void UpdateGameCamera(float dt) {
 static float GetDamageMultiplier(void) {
     float mult = g_game.player.damageMultiplier;
     if (g_game.buffs[POTION_DAMAGE].active) mult *= 2.0f;
+
+    // Apply kill combo damage bonus
+    if (g_game.comboTier > COMBO_NONE) {
+        mult *= (1.0f + COMBO_TIERS[g_game.comboTier].damageBonus);
+    }
+
     // Apply crit chance and track for visual feedback
     g_lastHitWasCrit = false;
     if (g_game.player.critChance > 0 && GetRandomValue(0, 100) < (int)g_game.player.critChance) {
@@ -750,6 +759,9 @@ static void ActivateBuff(PotionType type) {
 // PARTICLE SYSTEM
 // =============================================================================
 
+// Track active particle count for early exit optimization
+static int g_activeParticleCount = 0;
+
 static void SpawnParticle(Vector2 pos, Vector2 vel, Color color, float size, float life) {
     for (int i = 0; i < MAX_PARTICLES; i++) {
         Particle *p = &g_game.particles[i];
@@ -761,6 +773,7 @@ static void SpawnParticle(Vector2 pos, Vector2 vel, Color color, float size, flo
             p->life = life;
             p->maxLife = life;
             p->active = true;
+            g_activeParticleCount++;  // Track for early exit optimization
             return;
         }
     }
@@ -776,6 +789,10 @@ static void SpawnParticleBurst(Vector2 pos, int count, Color color, float speed,
 }
 
 static void UpdateParticles(float dt) {
+    // OPTIMIZED: Early exit if no active particles
+    if (g_activeParticleCount == 0) return;
+
+    int activeCount = 0;
     for (int i = 0; i < MAX_PARTICLES; i++) {
         Particle *p = &g_game.particles[i];
         if (!p->active) continue;
@@ -786,8 +803,13 @@ static void UpdateParticles(float dt) {
         p->vel.y *= 0.95f;
         p->life -= dt;
 
-        if (p->life <= 0) p->active = false;
+        if (p->life <= 0) {
+            p->active = false;
+        } else {
+            activeCount++;
+        }
     }
+    g_activeParticleCount = activeCount;
 }
 
 static void DrawParticles(void) {
@@ -981,11 +1003,55 @@ static void DrawSpawnWarnings(void) {
 // KILL STREAK SYSTEM
 // =============================================================================
 
+// Helper to determine combo tier from kill count
+static ComboTier GetComboTierForKills(int kills) {
+    // Check tiers from highest to lowest
+    for (int i = COMBO_TIER_COUNT - 1; i >= 0; i--) {
+        if (kills >= COMBO_TIERS[i].minKills) {
+            return (ComboTier)i;
+        }
+    }
+    return COMBO_NONE;
+}
+
 static void RegisterKill(void) {
     g_killStreak++;
     g_killStreakTimer = KILL_STREAK_TIMEOUT;
 
-    // Check for milestone
+    // Update kill combo system
+    g_game.killCombo++;
+    g_game.killComboTimer = KILL_COMBO_TIMEOUT;
+
+    // Track highest combo this run
+    if (g_game.killCombo > g_game.highestCombo) {
+        g_game.highestCombo = g_game.killCombo;
+    }
+
+    // Check for tier change
+    g_game.prevComboTier = g_game.comboTier;
+    g_game.comboTier = GetComboTierForKills(g_game.killCombo);
+
+    // Trigger flash and celebration when tier increases
+    if (g_game.comboTier > g_game.prevComboTier && g_game.comboTier != COMBO_NONE) {
+        g_game.comboTierFlash = 1.5f;  // 1.5 second flash
+
+        // Celebration effects scale with tier
+        float intensity = (float)g_game.comboTier / (float)(COMBO_TIER_COUNT - 1);
+        g_game.screenFlash = 0.2f + intensity * 0.3f;
+        g_game.screenFlashColor = COMBO_TIERS[g_game.comboTier].color;
+        g_game.screenShake = 0.1f + intensity * 0.2f;
+
+        // Particle burst in tier color
+        int particleCount = 8 + g_game.comboTier * 4;
+        for (int j = 0; j < particleCount; j++) {
+            float angle = (float)j / (float)particleCount * PI * 2.0f;
+            float speed = 100.0f + intensity * 100.0f + RandomFloat(0, 40);
+            Vector2 vel = {cosf(angle) * speed, sinf(angle) * speed};
+            SpawnParticle(g_game.player.pos, vel, COMBO_TIERS[g_game.comboTier].color, RandomFloat(3, 6), 0.6f);
+        }
+    }
+
+    // Check for kill streak milestone (existing system)
     for (int i = NUM_KILL_MILESTONES - 1; i >= 0; i--) {
         if (g_killStreak == KILL_MILESTONES[i]) {
             g_killStreakMilestone = i;
@@ -1019,6 +1085,22 @@ static void UpdateKillStreak(float dt) {
     if (g_killStreakDisplay > 0) {
         g_killStreakDisplay -= dt;
     }
+
+    // Update kill combo timer
+    if (g_game.killComboTimer > 0) {
+        g_game.killComboTimer -= dt;
+        if (g_game.killComboTimer <= 0) {
+            // Combo expired - reset
+            g_game.killCombo = 0;
+            g_game.comboTier = COMBO_NONE;
+            g_game.prevComboTier = COMBO_NONE;
+        }
+    }
+
+    // Update combo tier flash
+    if (g_game.comboTierFlash > 0) {
+        g_game.comboTierFlash -= dt;
+    }
 }
 
 static void DrawKillStreakAnnouncement(void) {
@@ -1050,6 +1132,309 @@ static void DrawKillStreakAnnouncement(void) {
     int countWidth = (int)MeasureTextEx(g_font, countText, countFontSize, 1).x;
     Color countColor = {255, 255, 255, (unsigned char)(200 * alpha)};
     DrawTextEx(g_font, countText, (Vector2){g_screenWidth / 2.0f - countWidth / 2.0f, y + fontSize + 5}, countFontSize, 1, countColor);
+}
+
+// Draw combo tier announcement when tier changes
+static void DrawComboTierAnnouncement(void) {
+    if (g_game.comboTierFlash <= 0 || g_game.comboTier == COMBO_NONE) return;
+
+    float alpha = Clampf(g_game.comboTierFlash / 0.5f, 0, 1);  // Fade out in last 0.5s
+    float progress = 1.0f - (g_game.comboTierFlash / 1.5f);
+    float scale = EaseOutBack(fminf(progress * 4.0f, 1.0f));  // Pop in effect
+
+    const char *tierName = COMBO_TIERS[g_game.comboTier].name;
+    float fontSize = 32 * scale;
+    int textWidth = (int)MeasureTextEx(g_font, tierName, fontSize, 1).x;
+
+    Color tierColor = COMBO_TIERS[g_game.comboTier].color;
+    tierColor.a = (unsigned char)(255 * alpha);
+    Color shadowColor = {0, 0, 0, (unsigned char)(180 * alpha)};
+
+    // Position above center screen
+    float x = g_screenWidth / 2.0f - textWidth / 2.0f;
+    float y = 85.0f;
+
+    // Shadow
+    DrawTextEx(g_font, tierName, (Vector2){x + 2, y + 2}, fontSize, 1, shadowColor);
+    // Main text
+    DrawTextEx(g_font, tierName, (Vector2){x, y}, fontSize, 1, tierColor);
+}
+
+// Draw combo meter in bottom left
+static void DrawComboMeter(void) {
+    if (g_game.killCombo < 5) return;  // Only show when combo is active
+
+    int meterX = 10;
+    int meterY = g_screenHeight - 130;  // Position above existing streak display
+
+    Color tierColor = COMBO_TIERS[g_game.comboTier].color;
+    const char *tierName = COMBO_TIERS[g_game.comboTier].name;
+
+    // Pulsing effect based on tier
+    float pulse = 0.8f + 0.2f * sinf(g_game.bgTime * (3.0f + g_game.comboTier));
+
+    // Combo count with tier color
+    char comboText[32];
+    snprintf(comboText, sizeof(comboText), "%d COMBO", g_game.killCombo);
+    float fontSize = 16 * pulse;
+    Font comboFont = LlzFontGet(LLZ_FONT_UI, (int)fontSize);
+    DrawTextEx(comboFont, comboText, (Vector2){meterX, meterY}, fontSize, 1, tierColor);
+
+    // Tier name below (if not NONE)
+    if (g_game.comboTier > COMBO_NONE) {
+        fontSize = 12;
+        DrawTextEx(g_font, tierName, (Vector2){meterX, meterY + 18}, fontSize, 1, tierColor);
+    }
+
+    // Timer bar showing time remaining
+    float timerPercent = g_game.killComboTimer / KILL_COMBO_TIMEOUT;
+    int barWidth = 80;
+    int barHeight = 4;
+    int barY = meterY + 32;
+
+    // Background
+    DrawRectangle(meterX, barY, barWidth, barHeight, (Color){30, 30, 40, 200});
+    // Fill
+    Color barColor = tierColor;
+    barColor.a = 200;
+    DrawRectangle(meterX, barY, (int)(barWidth * timerPercent), barHeight, barColor);
+
+    // Bonus indicators
+    char bonusText[32];
+    Color bonusColor = {150, 255, 150, 200};
+    float xpBonus = COMBO_TIERS[g_game.comboTier].xpBonus;
+    float dmgBonus = COMBO_TIERS[g_game.comboTier].damageBonus;
+    snprintf(bonusText, sizeof(bonusText), "XP x%.1f  DMG +%d%%", xpBonus, (int)(dmgBonus * 100));
+    DrawTextEx(g_font, bonusText, (Vector2){meterX, barY + 6}, 10, 1, bonusColor);
+}
+
+// =============================================================================
+// KILL MILESTONE REWARDS SYSTEM
+// =============================================================================
+
+// Milestone thresholds and rewards
+static const int MILESTONE_KILLS[] = {50, 100, 250, 500, 750, 1000, 1500, 2000};
+static const MilestoneReward MILESTONE_REWARDS[] = {
+    MILESTONE_HEAL,           // 50 kills: +30 HP
+    MILESTONE_UPGRADE_POINT,  // 100 kills: +1 upgrade point
+    MILESTONE_DAMAGE_BUFF,    // 250 kills: +5% permanent damage
+    MILESTONE_SPEED_BUFF,     // 500 kills: +3% permanent speed
+    MILESTONE_MAGNET_PULSE,   // 750 kills: vacuum all XP
+    MILESTONE_NUKE,           // 1000 kills: damage all enemies
+    MILESTONE_UPGRADE_POINT,  // 1500 kills: +1 upgrade point
+    MILESTONE_DAMAGE_BUFF,    // 2000 kills: +5% permanent damage
+};
+static const char *MILESTONE_NAMES[] = {
+    "FIRST BLOOD!", "CENTURION!", "QUARTER THOUSAND!",
+    "HALFWAY THERE!", "LEGEND!", "EXTERMINATOR!",
+    "GODSLAYER!", "ULTIMATE SURVIVOR!"
+};
+static const char *MILESTONE_DESCRIPTIONS[] = {
+    "+30 HP", "+1 Upgrade Point", "+5% Damage",
+    "+3% Speed", "XP Magnet Pulse!", "NUKE!",
+    "+1 Upgrade Point", "+5% Damage"
+};
+
+#define MILESTONE_CELEBRATION_TIME 2.0f
+
+static void InitMilestones(void) {
+    for (int i = 0; i < MAX_MILESTONES; i++) {
+        g_game.milestones[i].killThreshold = MILESTONE_KILLS[i];
+        g_game.milestones[i].reward = MILESTONE_REWARDS[i];
+        g_game.milestones[i].name = MILESTONE_NAMES[i];
+        g_game.milestones[i].description = MILESTONE_DESCRIPTIONS[i];
+        g_game.milestones[i].claimed = false;
+    }
+    g_game.nextMilestoneIdx = 0;
+    g_game.milestoneFlash = 0;
+    g_game.milestoneCelebrationTimer = 0;
+}
+
+static void AwardMilestoneReward(MilestoneReward reward) {
+    Player *p = &g_game.player;
+
+    switch (reward) {
+        case MILESTONE_HEAL:
+            p->hp += 30;
+            if (p->hp > p->maxHp) p->hp = p->maxHp;
+            break;
+
+        case MILESTONE_UPGRADE_POINT:
+            p->upgradePoints++;
+            break;
+
+        case MILESTONE_DAMAGE_BUFF:
+            p->damageMultiplier += 0.05f;  // +5% permanent damage
+            break;
+
+        case MILESTONE_SPEED_BUFF:
+            p->speed *= 1.03f;  // +3% permanent speed
+            break;
+
+        case MILESTONE_MAGNET_PULSE:
+            // Magnetize all XP gems on screen
+            for (int i = 0; i < MAX_XP_GEMS; i++) {
+                if (g_game.xpGems[i].active) {
+                    g_game.xpGems[i].magnetized = true;
+                }
+            }
+            break;
+
+        case MILESTONE_NUKE:
+            // Damage all enemies on screen
+            for (int i = 0; i < MAX_ENEMIES; i++) {
+                Enemy *e = &g_game.enemies[i];
+                if (e->active && !e->isDecoy) {
+                    // Deal 50% of enemy max HP as damage
+                    int nukeDamage = e->maxHp / 2;
+                    if (nukeDamage < 10) nukeDamage = 10;
+                    e->hp -= nukeDamage;
+                    e->hitFlash = 0.3f;
+                    SpawnParticleBurst(e->pos, 6, (Color){255, 100, 50, 255}, 60, 4);
+                }
+            }
+            g_game.screenShake = 0.5f;
+            break;
+    }
+}
+
+static void CheckMilestones(void) {
+    if (g_game.nextMilestoneIdx >= MAX_MILESTONES) return;
+
+    KillMilestone *m = &g_game.milestones[g_game.nextMilestoneIdx];
+
+    if (g_game.killCount >= m->killThreshold && !m->claimed) {
+        // Award the reward
+        AwardMilestoneReward(m->reward);
+        m->claimed = true;
+
+        // Start celebration
+        g_game.milestoneCelebrationTimer = MILESTONE_CELEBRATION_TIME;
+        g_game.milestoneFlash = 1.0f;
+
+        // Visual effects
+        g_game.screenFlash = 0.5f;
+        g_game.screenFlashColor = (Color){255, 215, 0, 150};
+        g_game.screenShake = 0.3f;
+
+        // Big particle burst from player
+        for (int j = 0; j < 24; j++) {
+            float angle = (float)j / 24.0f * PI * 2.0f;
+            float speed = 200.0f + RandomFloat(0, 80);
+            Vector2 vel = {cosf(angle) * speed, sinf(angle) * speed};
+            Color c = (j % 2 == 0) ? (Color){255, 215, 0, 255} : (Color){255, 255, 255, 255};
+            SpawnParticle(g_game.player.pos, vel, c, RandomFloat(5, 9), 0.7f);
+        }
+
+        // Move to next milestone
+        g_game.nextMilestoneIdx++;
+    }
+}
+
+static void UpdateMilestones(float dt) {
+    if (g_game.milestoneCelebrationTimer > 0) {
+        g_game.milestoneCelebrationTimer -= dt;
+    }
+    if (g_game.milestoneFlash > 0) {
+        g_game.milestoneFlash -= dt * 2.0f;
+    }
+}
+
+static void DrawMilestoneProgressHUD(void) {
+    // Don't draw if all milestones claimed
+    if (g_game.nextMilestoneIdx >= MAX_MILESTONES) return;
+
+    KillMilestone *m = &g_game.milestones[g_game.nextMilestoneIdx];
+
+    // Calculate progress toward next milestone
+    int prevKills = (g_game.nextMilestoneIdx > 0)
+        ? g_game.milestones[g_game.nextMilestoneIdx - 1].killThreshold
+        : 0;
+    int targetKills = m->killThreshold;
+    float progress = (float)(g_game.killCount - prevKills) / (float)(targetKills - prevKills);
+    if (progress < 0) progress = 0;
+    if (progress > 1) progress = 1;
+
+    // Draw small progress bar in top-right area (below minimap)
+    int barX = g_screenWidth - MINIMAP_WIDTH - 10;
+    int barY = MINIMAP_Y + MINIMAP_HEIGHT + 10;
+    int barW = MINIMAP_WIDTH;
+    int barH = 8;
+
+    // Background
+    DrawRectangle(barX, barY, barW, barH, (Color){30, 30, 40, 200});
+
+    // Progress fill with pulsing glow when close
+    Color fillColor = (Color){255, 180, 50, 255};
+    if (progress > 0.8f) {
+        float pulse = 0.7f + 0.3f * sinf(g_game.bgTime * 6.0f);
+        fillColor.a = (unsigned char)(255 * pulse);
+    }
+    DrawRectangle(barX, barY, (int)(barW * progress), barH, fillColor);
+
+    // Border
+    DrawRectangleLines(barX, barY, barW, barH, (Color){100, 100, 120, 255});
+
+    // Label showing kills / target
+    char buf[32];
+    snprintf(buf, sizeof(buf), "%d/%d", g_game.killCount, targetKills);
+    int tw = (int)MeasureTextEx(g_font, buf, 10, 1).x;
+    DrawTextEx(g_font, buf, (Vector2){barX + barW / 2 - tw / 2, barY + barH + 2}, 10, 1, COLOR_TEXT_DIM);
+
+    // Reward preview
+    DrawTextEx(g_font, m->description, (Vector2){barX, barY - 12}, 10, 1, (Color){255, 200, 100, 200});
+}
+
+static void DrawMilestoneCelebration(void) {
+    if (g_game.milestoneCelebrationTimer <= 0) return;
+    if (g_game.nextMilestoneIdx <= 0) return;
+
+    // Get the milestone that was just claimed
+    KillMilestone *m = &g_game.milestones[g_game.nextMilestoneIdx - 1];
+
+    float progress = 1.0f - (g_game.milestoneCelebrationTimer / MILESTONE_CELEBRATION_TIME);
+    float alpha = 1.0f - progress;  // Fade out over time
+    if (alpha < 0) alpha = 0;
+
+    // Scale in with bounce
+    float scale = EaseOutBack(fminf(progress * 3.0f, 1.0f));
+
+    // Draw big announcement at center
+    float fontSize = 40 * scale;
+    int nameWidth = (int)MeasureTextEx(g_font, m->name, fontSize, 1).x;
+
+    float x = g_screenWidth / 2.0f - nameWidth / 2.0f;
+    float y = g_screenHeight / 2.0f - 60.0f;
+
+    // Glow background
+    Color glowColor = {255, 200, 50, (unsigned char)(100 * alpha)};
+    DrawCircleGradient((int)(g_screenWidth / 2), (int)y + 20, 200 * scale, glowColor, BLANK);
+
+    // Shadow
+    Color shadowColor = {0, 0, 0, (unsigned char)(180 * alpha)};
+    DrawTextEx(g_font, m->name, (Vector2){x + 3, y + 3}, fontSize, 1, shadowColor);
+
+    // Main text (golden)
+    Color textColor = {255, 215, 0, (unsigned char)(255 * alpha)};
+    DrawTextEx(g_font, m->name, (Vector2){x, y}, fontSize, 1, textColor);
+
+    // Description below
+    float descFontSize = 22 * scale;
+    int descWidth = (int)MeasureTextEx(g_font, m->description, descFontSize, 1).x;
+    Color descColor = {255, 255, 255, (unsigned char)(220 * alpha)};
+    DrawTextEx(g_font, m->description,
+               (Vector2){g_screenWidth / 2.0f - descWidth / 2.0f, y + fontSize + 10},
+               descFontSize, 1, descColor);
+
+    // Kill count
+    char killBuf[32];
+    snprintf(killBuf, sizeof(killBuf), "%d KILLS", m->killThreshold);
+    float killFontSize = 16 * scale;
+    int killWidth = (int)MeasureTextEx(g_font, killBuf, killFontSize, 1).x;
+    Color killColor = {200, 200, 220, (unsigned char)(180 * alpha)};
+    DrawTextEx(g_font, killBuf,
+               (Vector2){g_screenWidth / 2.0f - killWidth / 2.0f, y + fontSize + descFontSize + 20},
+               killFontSize, 1, killColor);
 }
 
 // =============================================================================
@@ -1488,6 +1873,12 @@ static void UpdateXPGems(float dt) {
             float streakMult = 1.0f + (g_killStreak / 10.0f);
             if (streakMult > 3.0f) streakMult = 3.0f;
             float totalMult = streakMult * player->xpMultiplier;  // Apply class XP bonus
+
+            // Apply kill combo tier XP bonus
+            if (g_game.comboTier > COMBO_NONE) {
+                totalMult *= COMBO_TIERS[g_game.comboTier].xpBonus;
+            }
+
             int xpGain = (int)(gem->value * totalMult);
             player->xp += xpGain;
 
@@ -2151,9 +2542,13 @@ static void DamageEnemy(Enemy *e, int damage) {
         e->active = false;
         g_game.killCount++;
         RegisterKill();  // Track kill streak
+        CheckMilestones();  // Check for milestone rewards
 
         SpawnParticleBurst(e->pos, 8, COLOR_PARTICLE_DIE, 100, 5);
-        SpawnXPGem(e->pos, e->xpValue);
+        // Apply danger zone XP bonus
+        float dangerMult = GetDangerZoneXPMultiplier(e->pos);
+        int bonusXP = (int)(e->xpValue * dangerMult);
+        SpawnXPGem(e->pos, bonusXP);
         g_game.screenShake = 0.1f;
 
         // Hitstop: brief freeze on kill for impactful feel
@@ -2498,6 +2893,10 @@ static void UpdateEnemies(float dt) {
         Vector2 dir = Normalize((Vector2){player->pos.x - e->pos.x, player->pos.y - e->pos.y});
         float dist = Distance(e->pos, player->pos);
 
+        // Cache angle to player for drawing (avoid recalculating atan2f in draw)
+        e->cachedAngle = atan2f(dir.y, dir.x);
+        e->cachedAngleTime = g_game.gameTime;
+
         // Dispatch to enemy-specific AI via function pointer
         if (e->type >= 0 && e->type < ENEMY_TYPE_COUNT && ENEMY_AI_FUNCS[e->type]) {
             ENEMY_AI_FUNCS[e->type](e, player, dt, dir, dist, effectiveSpeed);
@@ -2514,8 +2913,12 @@ static void UpdateEnemies(float dt) {
                     if (e->hp <= 0) {
                         e->active = false;
                         g_game.killCount++;
+                        CheckMilestones();  // Check for milestone rewards
                         SpawnParticleBurst(e->pos, 6, COLOR_PARTICLE_DIE, 80, 4);
-                        SpawnXPGem(e->pos, e->xpValue);
+                        // Apply danger zone XP bonus
+                        float dzMult = GetDangerZoneXPMultiplier(e->pos);
+                        int dzBonusXP = (int)(e->xpValue * dzMult);
+                        SpawnXPGem(e->pos, dzBonusXP);
                     }
                 }
             }
@@ -2604,9 +3007,8 @@ static void DrawEnemy(Enemy *e) {
             DrawRectangle((int)(screen.x - hs), (int)(screen.y - hs), (int)e->size, (int)e->size, color);
             break;
         case ENEMY_FAST: {
-            // Triangle pointing toward player
-            Vector2 dir = Normalize((Vector2){g_game.player.pos.x - e->pos.x, g_game.player.pos.y - e->pos.y});
-            float angle = atan2f(dir.y, dir.x);
+            // Triangle pointing toward player (use cached angle from UpdateEnemies)
+            float angle = e->cachedAngle;
             DrawTriangle(
                 (Vector2){screen.x + cosf(angle) * hs, screen.y + sinf(angle) * hs},
                 (Vector2){screen.x + cosf(angle - 2.5f) * hs, screen.y + sinf(angle - 2.5f) * hs},
@@ -2796,14 +3198,15 @@ static void DrawEnemy(Enemy *e) {
             float shieldStart = e->shieldAngle - (SHIELDER_SHIELD_ARC / 2.0f) * DEG2RAD;
             float shieldEnd = e->shieldAngle + (SHIELDER_SHIELD_ARC / 2.0f) * DEG2RAD;
             // Shield as thick arc (using line segments)
+            // OPTIMIZED: Use 0.2f step instead of 0.1f (half the segments, ~10 draw calls vs ~20)
             Color shieldColor = COLOR_SHIELD;
             if (e->isCharging) {
                 shieldColor = (Color){255, 150, 100, 255};  // Orange when charging
             }
-            for (float a = shieldStart; a < shieldEnd; a += 0.1f) {
+            for (float a = shieldStart; a < shieldEnd; a += 0.2f) {
                 Vector2 p1 = {screen.x + cosf(a) * hs * 1.1f, screen.y + sinf(a) * hs * 1.1f};
-                Vector2 p2 = {screen.x + cosf(a + 0.1f) * hs * 1.1f, screen.y + sinf(a + 0.1f) * hs * 1.1f};
-                DrawLineEx(p1, p2, 4, shieldColor);
+                Vector2 p2 = {screen.x + cosf(a + 0.2f) * hs * 1.1f, screen.y + sinf(a + 0.2f) * hs * 1.1f};
+                DrawLineEx(p1, p2, 5, shieldColor);  // Slightly thicker to compensate for fewer segments
             }
             // Shield edge caps
             Vector2 capStart = {screen.x + cosf(shieldStart) * hs * 1.1f, screen.y + sinf(shieldStart) * hs * 1.1f};
@@ -4257,7 +4660,271 @@ static void UpdateWeapons(float dt) {
     UpdateChainLightning(dt);
 }
 
+
 // =============================================================================
+// DANGER ZONES
+// =============================================================================
+
+// Get XP multiplier for a position based on active danger zones
+static float GetDangerZoneXPMultiplier(Vector2 pos) {
+    for (int i = 0; i < MAX_DANGER_ZONES; i++) {
+        DangerZone *dz = &g_game.dangerZones[i];
+        if (!dz->active || dz->warningTimer > 0) continue;
+
+        float dist = Distance(pos, dz->center);
+        if (dist < dz->radius) {
+            return dz->xpMultiplier;
+        }
+    }
+    return 1.0f;  // No bonus
+}
+
+static void SpawnDangerZone(void) {
+    // Find inactive slot
+    int slot = -1;
+    for (int i = 0; i < MAX_DANGER_ZONES; i++) {
+        if (!g_game.dangerZones[i].active) {
+            slot = i;
+            break;
+        }
+    }
+    if (slot < 0) return;  // All slots full
+
+    DangerZone *dz = &g_game.dangerZones[slot];
+
+    // Random position at least 200 units from player
+    float angle = RandomFloat(0, PI * 2);
+    float dist = DANGER_ZONE_MIN_PLAYER_DIST + RandomFloat(100, 300);
+    Vector2 spawnPos = {
+        Clampf(g_game.player.pos.x + cosf(angle) * dist,
+               WORLD_PADDING + DANGER_ZONE_BASE_RADIUS,
+               WORLD_WIDTH - WORLD_PADDING - DANGER_ZONE_BASE_RADIUS),
+        Clampf(g_game.player.pos.y + sinf(angle) * dist,
+               WORLD_PADDING + DANGER_ZONE_BASE_RADIUS,
+               WORLD_HEIGHT - WORLD_PADDING - DANGER_ZONE_BASE_RADIUS)
+    };
+
+    // Random type
+    DangerZoneType type = (DangerZoneType)(1 + GetRandomValue(0, 2));
+
+    // XP multiplier based on danger level
+    float xpMult = 1.5f;
+    switch (type) {
+        case DANGER_FIRE:     xpMult = 2.0f;  break;
+        case DANGER_ELECTRIC: xpMult = 1.75f; break;
+        case DANGER_SLOW:     xpMult = 1.5f;  break;
+        default: break;
+    }
+
+    // Radius scales with wave
+    float radius = DANGER_ZONE_BASE_RADIUS + g_game.spawner.wave * 5.0f;
+    if (radius > 150.0f) radius = 150.0f;
+
+    *dz = (DangerZone){
+        .center = spawnPos,
+        .radius = radius,
+        .type = type,
+        .timer = DANGER_ZONE_DURATION,
+        .xpMultiplier = xpMult,
+        .active = true,
+        .warningTimer = DANGER_ZONE_WARNING,
+        .damageTimer = 0
+    };
+}
+
+static void UpdateDangerZones(float dt) {
+    // Spawn timer
+    g_game.dangerZoneSpawnTimer -= dt;
+    if (g_game.dangerZoneSpawnTimer <= 0 && g_game.spawner.wave >= 2) {
+        g_game.dangerZoneSpawnTimer = DANGER_ZONE_SPAWN_INTERVAL;
+        SpawnDangerZone();
+    }
+
+    Player *player = &g_game.player;
+
+    for (int i = 0; i < MAX_DANGER_ZONES; i++) {
+        DangerZone *dz = &g_game.dangerZones[i];
+        if (!dz->active) continue;
+
+        // Warning phase
+        if (dz->warningTimer > 0) {
+            dz->warningTimer -= dt;
+            continue;
+        }
+
+        // Active phase timer
+        dz->timer -= dt;
+        if (dz->timer <= 0) {
+            dz->active = false;
+            continue;
+        }
+
+        // Check if player is inside
+        float dist = Distance(player->pos, dz->center);
+        if (dist < dz->radius && player->invincibilityTimer <= 0) {
+            switch (dz->type) {
+                case DANGER_FIRE:
+                    dz->damageTimer -= dt;
+                    if (dz->damageTimer <= 0) {
+                        dz->damageTimer = DANGER_ZONE_DAMAGE_TICK;
+                        int fireDmg = DANGER_ZONE_FIRE_DAMAGE;
+                        if (player->armor > 0) {
+                            fireDmg = (int)(fireDmg * (1.0f - player->armor / 100.0f));
+                            if (fireDmg < 1) fireDmg = 1;
+                        }
+                        player->hp -= fireDmg;
+                        player->hurtFlash = 0.1f;
+                        SpawnParticleBurst(player->pos, 3, COLOR_DANGER_FIRE, 40, 2);
+                    }
+                    break;
+
+                case DANGER_SLOW:
+                    // Slow player movement (handled in player update)
+                    if ((int)(g_game.bgTime * 4) % 2 == 0) {
+                        SpawnParticleBurst(player->pos, 1, COLOR_DANGER_SLOW, 20, 1);
+                    }
+                    break;
+
+                case DANGER_ELECTRIC:
+                    dz->damageTimer -= dt;
+                    if (dz->damageTimer <= 0) {
+                        dz->damageTimer = DANGER_ZONE_DAMAGE_TICK * 0.5f;
+                        int elecDmg = DANGER_ZONE_ELECTRIC_DAMAGE;
+                        if (player->armor > 0) {
+                            elecDmg = (int)(elecDmg * (1.0f - player->armor / 100.0f));
+                            if (elecDmg < 1) elecDmg = 1;
+                        }
+                        player->hp -= elecDmg;
+                        player->hurtFlash = 0.05f;
+                        SpawnParticleBurst(player->pos, 2, COLOR_DANGER_ELECTRIC, 50, 2);
+                    }
+                    break;
+
+                default:
+                    break;
+            }
+        }
+    }
+}
+
+// Check if player is in a slow danger zone
+static bool IsPlayerInSlowZone(void) {
+    for (int i = 0; i < MAX_DANGER_ZONES; i++) {
+        DangerZone *dz = &g_game.dangerZones[i];
+        if (!dz->active || dz->warningTimer > 0 || dz->type != DANGER_SLOW) continue;
+
+        float dist = Distance(g_game.player.pos, dz->center);
+        if (dist < dz->radius) {
+            return true;
+        }
+    }
+    return false;
+}
+// =============================================================================
+
+static void DrawDangerZones(void) {
+    Vector2 camOffset = {
+        g_game.camera.pos.x - g_screenWidth / 2.0f,
+        g_game.camera.pos.y - g_screenHeight / 2.0f
+    };
+
+    for (int i = 0; i < MAX_DANGER_ZONES; i++) {
+        DangerZone *dz = &g_game.dangerZones[i];
+        if (!dz->active) continue;
+
+        Vector2 screenPos = {dz->center.x - camOffset.x, dz->center.y - camOffset.y};
+
+        // Cull if off-screen
+        if (screenPos.x + dz->radius < 0 || screenPos.x - dz->radius > g_screenWidth ||
+            screenPos.y + dz->radius < 0 || screenPos.y - dz->radius > g_screenHeight) {
+            continue;
+        }
+
+        if (dz->warningTimer > 0) {
+            // Warning phase - pulsing dashed circle
+            float pulse = 0.5f + 0.5f * sinf(g_game.bgTime * 10.0f);
+            Color warningColor = COLOR_DANGER_WARNING;
+            warningColor.a = (unsigned char)(100 + 100 * pulse);
+
+            DrawCircleLines((int)screenPos.x, (int)screenPos.y, dz->radius, warningColor);
+            DrawCircleLines((int)screenPos.x, (int)screenPos.y, dz->radius * 0.95f, warningColor);
+
+            const char *text = "DANGER";
+            int textWidth = MeasureText(text, 16);
+            DrawText(text, (int)screenPos.x - textWidth / 2, (int)screenPos.y - 8, 16, warningColor);
+        } else {
+            Color zoneColor;
+            const char *bonusText;
+            switch (dz->type) {
+                case DANGER_FIRE:
+                    zoneColor = COLOR_DANGER_FIRE;
+                    bonusText = "2x XP";
+                    break;
+                case DANGER_SLOW:
+                    zoneColor = COLOR_DANGER_SLOW;
+                    bonusText = "1.5x XP";
+                    break;
+                case DANGER_ELECTRIC:
+                    zoneColor = COLOR_DANGER_ELECTRIC;
+                    bonusText = "1.75x XP";
+                    break;
+                default:
+                    zoneColor = COLOR_DANGER_WARNING;
+                    bonusText = "";
+                    break;
+            }
+
+            float pulse = 0.8f + 0.2f * sinf(g_game.bgTime * 3.0f);
+            zoneColor.a = (unsigned char)(zoneColor.a * pulse);
+
+            DrawCircle((int)screenPos.x, (int)screenPos.y, dz->radius, zoneColor);
+
+            Color borderColor = zoneColor;
+            borderColor.a = 200;
+            DrawCircleLines((int)screenPos.x, (int)screenPos.y, dz->radius, borderColor);
+            DrawCircleLines((int)screenPos.x, (int)screenPos.y, dz->radius - 2, borderColor);
+
+            int textWidth = MeasureText(bonusText, 20);
+            DrawText(bonusText, (int)screenPos.x - textWidth / 2 + 1, (int)screenPos.y - 10 + 1, 20, BLACK);
+            DrawText(bonusText, (int)screenPos.x - textWidth / 2, (int)screenPos.y - 10, 20, WHITE);
+
+            float timerPercent = dz->timer / DANGER_ZONE_DURATION;
+            char timerText[8];
+            snprintf(timerText, sizeof(timerText), "%.0fs", dz->timer);
+            int timerWidth = MeasureText(timerText, 12);
+            DrawText(timerText, (int)screenPos.x - timerWidth / 2 + 1, (int)screenPos.y + 12 + 1, 12, BLACK);
+            DrawText(timerText, (int)screenPos.x - timerWidth / 2, (int)screenPos.y + 12, 12,
+                     (Color){255, 255, 255, (unsigned char)(150 + 105 * timerPercent)});
+        }
+    }
+}
+
+static void DrawDangerZonesOnMinimap(float scaleX, float scaleY) {
+    for (int i = 0; i < MAX_DANGER_ZONES; i++) {
+        DangerZone *dz = &g_game.dangerZones[i];
+        if (!dz->active) continue;
+
+        int mx = MINIMAP_X + (int)(dz->center.x * scaleX);
+        int my = MINIMAP_Y + (int)(dz->center.y * scaleY);
+        int mr = (int)(dz->radius * scaleX);
+        if (mr < 2) mr = 2;
+
+        Color zoneColor;
+        if (dz->warningTimer > 0) {
+            float pulse = 0.5f + 0.5f * sinf(g_game.bgTime * 10.0f);
+            zoneColor = (Color){255, 200, 100, (unsigned char)(80 * pulse)};
+        } else {
+            switch (dz->type) {
+                case DANGER_FIRE:     zoneColor = (Color){255, 100, 50, 100}; break;
+                case DANGER_SLOW:     zoneColor = (Color){50, 150, 255, 100}; break;
+                case DANGER_ELECTRIC: zoneColor = (Color){255, 255, 80, 100}; break;
+                default:              zoneColor = (Color){255, 255, 255, 100}; break;
+            }
+        }
+
+        DrawCircle(mx, my, mr, zoneColor);
+    }
+}
 // SPAWN SYSTEM
 // =============================================================================
 
@@ -4368,6 +5035,10 @@ static void UpdatePlayer(const LlzInputState *input, float dt) {
     if (fabsf(input->scrollDelta) > 0.01f) player->angle += input->scrollDelta * 0.15f;
 
     float speed = player->speed * GetSpeedMultiplier();
+    // Apply slow zone effect
+    if (IsPlayerInSlowZone()) {
+        speed *= DANGER_ZONE_SLOW_AMOUNT;
+    }
     if (player->isMoving) {
         player->pos.x += cosf(player->angle) * speed * dt;
         player->pos.y += sinf(player->angle) * speed * dt;
@@ -4899,6 +5570,9 @@ static void DrawMinimap(void) {
     // Use frame-based cycling to draw subsets
     int frameOffset = (int)(g_game.bgTime * 10) % 4;
 
+    // Draw danger zones on minimap
+    DrawDangerZonesOnMinimap(scaleX, scaleY);
+
     // Draw XP gems (limit to ~32 per frame by cycling through subsets)
     int xpDrawCount = 0;
     for (int i = frameOffset; i < MAX_XP_GEMS && xpDrawCount < 32; i += 4) {
@@ -4911,16 +5585,21 @@ static void DrawMinimap(void) {
     }
 
     // Draw enemies (prioritize nearby enemies, limit total)
+    // OPTIMIZED: Use squared distance to avoid sqrt() calls
     int enemyDrawCount = 0;
     Vector2 playerPos = g_game.player.pos;
+    const float NEARBY_DIST_SQ = 400.0f * 400.0f;  // 160000.0f
 
     // First pass: draw nearby enemies (always visible)
     for (int i = 0; i < MAX_ENEMIES && enemyDrawCount < 48; i++) {
         Enemy *e = &g_game.enemies[i];
         if (!e->active) continue;
 
-        float dist = Distance(e->pos, playerPos);
-        if (dist < 400.0f) {  // Always show nearby threats
+        // Squared distance avoids expensive sqrt()
+        float dx = e->pos.x - playerPos.x;
+        float dy = e->pos.y - playerPos.y;
+        float distSq = dx * dx + dy * dy;
+        if (distSq < NEARBY_DIST_SQ) {  // Always show nearby threats
             int mx = MINIMAP_X + (int)(e->pos.x * scaleX);
             int my = MINIMAP_Y + (int)(e->pos.y * scaleY);
             DrawPixel(mx, my, COLOR_MINIMAP_ENEMY);
@@ -4936,8 +5615,11 @@ static void DrawMinimap(void) {
         Enemy *e = &g_game.enemies[i];
         if (!e->active) continue;
 
-        float dist = Distance(e->pos, playerPos);
-        if (dist >= 400.0f) {
+        // Squared distance avoids expensive sqrt()
+        float dx = e->pos.x - playerPos.x;
+        float dy = e->pos.y - playerPos.y;
+        float distSq = dx * dx + dy * dy;
+        if (distSq >= NEARBY_DIST_SQ) {
             int mx = MINIMAP_X + (int)(e->pos.x * scaleX);
             int my = MINIMAP_Y + (int)(e->pos.y * scaleY);
             DrawPixel(mx, my, COLOR_MINIMAP_ENEMY);
@@ -5088,58 +5770,53 @@ static void DrawSynergies(void) {
 }
 
 // Draw red danger glow on screen edges for nearby off-screen enemies
+// OPTIMIZED: Use gradient rectangles instead of 40+ individual draw calls per edge
 static void DrawDangerGlow(void) {
-    // Left edge
+    const int GLOW_WIDTH_H = 40;  // Horizontal edges (left/right)
+    const int GLOW_WIDTH_V = 30;  // Vertical edges (top/bottom)
+
+    // Left edge - single gradient rectangle
     if (g_dangerGlow[0] > 0.01f) {
         float intensity = g_dangerGlow[0];
         float pulse = 0.7f + 0.3f * sinf(g_game.bgTime * 8.0f);
         intensity *= pulse;
 
-        // Gradient from edge
-        for (int i = 0; i < 40; i++) {
-            float alpha = intensity * (1.0f - i / 40.0f);
-            Color c = {255, 50, 50, (unsigned char)(100 * alpha)};
-            DrawRectangle(i, 0, 1, g_screenHeight, c);
-        }
+        Color edgeColor = {255, 50, 50, (unsigned char)(100 * intensity)};
+        Color transparent = {255, 50, 50, 0};
+        DrawRectangleGradientH(0, 0, GLOW_WIDTH_H, g_screenHeight, edgeColor, transparent);
     }
 
-    // Right edge
+    // Right edge - single gradient rectangle
     if (g_dangerGlow[1] > 0.01f) {
         float intensity = g_dangerGlow[1];
         float pulse = 0.7f + 0.3f * sinf(g_game.bgTime * 8.0f + 1.0f);
         intensity *= pulse;
 
-        for (int i = 0; i < 40; i++) {
-            float alpha = intensity * (1.0f - i / 40.0f);
-            Color c = {255, 50, 50, (unsigned char)(100 * alpha)};
-            DrawRectangle(g_screenWidth - i - 1, 0, 1, g_screenHeight, c);
-        }
+        Color edgeColor = {255, 50, 50, (unsigned char)(100 * intensity)};
+        Color transparent = {255, 50, 50, 0};
+        DrawRectangleGradientH(g_screenWidth - GLOW_WIDTH_H, 0, GLOW_WIDTH_H, g_screenHeight, transparent, edgeColor);
     }
 
-    // Top edge
+    // Top edge - single gradient rectangle
     if (g_dangerGlow[2] > 0.01f) {
         float intensity = g_dangerGlow[2];
         float pulse = 0.7f + 0.3f * sinf(g_game.bgTime * 8.0f + 2.0f);
         intensity *= pulse;
 
-        for (int i = 0; i < 30; i++) {
-            float alpha = intensity * (1.0f - i / 30.0f);
-            Color c = {255, 50, 50, (unsigned char)(100 * alpha)};
-            DrawRectangle(0, i, g_screenWidth, 1, c);
-        }
+        Color edgeColor = {255, 50, 50, (unsigned char)(100 * intensity)};
+        Color transparent = {255, 50, 50, 0};
+        DrawRectangleGradientV(0, 0, g_screenWidth, GLOW_WIDTH_V, edgeColor, transparent);
     }
 
-    // Bottom edge
+    // Bottom edge - single gradient rectangle
     if (g_dangerGlow[3] > 0.01f) {
         float intensity = g_dangerGlow[3];
         float pulse = 0.7f + 0.3f * sinf(g_game.bgTime * 8.0f + 3.0f);
         intensity *= pulse;
 
-        for (int i = 0; i < 30; i++) {
-            float alpha = intensity * (1.0f - i / 30.0f);
-            Color c = {255, 50, 50, (unsigned char)(100 * alpha)};
-            DrawRectangle(0, g_screenHeight - i - 1, g_screenWidth, 1, c);
-        }
+        Color edgeColor = {255, 50, 50, (unsigned char)(100 * intensity)};
+        Color transparent = {255, 50, 50, 0};
+        DrawRectangleGradientV(0, g_screenHeight - GLOW_WIDTH_V, g_screenWidth, GLOW_WIDTH_V, transparent, edgeColor);
     }
 }
 
@@ -5305,6 +5982,7 @@ static void DrawHUD(void) {
     }
 
     DrawMinimap();
+    DrawMilestoneProgressHUD();  // Milestone progress bar below minimap
     DrawInventory();
     DrawActiveBuffs();
     DrawSynergies();
@@ -6595,6 +7273,8 @@ void GameReset(void) {
     memset(g_game.enemies, 0, sizeof(g_game.enemies));
     memset(g_game.enemyBullets, 0, sizeof(g_game.enemyBullets));
     memset(g_game.mines, 0, sizeof(g_game.mines));
+    memset(g_game.dangerZones, 0, sizeof(g_game.dangerZones));
+    g_game.dangerZoneSpawnTimer = DANGER_ZONE_SPAWN_INTERVAL;
     memset(g_game.xpGems, 0, sizeof(g_game.xpGems));
     memset(g_game.potions, 0, sizeof(g_game.potions));
     memset(g_game.inventory, 0, sizeof(g_game.inventory));
@@ -6632,11 +7312,22 @@ void GameReset(void) {
     memset(g_dyingEnemies, 0, sizeof(g_dyingEnemies));
     memset(g_spawnWarnings, 0, sizeof(g_spawnWarnings));
 
+    // Reset kill combo system
+    g_game.killCombo = 0;
+    g_game.killComboTimer = 0;
+    g_game.comboTier = COMBO_NONE;
+    g_game.prevComboTier = COMBO_NONE;
+    g_game.comboTierFlash = 0;
+    g_game.highestCombo = 0;
+
     // Reset enemy pool (Walker always unlocked, others start locked)
     memset(g_enemyPoolUnlocked, 0, sizeof(g_enemyPoolUnlocked));
     g_enemyPoolUnlocked[ENEMY_WALKER] = true;
     g_enemyIntroTimer = 0;
     g_enemyIntroActive = false;
+
+    // Initialize kill milestone rewards
+    InitMilestones();
 }
 
 void GameUpdate(const LlzInputState *input, float dt) {
@@ -6804,6 +7495,7 @@ void GameUpdate(const LlzInputState *input, float dt) {
     UpdateDyingEnemies(dt);
     UpdateSpawnWarnings(dt);
     UpdateKillStreak(dt);
+    UpdateMilestones(dt);  // Update milestone celebration timers
     if (g_waveCelebration > 0) {
         g_waveCelebration -= dt;
         if (g_waveCelebration < 0) g_waveCelebration = 0;
@@ -6839,6 +7531,7 @@ void GameUpdate(const LlzInputState *input, float dt) {
             PopulateSpatialGrid();  // Build collision grid for this frame
             UpdateWeapons(dt);
             UpdateSpawner(dt);
+            UpdateDangerZones(dt);
             UpdateEnemies(dt);
             UpdateEnemyBullets(dt);
             UpdateMines(dt);
@@ -6863,6 +7556,7 @@ void GameDraw(void) {
         case GAME_STATE_WEAPON_SELECT: DrawWeaponSelect(); break;
         default:
             DrawBackground();
+            DrawDangerZones();   // Draw danger zones under entities
             DrawPoisonClouds();  // Draw under everything
             DrawXPGems();
             DrawPotions();
@@ -6890,7 +7584,12 @@ void GameDraw(void) {
             // Announcements
             DrawWaveCelebration();
             DrawKillStreakAnnouncement();
+            DrawComboTierAnnouncement();  // Combo tier change announcement
+            DrawMilestoneCelebration();  // Milestone reward announcement
             DrawEnemyIntroduction();
+
+            // Combo meter HUD element
+            DrawComboMeter();
 
             // Screen flash overlay
             if (g_game.screenFlash > 0) {
