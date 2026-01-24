@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>LLZ Survivors</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-dark: #0a0f14;
+            --bg-card: #141c24;
+            --accent: #00c8c8;
+            --accent-dim: rgba(0, 200, 200, 0.3);
+            --text: #e8f0f0;
+            --text-dim: rgba(232, 240, 240, 0.6);
+        }
+
+        body {
+            background: var(--bg-dark);
+            color: var(--text);
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .container {
+            text-align: center;
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 300;
+            letter-spacing: 0.2em;
+            color: var(--accent);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+        }
+
+        .subtitle {
+            font-size: 0.9rem;
+            color: var(--text-dim);
+            margin-bottom: 2rem;
+            letter-spacing: 0.1em;
+        }
+
+        #canvas-container {
+            position: relative;
+            background: var(--bg-card);
+            border-radius: 8px;
+            box-shadow: 0 0 40px rgba(0, 200, 200, 0.1);
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .loading-bar {
+            width: 200px;
+            height: 4px;
+            background: var(--bg-dark);
+            border-radius: 2px;
+            margin: 1rem auto;
+            overflow: hidden;
+        }
+
+        .loading-progress {
+            height: 100%;
+            background: var(--accent);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .loading-text {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            letter-spacing: 0.05em;
+        }
+
+        .controls {
+            margin-top: 1.5rem;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+        }
+
+        .controls kbd {
+            background: var(--bg-card);
+            padding: 2px 6px;
+            border-radius: 3px;
+            border: 1px solid var(--accent-dim);
+            font-family: monospace;
+            color: var(--accent);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Fullscreen button */
+        .fullscreen-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--accent-dim);
+            color: var(--accent);
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            letter-spacing: 0.05em;
+            transition: all 0.2s ease;
+        }
+
+        .fullscreen-btn:hover {
+            background: var(--accent);
+            color: var(--bg-dark);
+        }
+
+        /* Mobile touch area hint */
+        @media (max-width: 850px) {
+            h1 { font-size: 1.5rem; }
+            .subtitle { font-size: 0.75rem; }
+            .controls { font-size: 0.65rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>LLZ Survivors</h1>
+        <p class="subtitle">a vampire survivors-style arena game</p>
+
+        <div id="canvas-container">
+            <div class="loading" id="loading">
+                <div class="loading-text">Loading...</div>
+                <div class="loading-bar">
+                    <div class="loading-progress" id="progress"></div>
+                </div>
+                <div class="loading-text" id="status">Initializing...</div>
+            </div>
+            <canvas id="canvas" class="hidden"></canvas>
+        </div>
+
+        <div class="controls">
+            <strong>Controls:</strong>
+            <kbd>WASD</kbd> or <kbd>Arrows</kbd> Move &nbsp;|&nbsp;
+            <kbd>Space</kbd> or <kbd>Enter</kbd> Select &nbsp;|&nbsp;
+            <kbd>Esc</kbd> Back &nbsp;|&nbsp;
+            <strong>Touch:</strong> Tap to select, Swipe to scroll
+        </div>
+    </div>
+
+    <button class="fullscreen-btn" onclick="toggleFullscreen()">⛶ Fullscreen</button>
+
+    <script>
+        var Module = {
+            preRun: [],
+            postRun: [],
+            print: function(text) {
+                console.log(text);
+            },
+            printErr: function(text) {
+                console.error(text);
+            },
+            canvas: (function() {
+                var canvas = document.getElementById('canvas');
+                canvas.addEventListener('webglcontextlost', function(e) {
+                    alert('WebGL context lost. Reload the page.');
+                    e.preventDefault();
+                }, false);
+                return canvas;
+            })(),
+            setStatus: function(text) {
+                var statusElement = document.getElementById('status');
+                if (statusElement) {
+                    statusElement.textContent = text || 'Ready';
+                }
+
+                // Parse progress
+                var match = text.match(/(\d+)\/(\d+)/);
+                if (match) {
+                    var progress = (parseInt(match[1]) / parseInt(match[2])) * 100;
+                    var progressBar = document.getElementById('progress');
+                    if (progressBar) {
+                        progressBar.style.width = progress + '%';
+                    }
+                }
+
+                // Hide loading when ready
+                if (text === '' || text.includes('Running')) {
+                    document.getElementById('loading').classList.add('hidden');
+                    document.getElementById('canvas').classList.remove('hidden');
+                    // Initialize game
+                    if (Module._WebInit) {
+                        Module._WebInit();
+                    }
+                }
+            },
+            totalDependencies: 0,
+            monitorRunDependencies: function(left) {
+                this.totalDependencies = Math.max(this.totalDependencies, left);
+                Module.setStatus(left ? 'Preparing... (' + (this.totalDependencies-left) + '/' + this.totalDependencies + ')' : 'All downloads complete.');
+            }
+        };
+
+        Module.setStatus('Downloading...');
+        window.onerror = function() {
+            Module.setStatus('Exception thrown, see JavaScript console');
+        };
+
+        function toggleFullscreen() {
+            var container = document.getElementById('canvas-container');
+            if (!document.fullscreenElement) {
+                container.requestFullscreen().catch(err => {
+                    console.log('Fullscreen error:', err);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        // Prevent default touch behaviors for better game control
+        document.addEventListener('touchmove', function(e) {
+            if (e.target.id === 'canvas') {
+                e.preventDefault();
+            }
+        }, { passive: false });
+    </script>
+
+    {{{ SCRIPT }}}
+</body>
+</html>
