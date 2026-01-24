@@ -98,6 +98,12 @@ static float g_menuTitleGlow = 0.0f;        // Glow animation timer
 static float g_menuButtonScale[2] = {1.0f, 1.0f};  // Button scale for hover effect
 static float g_menuEntranceTime = 0.0f;     // Entrance animation progress
 
+// Class select animation (carousel style)
+static float g_classSelectEntrance = 0.0f;  // Entrance animation
+static float g_classCarouselPos = 0.0f;     // Current carousel position (smooth)
+static float g_classCarouselTarget = 0.0f;  // Target carousel position
+static float g_classCardGlow[CLASS_COUNT];  // Per-card glow
+
 // Weapon select animation (carousel style like Bejeweled)
 static float g_weaponSelectEntrance = 0.0f; // Entrance animation
 static float g_weaponCarouselPos = 0.0f;    // Current carousel position (smooth)
@@ -245,6 +251,45 @@ static int FindEnemyInRange(Vector2 pos, float radius) {
     return -1;
 }
 
+// Find nearest enemy within maxRange using spatial grid
+// Returns index of nearest enemy or -1 if none found
+static int FindNearestEnemyGrid(Vector2 pos, float maxRange) {
+    int nearest = -1;
+    float nearestDistSq = maxRange * maxRange;
+
+    // Calculate grid cell range based on maxRange
+    int cellRadius = (int)(maxRange / GRID_CELL_SIZE) + 1;
+    int gx = WorldToGridX(pos.x);
+    int gy = WorldToGridY(pos.y);
+
+    // Check cells within range
+    for (int dx = -cellRadius; dx <= cellRadius; dx++) {
+        for (int dy = -cellRadius; dy <= cellRadius; dy++) {
+            int cx = gx + dx;
+            int cy = gy + dy;
+            if (cx < 0 || cx >= GRID_WIDTH || cy < 0 || cy >= GRID_HEIGHT) continue;
+
+            GridCell *cell = &g_spatialGrid[cx][cy];
+            for (int i = 0; i < cell->count; i++) {
+                int enemyIdx = cell->enemyIndices[i];
+                Enemy *e = &g_game.enemies[enemyIdx];
+                if (!e->active) continue;
+
+                // Use squared distance to avoid sqrt
+                float dx2 = pos.x - e->pos.x;
+                float dy2 = pos.y - e->pos.y;
+                float distSq = dx2 * dx2 + dy2 * dy2;
+                if (distSq < nearestDistSq) {
+                    nearestDistSq = distSq;
+                    nearest = enemyIdx;
+                }
+            }
+        }
+    }
+
+    return nearest;
+}
+
 // =============================================================================
 // ENEMY POOL PROGRESSION SYSTEM
 // =============================================================================
@@ -299,7 +344,6 @@ static const char *ENEMY_DESCRIPTIONS[] = {
 
 // Forward declarations
 static void GenerateUpgradeChoices(void);
-static int FindNearestEnemy(Vector2 pos, float range);
 static void DamagePlayer(int damage, Vector2 knockbackFrom);
 static bool HasShield(void);
 
@@ -1440,10 +1484,11 @@ static void UpdateXPGems(float dt) {
         }
 
         if (dist < PLAYER_PICKUP_RANGE) {
-            // Apply kill streak XP multiplier (caps at 3x)
+            // Apply kill streak XP multiplier (caps at 3x) and class XP multiplier
             float streakMult = 1.0f + (g_killStreak / 10.0f);
             if (streakMult > 3.0f) streakMult = 3.0f;
-            int xpGain = (int)(gem->value * streakMult);
+            float totalMult = streakMult * player->xpMultiplier;  // Apply class XP bonus
+            int xpGain = (int)(gem->value * totalMult);
             player->xp += xpGain;
 
             // Update combo system
@@ -1543,6 +1588,14 @@ static void UpdateXPGems(float dt) {
                     player->xpToNextLevel = XP_THRESHOLDS[player->level - 1];
                     GenerateUpgradeChoices();
                     g_game.state = GAME_STATE_LEVEL_UP;
+
+                    // Initialize multi-purchase session
+                    g_game.sessionPointsRemaining = player->upgradePoints;
+                    for (int k = 0; k < NUM_UPGRADE_CHOICES + 1; k++) {
+                        g_game.upgradesPurchasedThisSession[k] = false;
+                    }
+                    g_game.levelUpMode = 0;  // Start in carousel mode
+                    g_game.purchaseFlashTimer = 0;
 
                     // Level up celebration effects!
                     g_levelUpCelebration = 1.0f;
@@ -1746,6 +1799,36 @@ static void SpawnEnemy(EnemyType type) {
                     break;
                 default: break;
             }
+
+            // Initialize champion state (defaults to non-champion)
+            e->isChampion = false;
+            e->affix = AFFIX_NONE;
+            e->championGlow = RandomFloat(0, PI * 2);  // Random phase for glow animation
+            e->baseSpeed = e->speed;  // Store original speed before any modifications
+
+            // Champion spawn logic: after wave 3, 5% chance to become champion
+            // Don't make bosses into champions (they're already special)
+            // Don't make decoys into champions
+            if (g_game.spawner.wave >= CHAMPION_SPAWN_WAVE &&
+                type != ENEMY_BOSS &&
+                !e->isDecoy &&
+                GetRandomValue(0, 99) < CHAMPION_SPAWN_CHANCE) {
+
+                e->isChampion = true;
+                e->affix = (EnemyAffix)(GetRandomValue(1, AFFIX_COUNT - 1));  // Random affix (not AFFIX_NONE)
+
+                // Apply champion stat modifiers
+                e->hp = (int)(e->hp * CHAMPION_HP_MULTIPLIER);
+                e->maxHp = (int)(e->maxHp * CHAMPION_HP_MULTIPLIER);
+                e->xpValue = (int)(e->xpValue * CHAMPION_XP_MULTIPLIER);
+
+                // Apply affix-specific modifiers
+                if (e->affix == AFFIX_SWIFT) {
+                    e->speed *= (1.0f + AFFIX_SWIFT_SPEED_BONUS);
+                    e->baseSpeed = e->speed;
+                }
+            }
+
             return;
         }
     }
@@ -1959,6 +2042,13 @@ static void DamageEnemy(Enemy *e, int damage) {
 
     int finalDamage = (int)(damage * GetDamageMultiplier());
     bool wasCrit = g_lastHitWasCrit;  // Capture crit state before next GetDamageMultiplier call
+
+    // Champion ARMORED affix: 50% damage reduction
+    if (e->isChampion && e->affix == AFFIX_ARMORED) {
+        finalDamage = (int)(finalDamage * (1.0f - AFFIX_ARMORED_REDUCTION));
+        if (finalDamage < 1) finalDamage = 1;  // Minimum 1 damage
+    }
+
     e->hp -= finalDamage;
     e->hitFlash = 0.1f;
     SpawnParticleBurst(e->pos, 3, COLOR_PARTICLE_HIT, 60, 3);
@@ -2002,10 +2092,61 @@ static void DamageEnemy(Enemy *e, int damage) {
             case ENEMY_WALKER: deathColor = COLOR_WALKER; break;
             case ENEMY_FAST: deathColor = COLOR_FAST; break;
             case ENEMY_TANK: deathColor = COLOR_TANK; break;
+            default: deathColor = COLOR_WALKER; break;
         }
 
         // Spawn dying enemy animation
         SpawnDyingEnemy(e->pos, e->type, e->size, deathColor);
+
+        // Champion SPLITTER affix: spawn smaller copies on death
+        if (e->isChampion && e->affix == AFFIX_SPLITTER) {
+            for (int s = 0; s < AFFIX_SPLITTER_COUNT; s++) {
+                // Find an inactive enemy slot
+                for (int j = 0; j < MAX_ENEMIES; j++) {
+                    Enemy *spawn = &g_game.enemies[j];
+                    if (!spawn->active) {
+                        // Copy parent enemy properties
+                        spawn->type = e->type;
+                        spawn->active = true;
+                        spawn->hitFlash = 0;
+                        spawn->slowTimer = 0;
+                        spawn->slowMultiplier = 1.0f;
+
+                        // Position slightly offset from parent
+                        float spawnAngle = (float)s / AFFIX_SPLITTER_COUNT * PI * 2 + RandomFloat(-0.5f, 0.5f);
+                        float spawnDist = e->size * 0.8f;
+                        spawn->pos.x = Clampf(e->pos.x + cosf(spawnAngle) * spawnDist, WORLD_PADDING, WORLD_WIDTH - WORLD_PADDING);
+                        spawn->pos.y = Clampf(e->pos.y + sinf(spawnAngle) * spawnDist, WORLD_PADDING, WORLD_HEIGHT - WORLD_PADDING);
+
+                        // Smaller stats for split copies
+                        spawn->size = e->size * AFFIX_SPLITTER_SIZE_RATIO;
+                        spawn->speed = e->baseSpeed * 1.1f;  // Slightly faster
+                        spawn->baseSpeed = spawn->speed;
+                        spawn->hp = (int)(e->maxHp * AFFIX_SPLITTER_HP_RATIO);
+                        spawn->maxHp = spawn->hp;
+                        spawn->damage = e->damage / 2;
+                        spawn->xpValue = e->xpValue / 3;  // Less XP since champion already gave bonus
+
+                        // Split copies are NOT champions (no infinite splitting!)
+                        spawn->isChampion = false;
+                        spawn->affix = AFFIX_NONE;
+                        spawn->championGlow = 0;
+
+                        // Copy special state if needed
+                        spawn->isDecoy = false;
+                        spawn->laserCooldown = 0;
+                        spawn->laserCharging = false;
+                        spawn->laserFiring = false;
+
+                        // Visual feedback for split
+                        SpawnParticleBurst(spawn->pos, 4, (Color){255, 200, 100, 255}, 50, 3);
+                        break;
+                    }
+                }
+            }
+            // Extra particles for splitter death
+            SpawnParticleBurst(e->pos, 6, (Color){255, 200, 100, 255}, 80, 4);
+        }
 
         e->active = false;
         g_game.killCount++;
@@ -2339,6 +2480,18 @@ static void UpdateEnemies(float dt) {
             }
         }
 
+        // Champion system: update glow animation and handle VAMPIRIC regen
+        if (e->isChampion) {
+            e->championGlow += dt * 3.0f;  // Glow animation speed
+            if (e->championGlow > PI * 2) e->championGlow -= PI * 2;
+
+            // VAMPIRIC affix: regenerate HP over time
+            if (e->affix == AFFIX_VAMPIRIC && e->hp < e->maxHp) {
+                e->hp += (int)(AFFIX_VAMPIRIC_REGEN * dt);
+                if (e->hp > e->maxHp) e->hp = e->maxHp;
+            }
+        }
+
         // Calculate effective speed (apply slow multiplier)
         float effectiveSpeed = e->speed * (e->slowMultiplier > 0 ? e->slowMultiplier : 1.0f);
 
@@ -2414,9 +2567,35 @@ static void DrawEnemy(Enemy *e) {
     bool useLOD = screenCenterDist > 300.0f;  // Simplify enemies near edges
 
     // Simple LOD rendering - just colored circles for distant/edge enemies
-    if (useLOD && e->type != ENEMY_BOSS && e->type != ENEMY_HORNET) {
+    // Always render champions fully (they're special!)
+    if (useLOD && e->type != ENEMY_BOSS && e->type != ENEMY_HORNET && !e->isChampion) {
         DrawCircleV(screen, hs * 0.8f, color);
         return;
+    }
+
+    // Champion golden pulsing glow effect (drawn behind enemy)
+    if (e->isChampion) {
+        float glowPulse = sinf(e->championGlow) * 0.3f + 0.7f;  // 0.4 to 1.0 range
+        float glowSize = hs * 1.6f * glowPulse;
+        Color glowColor = (Color){255, 215, 0, (unsigned char)(80 * glowPulse)};  // Golden glow
+
+        // Outer glow ring
+        DrawCircleV(screen, glowSize, glowColor);
+
+        // Inner brighter ring
+        glowColor.a = (unsigned char)(60 * glowPulse);
+        DrawCircleV(screen, glowSize * 0.7f, glowColor);
+
+        // Affix-specific accent color on the innermost ring
+        Color affixColor;
+        switch (e->affix) {
+            case AFFIX_SWIFT:    affixColor = (Color){100, 200, 255, 100}; break;  // Blue for speed
+            case AFFIX_VAMPIRIC: affixColor = (Color){200, 50, 100, 100}; break;   // Red/crimson for vampiric
+            case AFFIX_ARMORED:  affixColor = (Color){150, 150, 180, 100}; break;  // Gray/silver for armor
+            case AFFIX_SPLITTER: affixColor = (Color){255, 200, 100, 100}; break;  // Orange for splitter
+            default:             affixColor = (Color){255, 215, 0, 100}; break;    // Gold default
+        }
+        DrawCircleV(screen, hs * 0.3f, affixColor);
     }
 
     switch (e->type) {
@@ -2898,7 +3077,15 @@ static int GetWeaponDamage(WeaponType type) {
     float synDmg, synSpd, synArea;
     int synProj;
     GetSynergyBonuses(type, &synDmg, &synSpd, &synArea, &synProj);
-    return (int)(damage * synDmg);
+    float totalMult = synDmg;
+
+    // Apply class weapon bonus if this is the preferred weapon
+    const ClassStats *cls = &CLASS_STATS[g_game.player.playerClass];
+    if (type == cls->preferredWeapon && cls->weaponDamageBonus > 0) {
+        totalMult *= (1.0f + cls->weaponDamageBonus / 100.0f);
+    }
+
+    return (int)(damage * totalMult);
 }
 
 static float GetWeaponCooldown(WeaponType type) {
@@ -2977,15 +3164,23 @@ static void UpdateMelee(float dt) {
         float spinDuration = 0.5f + skill->branchTier * 0.5f;  // 0.5s to 2.5s
         if (skill->branchTier >= 5) spinDuration = 999.0f;  // Always spin at max tier
 
-        // Continuous damage in 360 degrees while spinning
+        // Continuous damage in 360 degrees while spinning - use spatial grid
         float spinDmg = GetWeaponDamage(WEAPON_MELEE) * 0.3f;  // Reduced per-tick damage
         float spinRange = (MELEE_BASE_RANGE + skill->tier * 10) * GetAreaMultiplier();
+        float spinRangeSq = spinRange * spinRange;
 
-        for (int i = 0; i < MAX_ENEMIES; i++) {
-            Enemy *e = &g_game.enemies[i];
+        // Use spatial grid to find enemies in range
+        int hitList[32];
+        int hitCount = 0;
+        CheckEnemyCollisionAtPoint(g_game.player.pos, spinRange, hitList, 32, &hitCount);
+
+        for (int h = 0; h < hitCount; h++) {
+            Enemy *e = &g_game.enemies[hitList[h]];
             if (!e->active) continue;
-            float dist = Distance(g_game.player.pos, e->pos);
-            if (dist < spinRange) {
+            // Use squared distance for final check (grid radius is approximate)
+            float dx = g_game.player.pos.x - e->pos.x;
+            float dy = g_game.player.pos.y - e->pos.y;
+            if (dx * dx + dy * dy < spinRangeSq) {
                 DamageEnemy(e, (int)spinDmg);
             }
         }
@@ -3000,13 +3195,22 @@ static void UpdateMelee(float dt) {
 
     m->timer += dt;
     Player *player = &g_game.player;
+    float rangeSq = m->range * m->range;
 
-    for (int i = 0; i < MAX_ENEMIES; i++) {
-        Enemy *e = &g_game.enemies[i];
+    // Use spatial grid to find enemies in melee range
+    int hitList[32];
+    int hitCount = 0;
+    CheckEnemyCollisionAtPoint(player->pos, m->range, hitList, 32, &hitCount);
+
+    for (int h = 0; h < hitCount; h++) {
+        Enemy *e = &g_game.enemies[hitList[h]];
         if (!e->active) continue;
 
-        float dist = Distance(player->pos, e->pos);
-        if (dist > m->range) continue;
+        // Use squared distance for range check
+        float dx = player->pos.x - e->pos.x;
+        float dy = player->pos.y - e->pos.y;
+        float distSq = dx * dx + dy * dy;
+        if (distSq > rangeSq) continue;
 
         float angleToEnemy = atan2f(e->pos.y - player->pos.y, e->pos.x - player->pos.x);
         if (fabsf(AngleDiff(m->angle, angleToEnemy)) < m->arc / 2) {
@@ -3408,7 +3612,7 @@ static void TriggerLightning(void) {
     // Branch-specific behavior
     if (skill->branch == MYSTIC_BRANCH_SMITE) {
         // Smite: Single massive strike on closest enemy
-        int targetIdx = FindNearestEnemy(g_game.player.pos, LIGHTNING_RANGE * 1.5f);
+        int targetIdx = FindNearestEnemyGrid(g_game.player.pos, LIGHTNING_RANGE * 1.5f);
         if (targetIdx >= 0) {
             Enemy *target = &g_game.enemies[targetIdx];
             float smiteMult = 2.0f + bt * 0.8f;  // 2.8x to 6x damage
@@ -3593,26 +3797,12 @@ static void DrawLightning(void) {
 // SEEKER WEAPON (Homing Missiles)
 // =============================================================================
 
-static int FindNearestEnemy(Vector2 pos, float range) {
-    int nearest = -1;
-    float nearestDist = range;
-    for (int i = 0; i < MAX_ENEMIES; i++) {
-        if (!g_game.enemies[i].active) continue;
-        float dist = Distance(pos, g_game.enemies[i].pos);
-        if (dist < nearestDist) {
-            nearestDist = dist;
-            nearest = i;
-        }
-    }
-    return nearest;
-}
-
 static void FireSeeker(void) {
     int tier = g_game.weapons[WEAPON_SEEKER].tier;
     int missileCount = 1 + (tier > 2 ? 1 : 0) + (tier > 4 ? 1 : 0);
 
     for (int m = 0; m < missileCount; m++) {
-        int targetIdx = FindNearestEnemy(g_game.player.pos, SEEKER_RANGE);
+        int targetIdx = FindNearestEnemyGrid(g_game.player.pos, SEEKER_RANGE);
         if (targetIdx < 0) return;
 
         for (int i = 0; i < MAX_SEEKERS; i++) {
@@ -3645,7 +3835,7 @@ static void UpdateSeekers(float dt) {
 
         // Retarget if target is dead
         if (s->targetIdx < 0 || !g_game.enemies[s->targetIdx].active) {
-            s->targetIdx = FindNearestEnemy(s->pos, SEEKER_RANGE * 2);
+            s->targetIdx = FindNearestEnemyGrid(s->pos, SEEKER_RANGE * 2);
         }
 
         // Homing behavior
@@ -3819,7 +4009,7 @@ static void SpawnPoisonCloud(void) {
     for (int c = 0; c < cloudCount; c++) {
         // Find a spot near enemies
         Vector2 spawnPos = g_game.player.pos;
-        int targetIdx = FindNearestEnemy(g_game.player.pos, 300);
+        int targetIdx = FindNearestEnemyGrid(g_game.player.pos, 300);
         if (targetIdx >= 0) {
             spawnPos = g_game.enemies[targetIdx].pos;
             spawnPos.x += RandomFloat(-30, 30);
@@ -3916,7 +4106,7 @@ static void DrawPoisonClouds(void) {
 static void TriggerChainLightning(void) {
     int tier = g_game.weapons[WEAPON_CHAIN].tier;
 
-    int startTarget = FindNearestEnemy(g_game.player.pos, CHAIN_RANGE);
+    int startTarget = FindNearestEnemyGrid(g_game.player.pos, CHAIN_RANGE);
     if (startTarget < 0) return;
 
     for (int i = 0; i < MAX_CHAINS; i++) {
@@ -3949,12 +4139,18 @@ static void UpdateChainLightning(float dt) {
 
         // Chain to next target periodically
         if (c->remainingJumps > 0 && c->timer < 0.35f - (0.35f - 0.05f * c->hitCount)) {
-            // Find next target
+            // Find next target using spatial grid
             Enemy *current = &g_game.enemies[c->currentTarget];
             int nextTarget = -1;
-            float nearestDist = c->jumpRange;
+            float nearestDistSq = c->jumpRange * c->jumpRange;
 
-            for (int j = 0; j < MAX_ENEMIES; j++) {
+            // Use spatial grid to get nearby enemies
+            int hitList[32];
+            int hitCount = 0;
+            CheckEnemyCollisionAtPoint(current->pos, c->jumpRange, hitList, 32, &hitCount);
+
+            for (int h = 0; h < hitCount; h++) {
+                int j = hitList[h];
                 if (!g_game.enemies[j].active) continue;
                 // Check if already hit
                 bool alreadyHit = false;
@@ -3963,9 +4159,12 @@ static void UpdateChainLightning(float dt) {
                 }
                 if (alreadyHit) continue;
 
-                float dist = Distance(current->pos, g_game.enemies[j].pos);
-                if (dist < nearestDist) {
-                    nearestDist = dist;
+                // Use squared distance to avoid sqrt
+                float dx = current->pos.x - g_game.enemies[j].pos.x;
+                float dy = current->pos.y - g_game.enemies[j].pos.y;
+                float distSq = dx * dx + dy * dy;
+                if (distSq < nearestDistSq) {
+                    nearestDistSq = distSq;
                     nextTarget = j;
                 }
             }
@@ -4401,6 +4600,122 @@ static void GenerateUpgradeChoices(void) {
     skip->available = true;
     skip->isOffensive = false;
     skip->branch = 0;
+}
+
+// Apply upgrade effect only (for multi-purchase system)
+// Does NOT change game state (caller handles that)
+static void ApplyUpgradeEffect(int idx) {
+    UpgradeChoice *up = &g_game.upgrades[idx];
+    Player *player = &g_game.player;
+
+    // Deduct from actual player points (session already tracked separately)
+    player->upgradePoints -= up->cost;
+
+    switch (up->type) {
+        case UPGRADE_WEAPON_TIER:
+            if (up->weapon < WEAPON_COUNT) {
+                g_game.weapons[up->weapon].tier++;
+            }
+            break;
+        case UPGRADE_WEAPON_UNLOCK:
+            if (up->weapon < WEAPON_COUNT) {
+                g_game.weapons[up->weapon].tier = 1;
+                g_game.weapons[up->weapon].cooldownTimer = 0;
+            }
+            break;
+        case UPGRADE_DAMAGE_ALL:
+            player->damageMultiplier *= (1.0f + up->value / 100.0f);
+            break;
+        case UPGRADE_ATTACK_SPEED:
+            player->attackSpeedMult *= (1.0f - up->value / 100.0f);
+            if (player->attackSpeedMult < 0.2f) player->attackSpeedMult = 0.2f;
+            break;
+        case UPGRADE_CRIT_CHANCE:
+            player->critChance += up->value;
+            if (player->critChance > 75.0f) player->critChance = 75.0f;
+            break;
+        case UPGRADE_AREA_SIZE:
+            player->areaMultiplier *= (1.0f + up->value / 100.0f);
+            break;
+        case UPGRADE_PROJECTILE_COUNT:
+            player->bonusProjectiles += up->value;
+            break;
+        case UPGRADE_MAX_HP:
+            player->maxHp += up->value;
+            player->hp += up->value;
+            break;
+        case UPGRADE_HEALTH_REGEN:
+            player->healthRegen += up->value;
+            break;
+        case UPGRADE_MOVE_SPEED:
+            player->speed *= (1.0f + up->value / 100.0f);
+            break;
+        case UPGRADE_MAGNET_RANGE:
+            player->magnetRange *= (1.0f + up->value / 100.0f);
+            break;
+        case UPGRADE_ARMOR:
+            player->armor += up->value;
+            if (player->armor > 80.0f) player->armor = 80.0f;
+            break;
+        case UPGRADE_LIFESTEAL:
+            player->lifesteal += up->value;
+            if (player->lifesteal > 50.0f) player->lifesteal = 50.0f;
+            break;
+        case UPGRADE_DODGE_CHANCE:
+            player->dodgeChance += up->value;
+            if (player->dodgeChance > 50.0f) player->dodgeChance = 50.0f;
+            break;
+        case UPGRADE_THORNS:
+            player->thorns += up->value;
+            if (player->thorns > 200.0f) player->thorns = 200.0f;
+            break;
+        case UPGRADE_BRANCH_SELECT:
+            if (up->weapon < WEAPON_COUNT && up->branch > 0) {
+                g_game.weapons[up->weapon].branch = up->branch;
+                g_game.weapons[up->weapon].branchTier = 1;
+                g_game.weapons[up->weapon].spinTimer = 0;
+                g_game.weapons[up->weapon].spinning = false;
+                g_game.weapons[up->weapon].pierceCount = 1;
+                g_game.weapons[up->weapon].freezeAmount = 30;
+                g_game.weapons[up->weapon].shieldHits = 1;
+                g_game.weapons[up->weapon].chainJumps = 2;
+            }
+            break;
+        case UPGRADE_BRANCH_TIER:
+            if (up->weapon < WEAPON_COUNT) {
+                g_game.weapons[up->weapon].branchTier++;
+                int bt = g_game.weapons[up->weapon].branchTier;
+                switch (up->weapon) {
+                    case WEAPON_MELEE:
+                        break;
+                    case WEAPON_DISTANCE:
+                        if (g_game.weapons[up->weapon].branch == DISTANCE_BRANCH_PIERCE) {
+                            g_game.weapons[up->weapon].pierceCount = bt + 1;
+                        }
+                        break;
+                    case WEAPON_MAGIC:
+                        if (g_game.weapons[up->weapon].branch == MAGIC_BRANCH_FREEZE) {
+                            g_game.weapons[up->weapon].freezeAmount = 30 + bt * 10;
+                        }
+                        break;
+                    case WEAPON_RADIUS:
+                        if (g_game.weapons[up->weapon].branch == RADIUS_BRANCH_SHIELD) {
+                            g_game.weapons[up->weapon].shieldHits = bt + 1;
+                        }
+                        break;
+                    case WEAPON_MYSTIC:
+                        if (g_game.weapons[up->weapon].branch == MYSTIC_BRANCH_CHAIN) {
+                            g_game.weapons[up->weapon].chainJumps = bt + 2;
+                        }
+                        break;
+                    default: break;
+                }
+            }
+            break;
+        case UPGRADE_SKIP:
+        default:
+            break;
+    }
 }
 
 static void ApplyUpgrade(int idx) {
@@ -4998,9 +5313,9 @@ static void DrawHUD(void) {
 static void DrawLevelUpScreen(void) {
     DrawRectangle(0, 0, g_screenWidth, g_screenHeight, (Color){0, 0, 0, 200});
 
-    // Title
+    // Title - show session points remaining
     char title[64];
-    snprintf(title, sizeof(title), "LEVEL UP!  Points: %d", g_game.player.upgradePoints);
+    snprintf(title, sizeof(title), "LEVEL UP!  Points: %d", g_game.sessionPointsRemaining);
     int tw = (int)MeasureTextEx(g_font, title, 32, 1).x;
     DrawTextEx(g_font, title, (Vector2){g_screenWidth / 2 - tw / 2, 20}, 32, 1, COLOR_XP_BAR);
 
@@ -5038,16 +5353,23 @@ static void DrawLevelUpScreen(void) {
         float drawX = x + (cardW - scaledW) / 2.0f;
         float drawY = centerY - scaledH / 2.0f + dist * 15.0f;  // Offset Y for depth effect
 
-        // Card colors
+        // Check if card was purchased this session
+        bool isPurchased = g_game.upgradesPurchasedThisSession[i];
+        bool canAfford = g_game.sessionPointsRemaining >= up->cost;
+
+        // Card colors - gray out if purchased
         Color bgColor;
-        if (up->type == UPGRADE_SKIP) {
+        if (isPurchased) {
+            // Purchased - grayed out with green tint
+            bgColor = (Color){40, 60, 40, (unsigned char)(180 * alpha)};
+        } else if (up->type == UPGRADE_SKIP) {
             bgColor = (Color){60, 60, 80, (unsigned char)(220 * alpha)};
         } else if (up->isOffensive) {
-            bgColor = up->available ?
+            bgColor = canAfford ?
                 (Color){80, 40, 40, (unsigned char)(240 * alpha)} :
                 (Color){50, 30, 30, (unsigned char)(200 * alpha)};
         } else {
-            bgColor = up->available ?
+            bgColor = canAfford ?
                 (Color){40, 60, 80, (unsigned char)(240 * alpha)} :
                 (Color){30, 40, 50, (unsigned char)(200 * alpha)};
         }
@@ -5055,24 +5377,32 @@ static void DrawLevelUpScreen(void) {
         // Draw card background with rounded corners effect (just rectangles for simplicity)
         DrawRectangle((int)drawX, (int)drawY, (int)scaledW, (int)scaledH, bgColor);
 
-        // Border (thicker for selected)
-        bool isSelected = (i == g_game.selectedUpgrade && fabsf(g_game.carouselOffset) < 0.1f);
-        Color borderColor = isSelected ? COLOR_UPGRADE_SEL : (Color){100, 100, 120, (unsigned char)(200 * alpha)};
+        // Border (thicker for selected, green for purchased)
+        bool isSelected = (i == g_game.selectedUpgrade && fabsf(g_game.carouselOffset) < 0.1f && g_game.levelUpMode == 0);
+        Color borderColor;
+        if (isPurchased) {
+            borderColor = (Color){80, 200, 80, (unsigned char)(200 * alpha)};  // Green for purchased
+        } else if (isSelected) {
+            borderColor = COLOR_UPGRADE_SEL;
+        } else {
+            borderColor = (Color){100, 100, 120, (unsigned char)(200 * alpha)};
+        }
         int borderThick = isSelected ? 4 : 2;
         DrawRectangleLinesEx((Rectangle){drawX, drawY, scaledW, scaledH}, borderThick, borderColor);
 
-        // Card content
+        // Card content - dim if purchased
         float fontSize = 18.0f * scale;
         float descSize = 13.0f * scale;
         float costSize = 14.0f * scale;
-        Color textColor = {(unsigned char)(255 * alpha), (unsigned char)(255 * alpha), (unsigned char)(255 * alpha), 255};
-        Color dimColor = {(unsigned char)(180 * alpha), (unsigned char)(180 * alpha), (unsigned char)(200 * alpha), 255};
+        float textAlpha = isPurchased ? alpha * 0.5f : alpha;
+        Color textColor = {(unsigned char)(255 * textAlpha), (unsigned char)(255 * textAlpha), (unsigned char)(255 * textAlpha), 255};
+        Color dimColor = {(unsigned char)(180 * textAlpha), (unsigned char)(180 * textAlpha), (unsigned char)(200 * textAlpha), 255};
 
         // Type indicator (sword for offensive, shield for defensive)
         const char *typeIcon = up->isOffensive ? "[ATK]" : "[DEF]";
         if (up->type == UPGRADE_SKIP) typeIcon = "[---]";
         Color typeColor = up->isOffensive ? COLOR_POTION_DAMAGE : COLOR_POTION_SPEED;
-        typeColor.a = (unsigned char)(typeColor.a * alpha);
+        typeColor.a = (unsigned char)(typeColor.a * textAlpha);
         DrawTextEx(g_font, typeIcon, (Vector2){drawX + 8, drawY + 8}, 12 * scale, 1, typeColor);
 
         // Name
@@ -5085,20 +5415,25 @@ static void DrawLevelUpScreen(void) {
         if (descX < drawX + 5) descX = drawX + 5;
         DrawTextEx(g_font, up->desc, (Vector2){descX, drawY + 60 * scale}, descSize, 1, dimColor);
 
-        // Cost
-        if (up->cost > 0) {
+        // Cost or status
+        if (isPurchased) {
+            // Show PURCHASED label
+            const char *purchasedStr = "PURCHASED";
+            int pw = (int)MeasureTextEx(g_font, purchasedStr, costSize, 1).x;
+            DrawTextEx(g_font, purchasedStr, (Vector2){drawX + scaledW / 2 - pw / 2, drawY + scaledH - 35 * scale}, costSize, 1, (Color){80, 200, 80, (unsigned char)(255 * alpha)});
+        } else if (up->cost > 0) {
             char costStr[32];
             snprintf(costStr, sizeof(costStr), "Cost: %d point%s", up->cost, up->cost > 1 ? "s" : "");
             int cw = (int)MeasureTextEx(g_font, costStr, costSize, 1).x;
-            Color costColor = up->available ?
+            Color costColor = canAfford ?
                 (Color){80, 200, 255, (unsigned char)(255 * alpha)} :
                 (Color){200, 80, 80, (unsigned char)(255 * alpha)};
             DrawTextEx(g_font, costStr, (Vector2){drawX + scaledW / 2 - cw / 2, drawY + scaledH - 35 * scale}, costSize, 1, costColor);
         }
 
         // Availability indicator
-        if (!up->available && up->type != UPGRADE_SKIP) {
-            DrawTextEx(g_font, "LOCKED", (Vector2){drawX + scaledW / 2 - 25, drawY + scaledH - 20 * scale}, 12 * scale, 1, COLOR_WALKER);
+        if (!canAfford && !isPurchased && up->type != UPGRADE_SKIP) {
+            DrawTextEx(g_font, "CAN'T AFFORD", (Vector2){drawX + scaledW / 2 - 40, drawY + scaledH - 20 * scale}, 12 * scale, 1, COLOR_WALKER);
         }
     }
 
@@ -5111,8 +5446,28 @@ static void DrawLevelUpScreen(void) {
         g_game.selectedUpgrade < totalChoices - 1 ? COLOR_TEXT : COLOR_TEXT_DIM);
 
     // Instructions
-    DrawTextEx(g_font, "< Scroll to Browse >   Click: Confirm",
-               (Vector2){g_screenWidth / 2 - 130, CAROUSEL_Y + CAROUSEL_CARD_HEIGHT + 40}, 14, 1, COLOR_TEXT_DIM);
+    // Confirm button
+    int confirmBtnW = 200;
+    int confirmBtnH = 40;
+    int confirmBtnX = g_screenWidth / 2 - confirmBtnW / 2;
+    int confirmBtnY = CAROUSEL_Y + CAROUSEL_CARD_HEIGHT + 30;
+
+    bool confirmSelected = (g_game.levelUpMode == 1);
+    Color confirmBgColor = confirmSelected ? (Color){60, 150, 60, 240} : (Color){40, 80, 40, 200};
+    Color confirmBorderColor = confirmSelected ? COLOR_UPGRADE_SEL : (Color){80, 120, 80, 200};
+
+    DrawRectangle(confirmBtnX, confirmBtnY, confirmBtnW, confirmBtnH, confirmBgColor);
+    DrawRectangleLinesEx((Rectangle){confirmBtnX, confirmBtnY, confirmBtnW, confirmBtnH},
+                         confirmSelected ? 3 : 2, confirmBorderColor);
+
+    const char *confirmText = "CONFIRM & CONTINUE";
+    int ctw = (int)MeasureTextEx(g_font, confirmText, 18, 1).x;
+    Color confirmTextColor = confirmSelected ? WHITE : COLOR_TEXT_DIM;
+    DrawTextEx(g_font, confirmText, (Vector2){confirmBtnX + confirmBtnW / 2 - ctw / 2, confirmBtnY + 11}, 18, 1, confirmTextColor);
+
+    // Instructions
+    DrawTextEx(g_font, "Scroll: Browse  Click: Buy  Down: Confirm Button",
+               (Vector2){g_screenWidth / 2 - 175, confirmBtnY + confirmBtnH + 10}, 12, 1, COLOR_TEXT_DIM);
 
     // Potion inventory panel at bottom
     int invY = g_screenHeight - 85;
@@ -5388,6 +5743,249 @@ static void DrawWeaponSelect(void) {
     Color hint2Color = COLOR_XP_BAR;
     hint2Color.a = (unsigned char)(180 * instrAlpha);
     DrawTextEx(hint2Font, hint2, (Vector2){centerX - hw2 / 2, g_screenHeight - 22}, 14, 1, hint2Color);
+}
+
+static void DrawClassSelect(void) {
+    // Draw SDK animated background
+    if (g_bgSystemInitialized) {
+        LlzBackgroundDraw();
+    } else {
+        DrawRectangle(0, 0, g_screenWidth, g_screenHeight, COLOR_BG);
+    }
+
+    // Dark overlay gradient for carousel area contrast
+    DrawRectangleGradientV(0, 60, g_screenWidth, g_screenHeight - 100,
+                           (Color){10, 12, 20, 180}, (Color){20, 22, 35, 180});
+
+    float centerX = g_screenWidth / 2.0f;
+    float centerY = g_screenHeight / 2.0f;
+    float entrance = EaseOutBack(g_classSelectEntrance);
+
+    // Title with glow
+    const char *title = "SELECT CLASS";
+    int titleFontSize = 48;
+    Font titleFont = LlzFontGet(LLZ_FONT_UI, titleFontSize);
+    int tw = (int)MeasureTextEx(titleFont, title, titleFontSize, 1).x;
+    float titleY = 15 - (1.0f - entrance) * 40;
+
+    // Title glow pulse
+    float glowPulse = (sinf(g_game.bgTime * 3.0f) + 1.0f) * 0.5f;
+    Color titleGlow = COLOR_PLAYER;
+    titleGlow.a = (unsigned char)((60 + 40 * glowPulse) * entrance);
+    DrawCircleGradient((int)centerX, (int)(titleY + 24), 250 * entrance, titleGlow, BLANK);
+
+    // Title shadow and text
+    Color shadow = {0, 0, 0, (unsigned char)(180 * entrance)};
+    DrawTextEx(titleFont, title, (Vector2){centerX - tw / 2 + 2, titleY + 2}, titleFontSize, 1, shadow);
+    DrawTextEx(titleFont, title, (Vector2){centerX - tw / 2, titleY}, titleFontSize, 1, titleGlow);
+    DrawTextEx(titleFont, title, (Vector2){centerX - tw / 2, titleY}, titleFontSize, 1, COLOR_PLAYER);
+
+    // Card dimensions
+    float baseCardWidth = 150;
+    float baseCardHeight = 260;
+    float cardSpacing = 130;
+
+    // Sort cards by distance for proper z-ordering (farthest first)
+    int drawOrder[CLASS_COUNT];
+    float distances[CLASS_COUNT];
+    for (int i = 0; i < CLASS_COUNT; i++) {
+        float offset = (float)i - g_classCarouselPos;
+        distances[i] = fabsf(offset);
+        drawOrder[i] = i;
+    }
+    for (int i = 0; i < CLASS_COUNT - 1; i++) {
+        for (int j = i + 1; j < CLASS_COUNT; j++) {
+            if (distances[drawOrder[i]] < distances[drawOrder[j]]) {
+                int temp = drawOrder[i];
+                drawOrder[i] = drawOrder[j];
+                drawOrder[j] = temp;
+            }
+        }
+    }
+
+    // Draw cards in sorted order (back to front)
+    for (int d = 0; d < CLASS_COUNT; d++) {
+        int i = drawOrder[d];
+        const ClassStats *cls = &CLASS_STATS[i];
+
+        // Calculate position offset from center
+        float offset = (float)i - g_classCarouselPos;
+        float absOffset = fabsf(offset);
+
+        // Scale based on distance from center
+        float scale;
+        if (absOffset < 0.1f) {
+            scale = 1.0f;
+        } else if (absOffset < 1.5f) {
+            scale = 1.0f - 0.25f * absOffset;
+        } else {
+            scale = 0.6f;
+        }
+
+        // Entrance animation scale
+        float cardEntrance = Clampf((g_classSelectEntrance - 0.1f) * 2.0f, 0, 1);
+        scale *= EaseOutBack(cardEntrance);
+
+        // Selected card pulse
+        bool isSelected = (i == g_game.classSelectIndex);
+        float selPulse = isSelected ? (sinf(g_game.bgTime * 6.0f) + 1.0f) * 0.5f * 0.05f : 0.0f;
+        scale += selPulse;
+
+        // Alpha based on distance
+        float alpha = 1.0f;
+        if (absOffset > 1.5f) {
+            alpha = 0.4f;
+        } else if (absOffset > 0.5f) {
+            alpha = 1.0f - 0.4f * (absOffset - 0.5f);
+        }
+        alpha *= entrance;
+
+        // Card position
+        float cardWidth = baseCardWidth * scale;
+        float cardHeight = baseCardHeight * scale;
+        float cardX = centerX + offset * cardSpacing - cardWidth / 2.0f;
+        float cardY = centerY - cardHeight / 2.0f + 20;
+
+        // Glow effect for selected card
+        float glowIntensity = g_classCardGlow[i];
+        if (glowIntensity > 0.01f) {
+            Color glowColor = cls->classColor;
+            float gPulse = (sinf(g_game.bgTime * 6.0f) + 1.0f) * 0.5f;
+            glowColor.a = (unsigned char)((80 + 60 * gPulse) * glowIntensity * alpha);
+            DrawRectangleRounded((Rectangle){cardX - 10, cardY - 10, cardWidth + 20, cardHeight + 20},
+                                0.12f, 8, glowColor);
+        }
+
+        // Card background
+        Color cardBg = isSelected ? (Color){45, 55, 80, (unsigned char)(255 * alpha)}
+                                  : (Color){30, 35, 50, (unsigned char)(255 * alpha)};
+        DrawRectangleRounded((Rectangle){cardX, cardY, cardWidth, cardHeight}, 0.12f, 8, cardBg);
+
+        // Card border with class color
+        Color borderColor = cls->classColor;
+        borderColor.a = (unsigned char)((isSelected ? 255 : 120) * alpha);
+        DrawRectangleRoundedLines((Rectangle){cardX, cardY, cardWidth, cardHeight}, 0.12f, 8, borderColor);
+
+        // Class name at top
+        float nameY = cardY + 15 * scale;
+        int nameFontSize = (int)(24 * scale);
+        if (nameFontSize < 10) nameFontSize = 10;
+        Font nameFont = LlzFontGet(LLZ_FONT_UI, nameFontSize);
+        Vector2 nameSize = MeasureTextEx(nameFont, cls->name, nameFontSize, 1);
+        Color nameColor = cls->classColor;
+        nameColor.a = (unsigned char)(255 * alpha);
+        DrawTextEx(nameFont, cls->name, (Vector2){cardX + cardWidth / 2 - nameSize.x / 2, nameY}, nameFontSize, 1, nameColor);
+
+        // Class icon (player shape with class color) in upper area
+        float iconY = cardY + cardHeight * 0.25f;
+        float iconSize = 25 * scale;
+        float iconBob = isSelected ? sinf(g_game.bgTime * 2.5f) * 3.0f : 0.0f;
+        Color iconColor = cls->classColor;
+        iconColor.a = (unsigned char)(255 * alpha);
+        DrawCircleV((Vector2){cardX + cardWidth / 2, iconY + iconBob}, iconSize, iconColor);
+        // Direction arrow
+        Color arrowColor = {255, 255, 255, (unsigned char)(200 * alpha)};
+        DrawTriangle(
+            (Vector2){cardX + cardWidth / 2, iconY + iconBob - iconSize * 0.8f},
+            (Vector2){cardX + cardWidth / 2 - iconSize * 0.4f, iconY + iconBob - iconSize * 0.2f},
+            (Vector2){cardX + cardWidth / 2 + iconSize * 0.4f, iconY + iconBob - iconSize * 0.2f},
+            arrowColor
+        );
+
+        // Stats section (only on visible cards)
+        if (alpha > 0.3f) {
+            float statsY = cardY + cardHeight * 0.42f;
+            int statFontSize = (int)(14 * scale);
+            if (statFontSize < 8) statFontSize = 8;
+            Font statFont = LlzFontGet(LLZ_FONT_UI, statFontSize);
+            float lineHeight = statFontSize + 4 * scale;
+            Color statLabelColor = {180, 185, 200, (unsigned char)(200 * alpha)};
+            Color statValueColor = {240, 240, 250, (unsigned char)(255 * alpha)};
+
+            // HP stat
+            char hpText[32];
+            snprintf(hpText, sizeof(hpText), "HP: %d", cls->baseHP);
+            Color hpColor = cls->baseHP > 100 ? (Color){100, 255, 100, (unsigned char)(255 * alpha)} :
+                           (cls->baseHP < 100 ? (Color){255, 150, 100, (unsigned char)(255 * alpha)} : statValueColor);
+            DrawTextEx(statFont, hpText, (Vector2){cardX + 10 * scale, statsY}, statFontSize, 1, hpColor);
+
+            // Speed stat
+            char spdText[32];
+            snprintf(spdText, sizeof(spdText), "SPD: %.0f%%", cls->speedMultiplier * 100);
+            Color spdColor = cls->speedMultiplier > 1.0f ? (Color){100, 255, 100, (unsigned char)(255 * alpha)} :
+                            (cls->speedMultiplier < 1.0f ? (Color){255, 150, 100, (unsigned char)(255 * alpha)} : statValueColor);
+            DrawTextEx(statFont, spdText, (Vector2){cardX + 10 * scale, statsY + lineHeight}, statFontSize, 1, spdColor);
+
+            // Armor stat
+            char armText[32];
+            snprintf(armText, sizeof(armText), "ARM: %.0f%%", cls->armorPercent);
+            Color armColor = cls->armorPercent > 0 ? (Color){100, 255, 100, (unsigned char)(255 * alpha)} : statLabelColor;
+            DrawTextEx(statFont, armText, (Vector2){cardX + 10 * scale, statsY + lineHeight * 2}, statFontSize, 1, armColor);
+
+            // XP multiplier stat
+            char xpText[32];
+            snprintf(xpText, sizeof(xpText), "XP: %.0f%%", cls->xpMultiplier * 100);
+            Color xpColor = cls->xpMultiplier > 1.0f ? (Color){100, 255, 100, (unsigned char)(255 * alpha)} :
+                           (cls->xpMultiplier < 1.0f ? (Color){255, 150, 100, (unsigned char)(255 * alpha)} : statValueColor);
+            DrawTextEx(statFont, xpText, (Vector2){cardX + 10 * scale, statsY + lineHeight * 3}, statFontSize, 1, xpColor);
+
+            // Preferred weapon
+            float weaponY = cardY + cardHeight * 0.78f;
+            int weaponFontSize = (int)(12 * scale);
+            if (weaponFontSize < 8) weaponFontSize = 8;
+            Font weaponFont = LlzFontGet(LLZ_FONT_UI, weaponFontSize);
+
+            const char *weaponName = WEAPON_NAMES[cls->preferredWeapon];
+            char bonusText[48];
+            if (cls->weaponDamageBonus > 0) {
+                snprintf(bonusText, sizeof(bonusText), "%s +%.0f%%", weaponName, cls->weaponDamageBonus);
+            } else {
+                snprintf(bonusText, sizeof(bonusText), "%s", weaponName);
+            }
+            Vector2 bonusSize = MeasureTextEx(weaponFont, bonusText, weaponFontSize, 1);
+            Color bonusColor = cls->weaponDamageBonus > 0 ? (Color){255, 215, 100, (unsigned char)(255 * alpha)} : statLabelColor;
+            DrawTextEx(weaponFont, bonusText, (Vector2){cardX + cardWidth / 2 - bonusSize.x / 2, weaponY}, weaponFontSize, 1, bonusColor);
+
+            // Description at bottom
+            float descY = cardY + cardHeight * 0.88f;
+            int descFontSize = (int)(11 * scale);
+            if (descFontSize < 8) descFontSize = 8;
+            Font descFont = LlzFontGet(LLZ_FONT_UI, descFontSize);
+            Vector2 descSize = MeasureTextEx(descFont, cls->description, descFontSize, 1);
+            Color descColor = isSelected ? (Color){220, 220, 230, (unsigned char)(220 * alpha)}
+                                         : (Color){160, 165, 180, (unsigned char)(180 * alpha)};
+            // Center if fits, otherwise left-align with padding
+            float descX = (descSize.x < cardWidth - 10 * scale)
+                        ? (cardX + cardWidth / 2 - descSize.x / 2)
+                        : (cardX + 5 * scale);
+            DrawTextEx(descFont, cls->description, (Vector2){descX, descY}, descFontSize, 1, descColor);
+        }
+    }
+
+    // Instructions at bottom
+    float instrAlpha = Clampf((g_classSelectEntrance - 0.4f) * 3.0f, 0, 1);
+    const char *instructions = "SCROLL TO SELECT  -  PRESS TO CONFIRM";
+    int instrFontSize = 18;
+    Font instrFont = LlzFontGet(LLZ_FONT_UI, instrFontSize);
+    Vector2 instrSize = MeasureTextEx(instrFont, instructions, instrFontSize, 1);
+    float instrPulse = 150 + 105 * sinf(g_game.bgTime * 2.5f);
+    Color instrColor = {240, 240, 250, (unsigned char)(instrPulse * instrAlpha)};
+    DrawTextEx(instrFont, instructions, (Vector2){centerX - instrSize.x / 2, g_screenHeight - 45}, instrFontSize, 1, instrColor);
+
+    // Class indicator dots
+    float dotY = g_screenHeight - 75;
+    float dotSpacing = 20;
+    float totalDotWidth = (CLASS_COUNT - 1) * dotSpacing;
+    float dotStartX = centerX - totalDotWidth / 2.0f;
+
+    for (int i = 0; i < CLASS_COUNT; i++) {
+        float dotX = dotStartX + i * dotSpacing;
+        bool isSelected = (i == g_game.classSelectIndex);
+        Color dotColor = isSelected ? CLASS_STATS[i].classColor : (Color){80, 85, 100, 200};
+        float dotSize = isSelected ? 6.0f : 4.0f;
+        dotColor.a = (unsigned char)(dotColor.a * instrAlpha);
+        DrawCircleV((Vector2){dotX, dotY}, dotSize, dotColor);
+    }
 }
 
 static void DrawMenu(void) {
@@ -5758,15 +6356,38 @@ static void HandleMenuInput(const LlzInputState *input) {
 
     if (input->selectPressed || input->tap) {
         if (g_game.menuIndex == 0) {
-            g_game.state = GAME_STATE_WEAPON_SELECT;
-            g_weaponSelectEntrance = 0;  // Reset weapon select entrance animation
-            g_weaponCarouselPos = (float)g_game.weaponSelectIndex;  // Start at current selection
-            g_weaponCarouselTarget = g_weaponCarouselPos;
-            memset(g_weaponCardGlow, 0, sizeof(g_weaponCardGlow));
+            // Go to class select first (before weapon select)
+            g_game.state = GAME_STATE_CLASS_SELECT;
+            g_classSelectEntrance = 0;  // Reset class select entrance animation
+            g_classCarouselPos = (float)g_game.classSelectIndex;  // Start at current selection
+            g_classCarouselTarget = g_classCarouselPos;
+            memset(g_classCardGlow, 0, sizeof(g_classCardGlow));
         }
         else g_wantsClose = true;
     }
     if (input->backReleased) g_wantsClose = true;
+}
+
+static void HandleClassSelectInput(const LlzInputState *input) {
+    int numClasses = CLASS_COUNT;
+    if (input->scrollDelta > 0.5f || input->downPressed)
+        g_game.classSelectIndex = (g_game.classSelectIndex + 1) % numClasses;
+    else if (input->scrollDelta < -0.5f || input->upPressed)
+        g_game.classSelectIndex = (g_game.classSelectIndex - 1 + numClasses) % numClasses;
+
+    if (input->selectPressed || input->tap) {
+        // Confirm class selection and go to weapon select
+        g_game.selectedClass = (PlayerClass)g_game.classSelectIndex;
+        g_game.state = GAME_STATE_WEAPON_SELECT;
+        g_weaponSelectEntrance = 0;  // Reset weapon select entrance animation
+        g_weaponCarouselPos = (float)g_game.weaponSelectIndex;  // Start at current selection
+        g_weaponCarouselTarget = g_weaponCarouselPos;
+        memset(g_weaponCardGlow, 0, sizeof(g_weaponCardGlow));
+    }
+    if (input->backReleased) {
+        g_game.state = GAME_STATE_MENU;
+        g_menuEntranceTime = 0;  // Reset menu entrance animation
+    }
 }
 
 static void HandleWeaponSelectInput(const LlzInputState *input) {
@@ -5782,8 +6403,12 @@ static void HandleWeaponSelectInput(const LlzInputState *input) {
         g_game.state = GAME_STATE_PLAYING;
     }
     if (input->backReleased) {
-        g_game.state = GAME_STATE_MENU;
-        g_menuEntranceTime = 0;  // Reset menu entrance animation
+        // Go back to class select instead of menu
+        g_game.state = GAME_STATE_CLASS_SELECT;
+        g_classSelectEntrance = 0;  // Reset class select entrance animation
+        g_classCarouselPos = (float)g_game.classSelectIndex;
+        g_classCarouselTarget = g_classCarouselPos;
+        memset(g_classCardGlow, 0, sizeof(g_classCardGlow));
     }
 }
 
@@ -5889,6 +6514,8 @@ void GameInit(int width, int height) {
     memset(&g_game, 0, sizeof(g_game));
     g_game.state = GAME_STATE_MENU;
     g_game.startingWeapon = WEAPON_DISTANCE;
+    g_game.selectedClass = CLASS_BALANCED;  // Default class
+    g_game.classSelectIndex = 0;
 
     // Initialize SDK animated background
     LlzBackgroundInit(width, height);
@@ -5900,6 +6527,12 @@ void GameInit(int width, int height) {
     g_menuTitleGlow = 0.0f;
     g_menuEntranceTime = 0.0f;
     g_menuButtonScale[0] = g_menuButtonScale[1] = 1.0f;
+    // Class select animation
+    g_classSelectEntrance = 0.0f;
+    g_classCarouselPos = 0.0f;
+    g_classCarouselTarget = 0.0f;
+    memset(g_classCardGlow, 0, sizeof(g_classCardGlow));
+    // Weapon select animation
     g_weaponSelectEntrance = 0.0f;
     g_weaponCarouselPos = 0.0f;
     g_weaponCarouselTarget = 0.0f;
@@ -5911,22 +6544,33 @@ void GameInit(int width, int height) {
 }
 
 void GameReset(void) {
+    // Get class stats for the selected class
+    const ClassStats *cls = &CLASS_STATS[g_game.selectedClass];
+
     Player *p = &g_game.player;
     *p = (Player){
         .pos = {WORLD_WIDTH / 2.0f, WORLD_HEIGHT / 2.0f},
-        .angle = -PI / 2, .speed = PLAYER_SPEED, .baseSpeed = PLAYER_SPEED,
-        .isMoving = true, .hp = PLAYER_MAX_HP, .maxHp = PLAYER_MAX_HP,
+        .angle = -PI / 2,
+        .speed = PLAYER_SPEED * cls->speedMultiplier,
+        .baseSpeed = PLAYER_SPEED * cls->speedMultiplier,
+        .isMoving = true,
+        .hp = cls->baseHP,
+        .maxHp = cls->baseHP,
         .level = 1, .xp = 0, .xpToNextLevel = XP_THRESHOLDS[0],
         .magnetRange = PLAYER_BASE_XP_MAGNET_RANGE,
         .healthRegen = PLAYER_BASE_REGEN_RATE,
         .damageMultiplier = 1.0f,
         .stationaryTime = 0,
+        // Class-specific stats
+        .playerClass = g_game.selectedClass,
+        .classWeaponBonus = cls->weaponDamageBonus,
+        .xpMultiplier = cls->xpMultiplier,
         // New stats
         .attackSpeedMult = 1.0f,
         .critChance = 0,
         .areaMultiplier = 1.0f,
         .bonusProjectiles = 0,
-        .armor = 0,
+        .armor = cls->armorPercent,  // Starting armor from class
         .lifesteal = 0,
         .dodgeChance = 0,
         .thorns = 0,
@@ -6011,6 +6655,26 @@ void GameUpdate(const LlzInputState *input, float dt) {
     if (g_game.state == GAME_STATE_MENU && g_menuEntranceTime < 1.0f) {
         g_menuEntranceTime += dt * 2.0f;
         if (g_menuEntranceTime > 1.0f) g_menuEntranceTime = 1.0f;
+    }
+
+    // Class select entrance animation
+    if (g_game.state == GAME_STATE_CLASS_SELECT && g_classSelectEntrance < 1.0f) {
+        g_classSelectEntrance += dt * 2.5f;
+        if (g_classSelectEntrance > 1.0f) g_classSelectEntrance = 1.0f;
+    }
+
+    // Update class carousel animation (smooth carousel)
+    if (g_game.state == GAME_STATE_CLASS_SELECT) {
+        g_classCarouselTarget = (float)g_game.classSelectIndex;
+        float diff = g_classCarouselTarget - g_classCarouselPos;
+        g_classCarouselPos += diff * 10.0f * dt;  // Smooth ease-out
+        if (fabsf(diff) < 0.01f) g_classCarouselPos = g_classCarouselTarget;
+
+        // Update glow intensity for each class card
+        for (int i = 0; i < CLASS_COUNT; i++) {
+            float targetGlow = (i == g_game.classSelectIndex) ? 1.0f : 0.0f;
+            g_classCardGlow[i] += (targetGlow - g_classCardGlow[i]) * 8.0f * dt;
+        }
     }
 
     // Weapon select entrance animation
@@ -6159,6 +6823,7 @@ void GameUpdate(const LlzInputState *input, float dt) {
 
     switch (g_game.state) {
         case GAME_STATE_MENU: HandleMenuInput(input); break;
+        case GAME_STATE_CLASS_SELECT: HandleClassSelectInput(input); break;
         case GAME_STATE_WEAPON_SELECT: HandleWeaponSelectInput(input); break;
         case GAME_STATE_PLAYING:
             HandlePlayInput(input);
@@ -6194,6 +6859,7 @@ void GameDraw(void) {
 
     switch (g_game.state) {
         case GAME_STATE_MENU: DrawMenu(); break;
+        case GAME_STATE_CLASS_SELECT: DrawClassSelect(); break;
         case GAME_STATE_WEAPON_SELECT: DrawWeaponSelect(); break;
         default:
             DrawBackground();

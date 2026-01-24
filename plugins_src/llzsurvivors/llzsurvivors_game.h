@@ -379,6 +379,7 @@ extern "C" {
 
 typedef enum {
     GAME_STATE_MENU = 0,
+    GAME_STATE_CLASS_SELECT,  // NEW: Class selection before weapon select
     GAME_STATE_WEAPON_SELECT,
     GAME_STATE_PLAYING,
     GAME_STATE_LEVEL_UP,
@@ -386,6 +387,120 @@ typedef enum {
     GAME_STATE_GAME_OVER,
     GAME_STATE_VICTORY      // Win by reaching level 20!
 } GameState;
+
+typedef enum {
+    WEAPON_MELEE = 0,     // Close range swipe
+    WEAPON_DISTANCE,      // Bullets
+    WEAPON_MAGIC,         // Wave/AOE
+    WEAPON_RADIUS,        // Orbiting orbs
+    WEAPON_MYSTIC,        // Lightning strikes
+    // New unlockable weapons
+    WEAPON_SEEKER,        // Homing missiles
+    WEAPON_BOOMERANG,     // Returning blade
+    WEAPON_POISON,        // Toxic clouds
+    WEAPON_CHAIN,         // Chain lightning
+    WEAPON_COUNT
+} WeaponType;
+
+// =============================================================================
+// PLAYER CLASSES
+// =============================================================================
+
+typedef enum {
+    CLASS_BALANCED = 0,   // Average everything (default/classic mode)
+    CLASS_WARRIOR,        // High HP, normal speed, good armor, normal XP
+    CLASS_SCOUT,          // Low HP, fast speed, low armor, bonus XP gain
+    CLASS_TANK,           // Very high HP, slow speed, high armor, reduced XP
+    CLASS_MAGE,           // Low HP, normal speed, no armor, high XP, magic bonus
+    CLASS_COUNT
+} PlayerClass;
+
+// Class stat modifiers (applied as multipliers or flat bonuses to base stats)
+typedef struct {
+    const char* name;           // Display name
+    const char* description;    // Short description for UI
+
+    // Base stat modifiers
+    int baseHP;                 // Starting max HP
+    float speedMultiplier;      // Multiplier to PLAYER_SPEED
+    float armorPercent;         // Starting damage reduction (0-100)
+    float xpMultiplier;         // XP gain multiplier (1.0 = normal)
+
+    // Starting bonuses
+    WeaponType preferredWeapon; // Recommended starting weapon
+    float weaponDamageBonus;    // % bonus damage with preferred weapon (0 = none)
+
+    // Visual
+    Color classColor;           // Tint color for player when using this class
+} ClassStats;
+
+// Static class definitions - use CLASS_STATS[playerClass] to access
+static const ClassStats CLASS_STATS[CLASS_COUNT] = {
+    // CLASS_BALANCED - The default experience, no special bonuses or penalties
+    {
+        .name = "Balanced",
+        .description = "Classic mode. Average stats, no bonuses.",
+        .baseHP = 100,
+        .speedMultiplier = 1.0f,
+        .armorPercent = 0.0f,
+        .xpMultiplier = 1.0f,
+        .preferredWeapon = WEAPON_MELEE,
+        .weaponDamageBonus = 0.0f,
+        .classColor = {0, 220, 220, 255}  // Default cyan
+    },
+
+    // CLASS_WARRIOR - Tanky fighter with melee focus
+    {
+        .name = "Warrior",
+        .description = "Sturdy fighter. +HP, +Armor, Melee bonus.",
+        .baseHP = 130,
+        .speedMultiplier = 1.0f,
+        .armorPercent = 15.0f,
+        .xpMultiplier = 1.0f,
+        .preferredWeapon = WEAPON_MELEE,
+        .weaponDamageBonus = 20.0f,  // +20% melee damage
+        .classColor = {255, 150, 100, 255}  // Orange/bronze
+    },
+
+    // CLASS_SCOUT - Glass cannon with high mobility and XP gain
+    {
+        .name = "Scout",
+        .description = "Fast & fragile. +Speed, +XP gain, -HP.",
+        .baseHP = 70,
+        .speedMultiplier = 1.35f,
+        .armorPercent = 0.0f,
+        .xpMultiplier = 1.25f,  // +25% XP gain
+        .preferredWeapon = WEAPON_DISTANCE,
+        .weaponDamageBonus = 15.0f,  // +15% ranged damage
+        .classColor = {255, 220, 50, 255}  // Yellow
+    },
+
+    // CLASS_TANK - Extremely tanky but slow leveler
+    {
+        .name = "Tank",
+        .description = "Immovable wall. +HP, +Armor, -Speed, -XP.",
+        .baseHP = 180,
+        .speedMultiplier = 0.75f,
+        .armorPercent = 25.0f,
+        .xpMultiplier = 0.8f,  // -20% XP gain (slower leveling)
+        .preferredWeapon = WEAPON_RADIUS,
+        .weaponDamageBonus = 15.0f,  // +15% orbit damage
+        .classColor = {160, 80, 200, 255}  // Purple
+    },
+
+    // CLASS_MAGE - High risk/reward magic specialist
+    {
+        .name = "Mage",
+        .description = "Magic master. +XP, Magic bonus, -HP, no armor.",
+        .baseHP = 60,
+        .speedMultiplier = 1.0f,
+        .armorPercent = 0.0f,
+        .xpMultiplier = 1.4f,  // +40% XP gain
+        .preferredWeapon = WEAPON_MAGIC,
+        .weaponDamageBonus = 30.0f,  // +30% magic damage
+        .classColor = {200, 100, 255, 255}  // Magenta/purple
+    }
+};
 
 typedef enum {
     ENEMY_WALKER = 0,
@@ -406,19 +521,29 @@ typedef enum {
     ENEMY_TYPE_COUNT
 } EnemyType;
 
+// =============================================================================
+// CHAMPION SYSTEM (Elite variants of regular enemies)
+// =============================================================================
+
 typedef enum {
-    WEAPON_MELEE = 0,     // Close range swipe
-    WEAPON_DISTANCE,      // Bullets
-    WEAPON_MAGIC,         // Wave/AOE
-    WEAPON_RADIUS,        // Orbiting orbs
-    WEAPON_MYSTIC,        // Lightning strikes
-    // New unlockable weapons
-    WEAPON_SEEKER,        // Homing missiles
-    WEAPON_BOOMERANG,     // Returning blade
-    WEAPON_POISON,        // Toxic clouds
-    WEAPON_CHAIN,         // Chain lightning
-    WEAPON_COUNT
-} WeaponType;
+    AFFIX_NONE = 0,
+    AFFIX_SWIFT,     // +50% speed
+    AFFIX_VAMPIRIC,  // Regen HP (1 HP/sec)
+    AFFIX_ARMORED,   // 50% damage reduction
+    AFFIX_SPLITTER,  // Spawns 2 copies on death
+    AFFIX_COUNT
+} EnemyAffix;
+
+#define CHAMPION_SPAWN_WAVE 3        // Champions can spawn after wave 3
+#define CHAMPION_SPAWN_CHANCE 5      // 5% chance for enemy to become champion
+#define CHAMPION_XP_MULTIPLIER 2.5f  // Champions give 2.5x XP
+#define CHAMPION_HP_MULTIPLIER 1.5f  // Champions have 50% more HP
+#define AFFIX_SWIFT_SPEED_BONUS 0.5f // +50% speed
+#define AFFIX_VAMPIRIC_REGEN 1.0f    // 1 HP per second
+#define AFFIX_ARMORED_REDUCTION 0.5f // 50% damage reduction
+#define AFFIX_SPLITTER_COUNT 2       // Spawn 2 copies on death
+#define AFFIX_SPLITTER_HP_RATIO 0.4f // Copies have 40% of parent HP
+#define AFFIX_SPLITTER_SIZE_RATIO 0.7f // Copies are 70% the size
 
 // Starting weapons (first 5)
 #define STARTING_WEAPON_COUNT 5
@@ -527,11 +652,16 @@ typedef struct {
     float invincibilityTimer;
     float hurtFlash;
 
+    // Class system
+    PlayerClass playerClass;           // Selected starting class
+    float classWeaponBonus;            // Cached weapon bonus for preferred weapon
+
     // Stats that can be upgraded
     float magnetRange;
     float healthRegen;      // HP per second when stationary
     float damageMultiplier;
     float stationaryTime;   // Time spent not moving (for regen)
+    float xpMultiplier;     // XP gain multiplier (from class)
 
     // New upgrade stats
     float attackSpeedMult;  // Cooldown multiplier (lower = faster)
@@ -702,6 +832,10 @@ typedef struct {
     float slowTimer;          // Time remaining for slow effect
     float slowMultiplier;     // Speed multiplier (1.0 = normal, 0.5 = 50% slow)
     float baseSpeed;          // Original speed before any slows
+    // Champion system
+    EnemyAffix affix;         // Champion affix type (AFFIX_NONE for regular enemies)
+    bool isChampion;          // Is this a champion enemy?
+    float championGlow;       // Animation timer for golden pulsing glow
 } Enemy;
 
 // Enemy bullet (for bullet hell patterns)
@@ -821,7 +955,9 @@ typedef struct {
     Player player;
     GameCamera camera;
 
-    // Starting weapon choice
+    // Class and weapon selection
+    PlayerClass selectedClass;      // Currently selected class in menu
+    int classSelectIndex;           // UI index for class selection carousel
     WeaponType startingWeapon;
     int weaponSelectIndex;
 
@@ -873,12 +1009,16 @@ typedef struct {
     // Spawning
     SpawnSystem spawner;
 
-    // Level up - carousel system
+    // Level up - carousel system with multi-purchase
     UpgradeChoice upgrades[NUM_UPGRADE_CHOICES + 1];  // +1 for skip option
     int selectedUpgrade;
     float carouselOffset;    // Smooth scrolling offset for animation
     float targetOffset;      // Target offset for smooth lerp
     int selectedPotion;      // For using potions during level up
+    int sessionPointsRemaining;                       // Points left this session
+    bool upgradesPurchasedThisSession[NUM_UPGRADE_CHOICES + 1];  // Track purchases
+    int levelUpMode;         // 0=carousel, 1=confirm button selected
+    float purchaseFlashTimer; // Flash timer for purchase feedback
 
     // Stats
     float gameTime;
