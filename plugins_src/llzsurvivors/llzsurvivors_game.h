@@ -260,6 +260,17 @@ extern "C" {
 #define MAX_POPUPS 32
 #define MAX_UI_PARTICLES 32
 
+// Spatial Grid for collision optimization
+#define GRID_CELL_SIZE 64
+#define GRID_WIDTH ((WORLD_WIDTH / GRID_CELL_SIZE) + 1)
+#define GRID_HEIGHT ((WORLD_HEIGHT / GRID_CELL_SIZE) + 1)
+#define MAX_ENTITIES_PER_CELL 32
+
+// Graze system (near-miss bonus)
+#define GRAZE_DISTANCE_MULTIPLIER 2.0f  // How close for graze (1.5x collision radius)
+#define GRAZE_XP_BONUS 5                // XP per graze
+#define GRAZE_COOLDOWN 0.15f            // Cooldown per bullet to prevent spam
+
 // Potions
 #define MAX_POTIONS 32
 #define MAX_INVENTORY_POTIONS 5
@@ -687,6 +698,10 @@ typedef struct {
     float phaseTimer;         // Phase in/out timer
     bool isPhased;            // Currently phased out (invulnerable)
     float visibility;         // 0-1 for rendering alpha
+    // Slow effect tracking (for poison clouds, etc.)
+    float slowTimer;          // Time remaining for slow effect
+    float slowMultiplier;     // Speed multiplier (1.0 = normal, 0.5 = 50% slow)
+    float baseSpeed;          // Original speed before any slows
 } Enemy;
 
 // Enemy bullet (for bullet hell patterns)
@@ -873,6 +888,12 @@ typedef struct {
     // Animation
     float bgTime;
     int menuIndex;
+
+    // Graze system
+    int grazeCount;           // Total grazes this run
+    float grazeFlash;         // Visual flash timer for graze
+    int grazeCombo;           // Consecutive grazes
+    float grazeComboTimer;    // Reset combo if no graze
 } Game;
 
 // =============================================================================

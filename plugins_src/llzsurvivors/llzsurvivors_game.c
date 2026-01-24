@@ -123,6 +123,128 @@ static float g_dangerGlow[4] = {0};         // L, R, T, B edge glow intensities
 // Background system active flag
 static bool g_bgSystemInitialized = false;
 
+// Forward declaration for utility function used by spatial grid
+static float Distance(Vector2 a, Vector2 b);
+
+// =============================================================================
+// SPATIAL GRID COLLISION SYSTEM
+// =============================================================================
+
+// Grid cell structure - stores indices of enemies in this cell
+typedef struct {
+    int enemyIndices[MAX_ENTITIES_PER_CELL];
+    int count;
+} GridCell;
+
+// The spatial grid - covers entire world
+static GridCell g_spatialGrid[GRID_WIDTH][GRID_HEIGHT];
+
+// Convert world position to grid cell coordinates
+static inline int WorldToGridX(float x) {
+    int gx = (int)(x / GRID_CELL_SIZE);
+    if (gx < 0) gx = 0;
+    if (gx >= GRID_WIDTH) gx = GRID_WIDTH - 1;
+    return gx;
+}
+
+static inline int WorldToGridY(float y) {
+    int gy = (int)(y / GRID_CELL_SIZE);
+    if (gy < 0) gy = 0;
+    if (gy >= GRID_HEIGHT) gy = GRID_HEIGHT - 1;
+    return gy;
+}
+
+// Clear all grid cells
+static void ClearSpatialGrid(void) {
+    for (int x = 0; x < GRID_WIDTH; x++) {
+        for (int y = 0; y < GRID_HEIGHT; y++) {
+            g_spatialGrid[x][y].count = 0;
+        }
+    }
+}
+
+// Populate grid with current enemy positions
+static void PopulateSpatialGrid(void) {
+    ClearSpatialGrid();
+
+    for (int i = 0; i < MAX_ENEMIES; i++) {
+        Enemy *e = &g_game.enemies[i];
+        if (!e->active) continue;
+
+        int gx = WorldToGridX(e->pos.x);
+        int gy = WorldToGridY(e->pos.y);
+
+        GridCell *cell = &g_spatialGrid[gx][gy];
+        if (cell->count < MAX_ENTITIES_PER_CELL) {
+            cell->enemyIndices[cell->count++] = i;
+        }
+    }
+}
+
+// Check collision with enemies near a world position
+// Returns index of first hit enemy, or -1 if none
+// Also populates hitList with all enemies within range (for pierce/AOE)
+static int CheckEnemyCollisionAtPoint(Vector2 pos, float radius, int *hitList, int maxHits, int *hitCount) {
+    int firstHit = -1;
+    *hitCount = 0;
+
+    // Calculate which grid cells to check (3x3 around the point)
+    int gx = WorldToGridX(pos.x);
+    int gy = WorldToGridY(pos.y);
+
+    for (int dx = -1; dx <= 1; dx++) {
+        for (int dy = -1; dy <= 1; dy++) {
+            int cx = gx + dx;
+            int cy = gy + dy;
+            if (cx < 0 || cx >= GRID_WIDTH || cy < 0 || cy >= GRID_HEIGHT) continue;
+
+            GridCell *cell = &g_spatialGrid[cx][cy];
+            for (int i = 0; i < cell->count; i++) {
+                int enemyIdx = cell->enemyIndices[i];
+                Enemy *e = &g_game.enemies[enemyIdx];
+                if (!e->active) continue;
+
+                float dist = Distance(pos, e->pos);
+                if (dist < (radius + e->size / 2)) {
+                    if (firstHit < 0) firstHit = enemyIdx;
+                    if (hitList && *hitCount < maxHits) {
+                        hitList[(*hitCount)++] = enemyIdx;
+                    }
+                }
+            }
+        }
+    }
+
+    return firstHit;
+}
+
+// Simpler version - just check if any enemy is within range
+static int FindEnemyInRange(Vector2 pos, float radius) {
+    int gx = WorldToGridX(pos.x);
+    int gy = WorldToGridY(pos.y);
+
+    for (int dx = -1; dx <= 1; dx++) {
+        for (int dy = -1; dy <= 1; dy++) {
+            int cx = gx + dx;
+            int cy = gy + dy;
+            if (cx < 0 || cx >= GRID_WIDTH || cy < 0 || cy >= GRID_HEIGHT) continue;
+
+            GridCell *cell = &g_spatialGrid[cx][cy];
+            for (int i = 0; i < cell->count; i++) {
+                int enemyIdx = cell->enemyIndices[i];
+                Enemy *e = &g_game.enemies[enemyIdx];
+                if (!e->active) continue;
+
+                if (Distance(pos, e->pos) < (radius + e->size / 2)) {
+                    return enemyIdx;
+                }
+            }
+        }
+    }
+
+    return -1;
+}
+
 // =============================================================================
 // ENEMY POOL PROGRESSION SYSTEM
 // =============================================================================
@@ -313,6 +435,75 @@ static const UpgradeInfo UPGRADE_POOL[] = {
     {UPGRADE_DODGE_CHANCE,    "Dodge+",       "+%d%% dodge chance",            5,  1, false},
     {UPGRADE_THORNS,          "Thorns+",      "+%d%% dmg reflect",            15,  1, false},
 };
+
+// =============================================================================
+// WEAPON SYNERGY SYSTEM
+// =============================================================================
+
+// Synergy definitions - weapon combinations that provide bonuses
+typedef struct {
+    WeaponType weapon1;
+    WeaponType weapon2;
+    const char *name;
+    const char *desc;
+    float damageBonus;      // Multiplier to damage (e.g., 1.2 = +20%)
+    float speedBonus;       // Cooldown reduction (e.g., 0.9 = 10% faster)
+    float areaBonus;        // Area increase (e.g., 1.15 = +15% area)
+    int bonusProjectiles;   // Extra projectiles for applicable weapons
+} WeaponSynergy;
+
+static const WeaponSynergy WEAPON_SYNERGIES[] = {
+    // Elemental synergies
+    {WEAPON_MELEE, WEAPON_MAGIC, "Arcane Blade", "Melee triggers mini-waves", 1.15f, 1.0f, 1.0f, 0},
+    {WEAPON_DISTANCE, WEAPON_RADIUS, "Orbital Fire", "Orbs boost bullet damage", 1.2f, 1.0f, 1.0f, 0},
+    {WEAPON_MYSTIC, WEAPON_CHAIN, "Storm Master", "Lightning chains further", 1.0f, 0.85f, 1.25f, 0},
+    {WEAPON_POISON, WEAPON_MAGIC, "Toxic Wave", "Waves spread poison", 1.0f, 1.0f, 1.3f, 0},
+    {WEAPON_SEEKER, WEAPON_BOOMERANG, "Guided Arsenal", "Projectiles home better", 1.1f, 0.9f, 1.0f, 0},
+
+    // Offense synergies
+    {WEAPON_MELEE, WEAPON_DISTANCE, "Gun & Blade", "Attack speed boost", 1.0f, 0.8f, 1.0f, 1},
+    {WEAPON_RADIUS, WEAPON_MYSTIC, "Elemental Master", "All damage increased", 1.25f, 1.0f, 1.0f, 0},
+
+    // Defense synergies
+    {WEAPON_POISON, WEAPON_CHAIN, "Spreading Doom", "Slow spreads on chain", 1.0f, 1.0f, 1.2f, 0},
+};
+
+#define NUM_SYNERGIES (sizeof(WEAPON_SYNERGIES) / sizeof(WEAPON_SYNERGIES[0]))
+
+// Check if a synergy is active (both weapons unlocked)
+static bool IsSynergyActive(const WeaponSynergy *syn) {
+    return g_game.weapons[syn->weapon1].tier > 0 && g_game.weapons[syn->weapon2].tier > 0;
+}
+
+// Get total synergy bonuses for a specific weapon
+static void GetSynergyBonuses(WeaponType weapon, float *damage, float *speed, float *area, int *projectiles) {
+    *damage = 1.0f;
+    *speed = 1.0f;
+    *area = 1.0f;
+    *projectiles = 0;
+
+    for (int i = 0; i < (int)NUM_SYNERGIES; i++) {
+        const WeaponSynergy *syn = &WEAPON_SYNERGIES[i];
+        if (!IsSynergyActive(syn)) continue;
+
+        // Apply bonus if this weapon is part of the synergy
+        if (syn->weapon1 == weapon || syn->weapon2 == weapon) {
+            *damage *= syn->damageBonus;
+            *speed *= syn->speedBonus;
+            *area *= syn->areaBonus;
+            *projectiles += syn->bonusProjectiles;
+        }
+    }
+}
+
+// Count active synergies (for UI display)
+static int CountActiveSynergies(void) {
+    int count = 0;
+    for (int i = 0; i < (int)NUM_SYNERGIES; i++) {
+        if (IsSynergyActive(&WEAPON_SYNERGIES[i])) count++;
+    }
+    return count;
+}
 
 // =============================================================================
 // UTILITY FUNCTIONS
@@ -1249,7 +1440,11 @@ static void UpdateXPGems(float dt) {
         }
 
         if (dist < PLAYER_PICKUP_RANGE) {
-            player->xp += gem->value;
+            // Apply kill streak XP multiplier (caps at 3x)
+            float streakMult = 1.0f + (g_killStreak / 10.0f);
+            if (streakMult > 3.0f) streakMult = 3.0f;
+            int xpGain = (int)(gem->value * streakMult);
+            player->xp += xpGain;
 
             // Update combo system
             if (g_game.comboTimer > 0) {
@@ -1264,16 +1459,20 @@ static void UpdateXPGems(float dt) {
             Color popupColor;
             float popupScale = 1.0f;
 
-            if (g_game.xpCombo > 5) {
-                snprintf(popupText, sizeof(popupText), "+%d x%d!", gem->value, g_game.xpCombo);
+            if (streakMult > 1.0f && g_game.xpCombo > 5) {
+                snprintf(popupText, sizeof(popupText), "+%d x%.1f!", xpGain, streakMult);
+                popupColor = (Color){255, 215, 0, 255};  // Gold for streak bonus
+                popupScale = 1.4f;
+            } else if (g_game.xpCombo > 5) {
+                snprintf(popupText, sizeof(popupText), "+%d x%d!", xpGain, g_game.xpCombo);
                 popupColor = COLOR_XP_LARGE;
                 popupScale = 1.3f;
             } else if (g_game.xpCombo > 1) {
-                snprintf(popupText, sizeof(popupText), "+%d x%d", gem->value, g_game.xpCombo);
+                snprintf(popupText, sizeof(popupText), "+%d x%d", xpGain, g_game.xpCombo);
                 popupColor = COLOR_XP_MEDIUM;
                 popupScale = 1.1f;
             } else {
-                snprintf(popupText, sizeof(popupText), "+%d", gem->value);
+                snprintf(popupText, sizeof(popupText), "+%d", xpGain);
                 switch (gem->type) {
                     case XP_LARGE: popupColor = COLOR_XP_LARGE; break;
                     case XP_MEDIUM: popupColor = COLOR_XP_MEDIUM; break;
@@ -1450,6 +1649,9 @@ static void SpawnEnemy(EnemyType type) {
             e->type = type;
             e->active = true;
             e->hitFlash = 0;
+            // Initialize slow effect (no slow by default)
+            e->slowTimer = 0;
+            e->slowMultiplier = 1.0f;
 
             float spawnDist = 500.0f + RandomFloat(0, 200);
             float angle = RandomFloat(0, PI * 2);
@@ -1624,15 +1826,46 @@ static void UpdateEnemyBullets(float dt) {
 
         // Check collision with player
         float dist = Distance(b->pos, player->pos);
-        if (dist < (b->size / 2 + PLAYER_SIZE / 2) && player->invincibilityTimer <= 0 && !HasShield()) {
+        float collisionDist = b->size / 2 + PLAYER_SIZE / 2;
+        if (dist < collisionDist && player->invincibilityTimer <= 0 && !HasShield()) {
             DamagePlayer(b->damage, b->pos);
             b->active = false;
             SpawnParticleBurst(b->pos, 4, COLOR_ENEMY_BULLET, 40, 2);
+            // Reset graze combo on hit
+            g_game.grazeCombo = 0;
             continue;
         }
 
+        // Graze detection - near miss bonus
+        float grazeDist = collisionDist * GRAZE_DISTANCE_MULTIPLIER;
+        if (dist < grazeDist && dist >= collisionDist && player->invincibilityTimer <= 0) {
+            // Check if bullet is moving away (already passed player)
+            Vector2 toPlayer = {player->pos.x - b->pos.x, player->pos.y - b->pos.y};
+            float dotProduct = toPlayer.x * b->vel.x + toPlayer.y * b->vel.y;
+
+            // Only graze if bullet is moving away (negative dot = moving away)
+            if (dotProduct < 0) {
+                // Award graze bonus
+                g_game.grazeCount++;
+                g_game.grazeCombo++;
+                g_game.grazeComboTimer = 1.5f;  // Reset combo timer
+                g_game.grazeFlash = 0.3f;
+
+                // XP bonus scales with combo
+                int xpBonus = GRAZE_XP_BONUS * (1 + g_game.grazeCombo / 5);
+                player->xp += xpBonus;
+
+                // Visual feedback
+                SpawnTextPopup(b->pos, "GRAZE!", (Color){255, 200, 100, 255}, 0.5f);
+                SpawnParticleBurst(b->pos, 3, (Color){255, 220, 100, 200}, 30, 2);
+
+                // Deactivate bullet after graze to prevent re-triggering
+                b->active = false;
+            }
+        }
+
         // Remove if too far from player
-        if (Distance(b->pos, player->pos) > 800.0f) {
+        if (dist > 800.0f) {
             b->active = false;
         }
     }
@@ -1679,6 +1912,8 @@ static void SpawnMirrorDecoy(Vector2 pos, int realIdx) {
             e->type = ENEMY_MIRROR;
             e->active = true;
             e->hitFlash = 0;
+            e->slowTimer = 0;
+            e->slowMultiplier = 1.0f;
             e->pos = pos;
             e->size = MIRROR_SIZE;
             e->speed = MIRROR_SPEED;
@@ -1843,6 +2078,17 @@ static void UpdateEnemies(float dt) {
         e->hitFlash -= dt;
         if (e->hitFlash < 0) e->hitFlash = 0;
 
+        // Process slow effect timer
+        if (e->slowTimer > 0) {
+            e->slowTimer -= dt;
+            if (e->slowTimer <= 0) {
+                e->slowMultiplier = 1.0f;  // Reset to normal speed
+            }
+        }
+
+        // Calculate effective speed (apply slow multiplier)
+        float effectiveSpeed = e->speed * (e->slowMultiplier > 0 ? e->slowMultiplier : 1.0f);
+
         Vector2 dir = Normalize((Vector2){player->pos.x - e->pos.x, player->pos.y - e->pos.y});
         float dist = Distance(e->pos, player->pos);
 
@@ -1851,8 +2097,8 @@ static void UpdateEnemies(float dt) {
             case ENEMY_HORNET: {
                 // Stop at range and fire lasers
                 if (dist > HORNET_ATTACK_RANGE) {
-                    e->pos.x += dir.x * e->speed * dt;
-                    e->pos.y += dir.y * e->speed * dt;
+                    e->pos.x += dir.x * effectiveSpeed * dt;
+                    e->pos.y += dir.y * effectiveSpeed * dt;
                     e->laserCharging = false;
                     e->laserFiring = false;
                 } else {
@@ -1897,8 +2143,8 @@ static void UpdateEnemies(float dt) {
                 // Stop at range, spin and fire spiral bullet patterns
                 e->spinAngle += 2.0f * dt;  // Always rotating
                 if (dist > SPINNER_ATTACK_RANGE) {
-                    e->pos.x += dir.x * e->speed * dt;
-                    e->pos.y += dir.y * e->speed * dt;
+                    e->pos.x += dir.x * effectiveSpeed * dt;
+                    e->pos.y += dir.y * effectiveSpeed * dt;
                 } else {
                     // Attack cycle
                     if (e->isVulnerable) {
@@ -1929,8 +2175,8 @@ static void UpdateEnemies(float dt) {
             }
             case ENEMY_MIRROR: {
                 // Normal movement
-                e->pos.x += dir.x * e->speed * dt;
-                e->pos.y += dir.y * e->speed * dt;
+                e->pos.x += dir.x * effectiveSpeed * dt;
+                e->pos.y += dir.y * effectiveSpeed * dt;
 
                 if (e->isDecoy) {
                     // Decoy lifetime countdown
@@ -1981,8 +2227,8 @@ static void UpdateEnemies(float dt) {
                     }
                 } else {
                     // Normal movement
-                    e->pos.x += dir.x * e->speed * dt;
-                    e->pos.y += dir.y * e->speed * dt;
+                    e->pos.x += dir.x * effectiveSpeed * dt;
+                    e->pos.y += dir.y * effectiveSpeed * dt;
                     e->chargeTimer -= dt;
                     if (e->chargeTimer <= 0 && dist < 200.0f) {
                         // Start charge attack
@@ -1998,8 +2244,8 @@ static void UpdateEnemies(float dt) {
                 if (e->stunnedTimer > 0) {
                     e->stunnedTimer -= dt;
                 } else {
-                    e->pos.x += dir.x * e->speed * dt;
-                    e->pos.y += dir.y * e->speed * dt;
+                    e->pos.x += dir.x * effectiveSpeed * dt;
+                    e->pos.y += dir.y * effectiveSpeed * dt;
                     e->dropTimer -= dt;
                     if (e->dropTimer <= 0 && dist < 300.0f) {
                         // Drop mines in pattern
@@ -2045,8 +2291,8 @@ static void UpdateEnemies(float dt) {
                 } else {
                     // Visible - normal movement
                     e->visibility = fminf(1, e->visibility + dt * 3.0f);
-                    e->pos.x += dir.x * e->speed * dt;
-                    e->pos.y += dir.y * e->speed * dt;
+                    e->pos.x += dir.x * effectiveSpeed * dt;
+                    e->pos.y += dir.y * effectiveSpeed * dt;
                     if (e->phaseTimer <= 0) {
                         // Phase out
                         e->isPhased = true;
@@ -2058,8 +2304,8 @@ static void UpdateEnemies(float dt) {
             }
             default:
                 // Normal enemy movement
-                e->pos.x += dir.x * e->speed * dt;
-                e->pos.y += dir.y * e->speed * dt;
+                e->pos.x += dir.x * effectiveSpeed * dt;
+                e->pos.y += dir.y * effectiveSpeed * dt;
                 break;
         }
         if (dist < (e->size / 2 + PLAYER_SIZE / 2) && player->invincibilityTimer <= 0 && !HasShield()) {
@@ -2111,7 +2357,27 @@ static void DrawEnemy(Enemy *e) {
     Color color = GetEnemyColor(e->type);
     if (e->hitFlash > 0) color = WHITE;
 
+    // Add slow effect visual tint
+    if (e->slowTimer > 0 && e->slowMultiplier < 1.0f) {
+        // Purple tint for slowed enemies
+        color.r = (unsigned char)(color.r * 0.7f);
+        color.g = (unsigned char)(color.g * 0.7f + 50);
+        color.b = (unsigned char)fminf(255, color.b * 0.8f + 80);
+    }
+
     float hs = e->size / 2;
+
+    // LOD: Use simplified rendering for enemies near screen edges
+    float screenCenterDist = sqrtf((screen.x - g_screenWidth / 2) * (screen.x - g_screenWidth / 2) +
+                                   (screen.y - g_screenHeight / 2) * (screen.y - g_screenHeight / 2));
+    bool useLOD = screenCenterDist > 300.0f;  // Simplify enemies near edges
+
+    // Simple LOD rendering - just colored circles for distant/edge enemies
+    if (useLOD && e->type != ENEMY_BOSS && e->type != ENEMY_HORNET) {
+        DrawCircleV(screen, hs * 0.8f, color);
+        return;
+    }
+
     switch (e->type) {
         case ENEMY_WALKER:
             // Square
@@ -2568,7 +2834,7 @@ static void DrawMines(void) {
 // WEAPONS
 // =============================================================================
 
-// Get weapon stats based on tier
+// Get weapon stats based on tier (with synergy bonuses)
 static int GetWeaponDamage(WeaponType type) {
     int tier = g_game.weapons[type].tier;
     if (tier <= 0) return 0;
@@ -2585,7 +2851,13 @@ static int GetWeaponDamage(WeaponType type) {
         case WEAPON_CHAIN: baseDmg = CHAIN_BASE_DAMAGE; break;
         default: baseDmg = 10;
     }
-    return baseDmg + (tier - 1) * (baseDmg / 2);
+    int damage = baseDmg + (tier - 1) * (baseDmg / 2);
+
+    // Apply synergy damage bonus
+    float synDmg, synSpd, synArea;
+    int synProj;
+    GetSynergyBonuses(type, &synDmg, &synSpd, &synArea, &synProj);
+    return (int)(damage * synDmg);
 }
 
 static float GetWeaponCooldown(WeaponType type) {
@@ -2606,7 +2878,13 @@ static float GetWeaponCooldown(WeaponType type) {
     }
     // Apply tier reduction and attack speed multiplier
     float cd = baseCd * (1.0f - (tier - 1) * 0.1f);
-    return cd * GetAttackSpeedMultiplier();
+    cd *= GetAttackSpeedMultiplier();
+
+    // Apply synergy speed bonus
+    float synDmg, synSpd, synArea;
+    int synProj;
+    GetSynergyBonuses(type, &synDmg, &synSpd, &synArea, &synProj);
+    return cd * synSpd;
 }
 
 // Melee weapon
@@ -2826,26 +3104,28 @@ static void UpdateProjectiles(float dt) {
             continue;
         }
 
+        // Use spatial grid for collision (O(1) instead of O(n))
+        int hitList[16];
         int hitCount = 0;
-        for (int j = 0; j < MAX_ENEMIES; j++) {
-            Enemy *e = &g_game.enemies[j];
-            if (!e->active) continue;
-            if (Distance(p->pos, e->pos) < (p->size + e->size / 2)) {
-                int dmg = (int)(p->damage * pierceDmgBonus);
-                DamageEnemy(e, dmg);
-                hitCount++;
+        CheckEnemyCollisionAtPoint(p->pos, p->size, hitList, 16, &hitCount);
 
-                if (skill->branch == DISTANCE_BRANCH_PIERCE) {
-                    // Pierce through enemies
-                    if (skill->branchTier >= 4 || hitCount < pierceCount) {
-                        // Continue piercing (tier 4+ = infinite pierce)
-                        SpawnParticleBurst(p->pos, 2, COLOR_BULLET, 40, 2);
-                        continue;
-                    }
+        for (int h = 0; h < hitCount; h++) {
+            Enemy *e = &g_game.enemies[hitList[h]];
+            if (!e->active) continue;
+
+            int dmg = (int)(p->damage * pierceDmgBonus);
+            DamageEnemy(e, dmg);
+
+            if (skill->branch == DISTANCE_BRANCH_PIERCE) {
+                // Pierce through enemies
+                if (skill->branchTier >= 4 || h < pierceCount - 1) {
+                    // Continue piercing (tier 4+ = infinite pierce)
+                    SpawnParticleBurst(p->pos, 2, COLOR_BULLET, 40, 2);
+                    continue;
                 }
-                p->active = false;
-                break;
             }
+            p->active = false;
+            break;
         }
     }
 }
@@ -2984,19 +3264,21 @@ static void UpdateOrbit(float dt) {
             player->pos.y + sinf(orb->angle + (i * PI * 2 / numOrbs)) * radius
         };
 
-        // Enemy collision
-        for (int j = 0; j < MAX_ENEMIES; j++) {
-            Enemy *e = &g_game.enemies[j];
-            if (!e->active) continue;
-            if (Distance(orbPos, e->pos) < (orbSize + e->size / 2)) {
-                DamageEnemy(e, damage);
+        // Enemy collision using spatial grid
+        int hitList[8];
+        int hitCount = 0;
+        CheckEnemyCollisionAtPoint(orbPos, orbSize, hitList, 8, &hitCount);
 
-                // Swarm branch: tracking at higher tiers
-                if (skill->branch == RADIUS_BRANCH_SWARM && bt >= 4) {
-                    // Slightly pull orbs toward enemies
-                    float pull = 0.05f;
-                    orb->angle += (atan2f(e->pos.y - player->pos.y, e->pos.x - player->pos.x) - orb->angle) * pull;
-                }
+        for (int h = 0; h < hitCount; h++) {
+            Enemy *e = &g_game.enemies[hitList[h]];
+            if (!e->active) continue;
+            DamageEnemy(e, damage);
+
+            // Swarm branch: tracking at higher tiers
+            if (skill->branch == RADIUS_BRANCH_SWARM && bt >= 4) {
+                // Slightly pull orbs toward enemies
+                float pull = 0.05f;
+                orb->angle += (atan2f(e->pos.y - player->pos.y, e->pos.x - player->pos.x) - orb->angle) * pull;
             }
         }
     }
@@ -3342,24 +3624,22 @@ static void UpdateSeekers(float dt) {
         s->pos.x += s->vel.x * dt;
         s->pos.y += s->vel.y * dt;
 
-        // Collision with enemies
-        for (int j = 0; j < MAX_ENEMIES; j++) {
-            Enemy *e = &g_game.enemies[j];
-            if (!e->active) continue;
-            if (Distance(s->pos, e->pos) < e->size / 2 + 8) {
-                // Direct hit
-                DamageEnemy(e, s->damage);
-                // Explosion AoE
-                for (int k = 0; k < MAX_ENEMIES; k++) {
-                    if (k == j || !g_game.enemies[k].active) continue;
-                    if (Distance(s->pos, g_game.enemies[k].pos) < explosionRadius) {
-                        DamageEnemy(&g_game.enemies[k], s->damage / 2);
-                    }
-                }
-                SpawnParticleBurst(s->pos, 8, COLOR_SEEKER, 100, 5);
-                s->active = false;
-                break;
+        // Collision with enemies using spatial grid
+        int directHit = FindEnemyInRange(s->pos, 8);
+        if (directHit >= 0) {
+            Enemy *e = &g_game.enemies[directHit];
+            // Direct hit
+            DamageEnemy(e, s->damage);
+            // Explosion AoE using spatial grid
+            int aoeHits[16];
+            int aoeCount = 0;
+            CheckEnemyCollisionAtPoint(s->pos, explosionRadius, aoeHits, 16, &aoeCount);
+            for (int k = 0; k < aoeCount; k++) {
+                if (aoeHits[k] == directHit || !g_game.enemies[aoeHits[k]].active) continue;
+                DamageEnemy(&g_game.enemies[aoeHits[k]], s->damage / 2);
             }
+            SpawnParticleBurst(s->pos, 8, COLOR_SEEKER, 100, 5);
+            s->active = false;
         }
     }
 }
@@ -3444,13 +3724,14 @@ static void UpdateBoomerangs(float dt) {
             }
         }
 
-        // Hit enemies (pierce through)
-        for (int j = 0; j < MAX_ENEMIES; j++) {
-            Enemy *e = &g_game.enemies[j];
+        // Hit enemies (pierce through) using spatial grid
+        int hitList[8];
+        int hitCount = 0;
+        CheckEnemyCollisionAtPoint(b->pos, b->size, hitList, 8, &hitCount);
+        for (int h = 0; h < hitCount; h++) {
+            Enemy *e = &g_game.enemies[hitList[h]];
             if (!e->active) continue;
-            if (Distance(b->pos, e->pos) < b->size + e->size / 2) {
-                DamageEnemy(e, b->damage);
-            }
+            DamageEnemy(e, b->damage);
         }
     }
 }
@@ -3535,15 +3816,18 @@ static void UpdatePoisonClouds(float dt) {
         if (p->tickTimer <= 0) {
             p->tickTimer = POISON_TICK_RATE;
 
-            // Damage and slow enemies in cloud
-            for (int j = 0; j < MAX_ENEMIES; j++) {
-                Enemy *e = &g_game.enemies[j];
+            // Damage and slow enemies in cloud using spatial grid
+            int hitList[32];
+            int hitCount = 0;
+            CheckEnemyCollisionAtPoint(p->pos, p->radius, hitList, 32, &hitCount);
+
+            for (int h = 0; h < hitCount; h++) {
+                Enemy *e = &g_game.enemies[hitList[h]];
                 if (!e->active) continue;
-                if (Distance(p->pos, e->pos) < p->radius) {
-                    DamageEnemy(e, p->damagePerTick);
-                    // Slow effect (applied via speed reduction during movement)
-                    e->speed *= (1.0f - p->slowPercent / 100.0f);
-                }
+                DamageEnemy(e, p->damagePerTick);
+                // Apply slow effect using timer-based system (doesn't compound)
+                e->slowTimer = POISON_TICK_RATE + 0.1f;  // Lasts slightly longer than tick
+                e->slowMultiplier = 1.0f - (p->slowPercent / 100.0f);
             }
         }
 
@@ -4255,26 +4539,62 @@ static void DrawMinimap(void) {
     float scaleX = (float)MINIMAP_WIDTH / WORLD_WIDTH;
     float scaleY = (float)MINIMAP_HEIGHT / WORLD_HEIGHT;
 
-    for (int i = 0; i < MAX_XP_GEMS; i++) {
+    // LOD: Limit draw calls when many entities exist
+    // Use frame-based cycling to draw subsets
+    int frameOffset = (int)(g_game.bgTime * 10) % 4;
+
+    // Draw XP gems (limit to ~32 per frame by cycling through subsets)
+    int xpDrawCount = 0;
+    for (int i = frameOffset; i < MAX_XP_GEMS && xpDrawCount < 32; i += 4) {
         if (g_game.xpGems[i].active) {
             int mx = MINIMAP_X + (int)(g_game.xpGems[i].pos.x * scaleX);
             int my = MINIMAP_Y + (int)(g_game.xpGems[i].pos.y * scaleY);
-            DrawRectangle(mx, my, 1, 1, COLOR_MINIMAP_XP);
+            DrawPixel(mx, my, COLOR_MINIMAP_XP);
+            xpDrawCount++;
         }
     }
 
-    for (int i = 0; i < MAX_ENEMIES; i++) {
-        if (g_game.enemies[i].active) {
-            int mx = MINIMAP_X + (int)(g_game.enemies[i].pos.x * scaleX);
-            int my = MINIMAP_Y + (int)(g_game.enemies[i].pos.y * scaleY);
-            DrawRectangle(mx - 1, my - 1, 2, 2, COLOR_MINIMAP_ENEMY);
+    // Draw enemies (prioritize nearby enemies, limit total)
+    int enemyDrawCount = 0;
+    Vector2 playerPos = g_game.player.pos;
+
+    // First pass: draw nearby enemies (always visible)
+    for (int i = 0; i < MAX_ENEMIES && enemyDrawCount < 48; i++) {
+        Enemy *e = &g_game.enemies[i];
+        if (!e->active) continue;
+
+        float dist = Distance(e->pos, playerPos);
+        if (dist < 400.0f) {  // Always show nearby threats
+            int mx = MINIMAP_X + (int)(e->pos.x * scaleX);
+            int my = MINIMAP_Y + (int)(e->pos.y * scaleY);
+            DrawPixel(mx, my, COLOR_MINIMAP_ENEMY);
+            DrawPixel(mx + 1, my, COLOR_MINIMAP_ENEMY);
+            DrawPixel(mx, my + 1, COLOR_MINIMAP_ENEMY);
+            DrawPixel(mx + 1, my + 1, COLOR_MINIMAP_ENEMY);
+            enemyDrawCount++;
         }
     }
 
-    int px = MINIMAP_X + (int)(g_game.player.pos.x * scaleX);
-    int py = MINIMAP_Y + (int)(g_game.player.pos.y * scaleY);
+    // Second pass: sample distant enemies (LOD)
+    for (int i = frameOffset; i < MAX_ENEMIES && enemyDrawCount < 64; i += 2) {
+        Enemy *e = &g_game.enemies[i];
+        if (!e->active) continue;
+
+        float dist = Distance(e->pos, playerPos);
+        if (dist >= 400.0f) {
+            int mx = MINIMAP_X + (int)(e->pos.x * scaleX);
+            int my = MINIMAP_Y + (int)(e->pos.y * scaleY);
+            DrawPixel(mx, my, COLOR_MINIMAP_ENEMY);
+            enemyDrawCount++;
+        }
+    }
+
+    // Player always on top
+    int px = MINIMAP_X + (int)(playerPos.x * scaleX);
+    int py = MINIMAP_Y + (int)(playerPos.y * scaleY);
     DrawRectangle(px - 2, py - 2, 4, 4, COLOR_MINIMAP_PLAYER);
 
+    // Viewport indicator
     float viewX = g_game.camera.pos.x - g_screenWidth / 2.0f;
     float viewY = g_game.camera.pos.y - g_screenHeight / 2.0f;
     DrawRectangleLinesEx((Rectangle){
@@ -4377,6 +4697,36 @@ static void DrawActiveBuffs(void) {
             DrawTextEx(g_font, timeStr, (Vector2){x + 66, y + 1}, 10, 1, COLOR_TEXT);
 
             x += 90;
+        }
+    }
+}
+
+// Draw active weapon synergies indicator
+static void DrawSynergies(void) {
+    int synCount = CountActiveSynergies();
+    if (synCount == 0) return;
+
+    // Draw synergy indicator in top-right area (below minimap)
+    int x = MINIMAP_X;
+    int y = MINIMAP_Y + MINIMAP_HEIGHT + 10;
+
+    // Synergy icon (interlocked rings effect)
+    Color synColor = (Color){255, 200, 100, 200};
+    float pulse = 0.8f + 0.2f * sinf(g_game.bgTime * 3.0f);
+
+    DrawCircleLines(x + 8, y + 8, 6, synColor);
+    DrawCircleLines(x + 14, y + 8, 6, synColor);
+
+    char synText[32];
+    snprintf(synText, sizeof(synText), "x%d", synCount);
+    DrawTextEx(g_font, synText, (Vector2){x + 22, y + 2}, 12 * pulse, 1, synColor);
+
+    // Show first active synergy name on hover area
+    for (int i = 0; i < (int)NUM_SYNERGIES; i++) {
+        if (IsSynergyActive(&WEAPON_SYNERGIES[i])) {
+            Color nameColor = {255, 220, 150, 180};
+            DrawTextEx(g_font, WEAPON_SYNERGIES[i].name, (Vector2){x, y + 16}, 9, 1, nameColor);
+            break;
         }
     }
 }
@@ -4538,9 +4888,70 @@ static void DrawHUD(void) {
     tw = (int)MeasureTextEx(g_font, buf, 14, 1).x;
     DrawTextEx(g_font, buf, (Vector2){g_screenWidth / 2 - tw / 2, 30}, 14, 1, COLOR_TEXT_DIM);
 
+    // Kill streak display (bottom left, above inventory)
+    if (g_killStreak >= 3) {
+        // Calculate XP multiplier from streak
+        float xpMult = 1.0f + (g_killStreak / 10.0f);
+        if (xpMult > 3.0f) xpMult = 3.0f;  // Cap at 3x
+
+        // Pulsing effect when streak is active
+        float pulse = 0.8f + 0.2f * sinf(g_game.bgTime * 6.0f);
+        int streakY = g_screenHeight - 100;
+
+        // Streak count with fire colors
+        Color streakColor;
+        if (g_killStreak >= 50) streakColor = (Color){255, 50, 50, 255};      // Red hot
+        else if (g_killStreak >= 25) streakColor = (Color){255, 150, 50, 255}; // Orange
+        else if (g_killStreak >= 10) streakColor = (Color){255, 200, 50, 255}; // Yellow
+        else streakColor = (Color){200, 200, 255, 255};                         // White-blue
+
+        snprintf(buf, sizeof(buf), "%dx STREAK", g_killStreak);
+        Font streakFont = LlzFontGet(LLZ_FONT_UI, (int)(18 * pulse));
+        int sw = (int)MeasureTextEx(streakFont, buf, 18 * pulse, 1).x;
+        DrawTextEx(streakFont, buf, (Vector2){10, streakY}, 18 * pulse, 1, streakColor);
+
+        // XP multiplier indicator
+        snprintf(buf, sizeof(buf), "XP x%.1f", xpMult);
+        Color multColor = {100, 255, 100, 200};
+        DrawTextEx(g_font, buf, (Vector2){10, streakY + 20}, 12, 1, multColor);
+    }
+
+    // Kill streak milestone announcement (center screen)
+    if (g_killStreakDisplay > 0 && g_killStreakMilestone >= 0 && g_killStreakMilestone < NUM_KILL_MILESTONES) {
+        float progress = g_killStreakDisplay / KILL_STREAK_DISPLAY_TIME;
+        float scale = EaseOutBack(fminf(1.0f, progress * 2.0f));
+        float alpha = progress;
+
+        const char *milestone = KILL_MILESTONE_NAMES[g_killStreakMilestone];
+        Font milestoneFont = LlzFontGet(LLZ_FONT_UI, (int)(28 * scale));
+        int mw = (int)MeasureTextEx(milestoneFont, milestone, 28 * scale, 1).x;
+
+        Color milestoneColor = {255, 215, 0, (unsigned char)(255 * alpha)};
+        DrawTextEx(milestoneFont, milestone,
+                   (Vector2){g_screenWidth / 2 - mw / 2, g_screenHeight / 2 - 80},
+                   28 * scale, 1, milestoneColor);
+    }
+
+    // Graze combo display (bottom right)
+    if (g_game.grazeCombo >= 2) {
+        float pulse = 0.8f + 0.2f * sinf(g_game.bgTime * 8.0f);
+        Color grazeColor = {255, 220, 100, (unsigned char)(200 * pulse)};
+
+        snprintf(buf, sizeof(buf), "GRAZE x%d", g_game.grazeCombo);
+        int gw = (int)MeasureTextEx(g_font, buf, 14, 1).x;
+        DrawTextEx(g_font, buf, (Vector2){g_screenWidth - gw - 10, g_screenHeight - 100}, 14, 1, grazeColor);
+    }
+
+    // Graze flash effect
+    if (g_game.grazeFlash > 0) {
+        Color flashColor = {255, 220, 100, (unsigned char)(50 * g_game.grazeFlash)};
+        DrawRectangle(0, 0, g_screenWidth, g_screenHeight, flashColor);
+    }
+
     DrawMinimap();
     DrawInventory();
     DrawActiveBuffs();
+    DrawSynergies();
 }
 
 static void DrawLevelUpScreen(void) {
@@ -5632,6 +6043,29 @@ void GameUpdate(const LlzInputState *input, float dt) {
         if (g_damageVignette < 0) g_damageVignette = 0;
     }
 
+    // Update graze system timers
+    if (g_game.grazeFlash > 0) {
+        g_game.grazeFlash -= dt * 4.0f;
+        if (g_game.grazeFlash < 0) g_game.grazeFlash = 0;
+    }
+    if (g_game.grazeComboTimer > 0) {
+        g_game.grazeComboTimer -= dt;
+        if (g_game.grazeComboTimer <= 0) {
+            g_game.grazeCombo = 0;  // Reset combo when timer expires
+        }
+    }
+
+    // Update kill streak timer
+    if (g_killStreakTimer > 0) {
+        g_killStreakTimer -= dt;
+        if (g_killStreakTimer <= 0) {
+            g_killStreak = 0;  // Reset streak
+        }
+    }
+    if (g_killStreakDisplay > 0) {
+        g_killStreakDisplay -= dt;
+    }
+
     if (g_game.screenShake > 0) {
         g_game.screenShake -= dt * 5.0f;
         if (g_game.screenShake < 0) g_game.screenShake = 0;
@@ -5696,6 +6130,7 @@ void GameUpdate(const LlzInputState *input, float dt) {
             g_game.gameTime += dt;
             UpdatePlayer(input, dt);
             UpdateGameCamera(dt);
+            PopulateSpatialGrid();  // Build collision grid for this frame
             UpdateWeapons(dt);
             UpdateSpawner(dt);
             UpdateEnemies(dt);
