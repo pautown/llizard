@@ -5031,7 +5031,46 @@ static void UpdateSpawner(float dt) {
 static void UpdatePlayer(const LlzInputState *input, float dt) {
     Player *player = &g_game.player;
 
-    if (input->selectPressed) player->isMoving = !player->isMoving;
+    // Toggle movement with select/space/enter OR left-click tap
+    if (input->selectPressed || input->tap) player->isMoving = !player->isMoving;
+
+    // Hold mouse button to force movement (auto-move while holding)
+    if (input->mousePressed && input->dragActive) {
+        float dragDist = sqrtf(
+            (input->dragCurrent.x - input->dragStart.x) * (input->dragCurrent.x - input->dragStart.x) +
+            (input->dragCurrent.y - input->dragStart.y) * (input->dragCurrent.y - input->dragStart.y)
+        );
+        // If dragging more than tap threshold, force movement on
+        if (dragDist > 30.0f) {
+            player->isMoving = true;
+        }
+    }
+
+    // Mouse-based aiming: rotate to face mouse cursor
+    Vector2 playerScreen = WorldToScreen(player->pos);
+    Vector2 mousePos = input->mousePos;
+    float dx = mousePos.x - playerScreen.x;
+    float dy = mousePos.y - playerScreen.y;
+    float distToMouse = sqrtf(dx*dx + dy*dy);
+
+    // Only update angle if mouse is far enough from player (avoids jitter)
+    if (distToMouse > 10.0f) {
+        float targetAngle = atan2f(dy, dx);
+        // Smooth rotation toward target
+        float angleDiff = targetAngle - player->angle;
+        // Normalize angle difference to -PI to PI
+        while (angleDiff > PI) angleDiff -= 2*PI;
+        while (angleDiff < -PI) angleDiff += 2*PI;
+        // Rotate toward target (faster when further off)
+        float rotSpeed = 12.0f * dt;
+        if (fabsf(angleDiff) < rotSpeed) {
+            player->angle = targetAngle;
+        } else {
+            player->angle += (angleDiff > 0 ? rotSpeed : -rotSpeed);
+        }
+    }
+
+    // Scroll wheel can still adjust angle (for fine-tuning or CarThing rotary)
     if (fabsf(input->scrollDelta) > 0.01f) player->angle += input->scrollDelta * 0.15f;
 
     float speed = player->speed * GetSpeedMultiplier();
@@ -6748,7 +6787,7 @@ static void DrawMenu(void) {
 
     // Controls hint with fade-in
     float hintAlpha = Clampf((g_menuEntranceTime - 0.5f) * 2.0f, 0, 1);
-    const char *controls = "Scroll: Aim | Select: Toggle Move | Back: Exit";
+    const char *controls = "Mouse: Aim | Click: Toggle Move | Hold+Drag: Auto-Move";
     Font hintFont = LlzFontGet(LLZ_FONT_UI, 14);
     int cw = (int)MeasureTextEx(hintFont, controls, 14, 1).x;
     Color hintColor = COLOR_TEXT_DIM;
@@ -7029,8 +7068,23 @@ static void DrawBackground(void) {
 // =============================================================================
 
 static void HandleMenuInput(const LlzInputState *input) {
+    // Keyboard/scroll navigation
     if (input->scrollDelta > 0.5f || input->downPressed) g_game.menuIndex = (g_game.menuIndex + 1) % 2;
     else if (input->scrollDelta < -0.5f || input->upPressed) g_game.menuIndex = (g_game.menuIndex + 1) % 2;
+
+    // Mouse hover detection for menu buttons
+    // Buttons are at baseY=220 with 55px spacing, each roughly 50px tall
+    int baseY = 220;
+    int buttonHeight = 50;
+    Vector2 mouse = input->mousePos;
+    for (int i = 0; i < 2; i++) {
+        int btnTop = baseY + i * 55 - 10;
+        int btnBot = btnTop + buttonHeight;
+        if (mouse.y >= btnTop && mouse.y <= btnBot &&
+            mouse.x >= g_screenWidth / 2 - 100 && mouse.x <= g_screenWidth / 2 + 100) {
+            g_game.menuIndex = i;
+        }
+    }
 
     if (input->selectPressed || input->tap) {
         if (g_game.menuIndex == 0) {

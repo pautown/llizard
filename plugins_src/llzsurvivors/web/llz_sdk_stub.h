@@ -258,7 +258,7 @@ typedef struct {
     bool rightPressed;
 
     // Scroll (from mouse wheel or arrow keys)
-    int scrollDelta;
+    float scrollDelta;
 
     // Touch/mouse gestures
     bool tap;
@@ -269,7 +269,19 @@ typedef struct {
     bool swipeUp;
     bool swipeDown;
 
-    // Touch position
+    // Mouse state (for web/desktop)
+    Vector2 mousePos;
+    bool mousePressed;
+    bool mouseJustPressed;
+    bool mouseJustReleased;
+
+    // Drag tracking
+    bool dragActive;
+    Vector2 dragStart;
+    Vector2 dragCurrent;
+    Vector2 dragDelta;
+
+    // Touch position (legacy compatibility)
     Vector2 touchPos;
     bool touching;
 } LlzInputState;
@@ -277,7 +289,9 @@ typedef struct {
 static LlzInputState g_webInput = {0};
 static float g_lastTapTime = 0;
 static Vector2 g_touchStart = {0};
+static Vector2 g_prevMousePos = {0};
 static bool g_wasTouching = false;
+static bool g_wasMousePressed = false;
 
 static inline void LlzInputUpdate(void) {
     // Reset one-frame events
@@ -290,6 +304,9 @@ static inline void LlzInputUpdate(void) {
     g_webInput.scrollDelta = 0;
     g_webInput.backReleased = false;
     g_webInput.selectReleased = false;
+    g_webInput.mouseJustPressed = false;
+    g_webInput.mouseJustReleased = false;
+    g_webInput.dragDelta = (Vector2){0, 0};
 
     // Keyboard input
     g_webInput.backPressed = IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_BACKSPACE);
@@ -301,18 +318,29 @@ static inline void LlzInputUpdate(void) {
     g_webInput.leftPressed = IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_A);
     g_webInput.rightPressed = IsKeyPressed(KEY_RIGHT) || IsKeyPressed(KEY_D);
 
-    // Scroll from mouse wheel or held arrow keys
-    g_webInput.scrollDelta = (int)GetMouseWheelMove();
-    if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A)) g_webInput.scrollDelta -= 1;
-    if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)) g_webInput.scrollDelta += 1;
+    // Scroll from mouse wheel
+    g_webInput.scrollDelta = GetMouseWheelMove();
 
-    // Mouse/touch handling
-    g_webInput.touching = IsMouseButtonDown(MOUSE_LEFT_BUTTON);
-    g_webInput.touchPos = GetMousePosition();
+    // Mouse position (always tracked for hover/aiming)
+    Vector2 currentMousePos = GetMousePosition();
+    g_webInput.mousePos = currentMousePos;
+    g_webInput.touchPos = currentMousePos;  // Legacy compatibility
 
-    // Tap detection
-    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-        g_touchStart = g_webInput.touchPos;
+    // Mouse button state
+    bool mouseDown = IsMouseButtonDown(MOUSE_LEFT_BUTTON);
+    g_webInput.mousePressed = mouseDown;
+    g_webInput.mouseJustPressed = mouseDown && !g_wasMousePressed;
+    g_webInput.mouseJustReleased = !mouseDown && g_wasMousePressed;
+    g_webInput.touching = mouseDown;
+
+    // Drag tracking
+    if (g_webInput.mouseJustPressed) {
+        g_webInput.dragActive = true;
+        g_webInput.dragStart = currentMousePos;
+        g_webInput.dragCurrent = currentMousePos;
+        g_touchStart = currentMousePos;
+
+        // Double-tap detection
         float now = GetTime();
         if (now - g_lastTapTime < 0.3f) {
             g_webInput.doubleTap = true;
@@ -320,15 +348,24 @@ static inline void LlzInputUpdate(void) {
         g_lastTapTime = now;
     }
 
-    if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && g_wasTouching) {
-        float dx = g_webInput.touchPos.x - g_touchStart.x;
-        float dy = g_webInput.touchPos.y - g_touchStart.y;
+    if (g_webInput.dragActive) {
+        g_webInput.dragCurrent = currentMousePos;
+        g_webInput.dragDelta = (Vector2){
+            currentMousePos.x - g_prevMousePos.x,
+            currentMousePos.y - g_prevMousePos.y
+        };
+    }
+
+    // On mouse release: detect tap vs swipe
+    if (g_webInput.mouseJustReleased && g_webInput.dragActive) {
+        float dx = currentMousePos.x - g_touchStart.x;
+        float dy = currentMousePos.y - g_touchStart.y;
         float dist = sqrtf(dx*dx + dy*dy);
 
-        if (dist < 20.0f) {
+        if (dist < 30.0f) {
             g_webInput.tap = true;
             g_webInput.selectPressed = true;  // Tap acts as select
-        } else if (dist > 50.0f) {
+        } else if (dist > 80.0f) {
             // Swipe detection
             if (fabsf(dx) > fabsf(dy)) {
                 if (dx > 0) g_webInput.swipeRight = true;
@@ -338,8 +375,11 @@ static inline void LlzInputUpdate(void) {
                 else g_webInput.swipeUp = true;
             }
         }
+        g_webInput.dragActive = false;
     }
 
+    g_prevMousePos = currentMousePos;
+    g_wasMousePressed = mouseDown;
     g_wasTouching = g_webInput.touching;
 }
 
