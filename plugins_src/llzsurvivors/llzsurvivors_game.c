@@ -2065,6 +2065,259 @@ static void DamagePlayer(int damage, Vector2 knockbackFrom) {
     }
 }
 
+// =============================================================================
+// Enemy AI Function Pointer System
+// =============================================================================
+// Each enemy type can have a unique AI behavior function. This avoids large
+// switch statements and allows easy addition of new enemy types.
+
+typedef void (*EnemyAIFunc)(Enemy *e, Player *player, float dt, Vector2 dir, float dist, float effectiveSpeed);
+
+// Default chase behavior for basic enemies
+static void AI_Chase(Enemy *e, Player *player, float dt, Vector2 dir, float dist, float effectiveSpeed) {
+    (void)player; (void)dist;  // Unused
+    e->pos.x += dir.x * effectiveSpeed * dt;
+    e->pos.y += dir.y * effectiveSpeed * dt;
+}
+
+// Hornet: stops at range and fires lasers
+static void AI_Hornet(Enemy *e, Player *player, float dt, Vector2 dir, float dist, float effectiveSpeed) {
+    if (dist > HORNET_ATTACK_RANGE) {
+        e->pos.x += dir.x * effectiveSpeed * dt;
+        e->pos.y += dir.y * effectiveSpeed * dt;
+        e->laserCharging = false;
+        e->laserFiring = false;
+    } else {
+        // Manage laser state machine
+        if (e->laserFiring) {
+            e->laserActiveTimer -= dt;
+            if (e->laserActiveTimer <= 0) {
+                e->laserFiring = false;
+                e->laserCooldown = HORNET_LASER_COOLDOWN;
+            }
+        } else if (e->laserCharging) {
+            e->laserAngle = atan2f(dir.y, dir.x);
+            e->laserChargeTimer -= dt;
+            if (e->laserChargeTimer <= 0) {
+                e->laserCharging = false;
+                e->laserFiring = true;
+                e->laserActiveTimer = HORNET_LASER_DURATION;
+            }
+        } else if (e->laserCooldown > 0) {
+            e->laserCooldown -= dt;
+        } else {
+            e->laserCharging = true;
+            e->laserChargeTimer = HORNET_LASER_CHARGE_TIME;
+            e->laserAngle = atan2f(dir.y, dir.x);
+        }
+    }
+    // Laser damage check
+    if (e->laserFiring && player->invincibilityTimer <= 0 && !HasShield()) {
+        float laserLength = 500.0f;
+        Vector2 laserEnd = {e->pos.x + cosf(e->laserAngle) * laserLength, e->pos.y + sinf(e->laserAngle) * laserLength};
+        float dx = laserEnd.x - e->pos.x, dy = laserEnd.y - e->pos.y;
+        float lineLenSq = dx * dx + dy * dy;
+        float t = fmaxf(0, fminf(1, ((player->pos.x - e->pos.x) * dx + (player->pos.y - e->pos.y) * dy) / lineLenSq));
+        Vector2 closest = {e->pos.x + t * dx, e->pos.y + t * dy};
+        if (Distance(player->pos, closest) < HORNET_LASER_WIDTH / 2 + PLAYER_SIZE / 2) {
+            DamagePlayer(HORNET_LASER_DAMAGE, e->pos);
+        }
+    }
+}
+
+// Spinner: stops at range, spins, fires spiral bullet patterns
+static void AI_Spinner(Enemy *e, Player *player, float dt, Vector2 dir, float dist, float effectiveSpeed) {
+    (void)player;  // Unused
+    e->spinAngle += 2.0f * dt;  // Always rotating
+    if (dist > SPINNER_ATTACK_RANGE) {
+        e->pos.x += dir.x * effectiveSpeed * dt;
+        e->pos.y += dir.y * effectiveSpeed * dt;
+    } else {
+        // Attack cycle
+        if (e->isVulnerable) {
+            // Eye is open - vulnerable period
+            e->vulnerableTimer -= dt;
+            if (e->vulnerableTimer <= 0) {
+                e->isVulnerable = false;
+                e->attackTimer = 0;
+                e->bulletsFired = 0;
+            }
+        } else if (e->bulletsFired < SPINNER_BARRAGE_COUNT) {
+            // Firing barrage
+            e->attackTimer -= dt;
+            if (e->attackTimer <= 0) {
+                // Fire bullet in spiral pattern
+                float bulletAngle = e->spinAngle + (e->bulletsFired * PI * 2.0f / SPINNER_BULLETS_PER_WAVE);
+                SpawnEnemyBullet(e->pos, bulletAngle, SPINNER_BULLET_DAMAGE, SPINNER_BULLET_SPEED);
+                e->bulletsFired++;
+                e->attackTimer = SPINNER_FIRE_RATE;
+            }
+        } else {
+            // Barrage complete - become vulnerable
+            e->isVulnerable = true;
+            e->vulnerableTimer = SPINNER_VULNERABLE_TIME;
+        }
+    }
+}
+
+// Mirror: creates decoys, real one has reveal timer
+static void AI_Mirror(Enemy *e, Player *player, float dt, Vector2 dir, float dist, float effectiveSpeed) {
+    (void)player; (void)dist;  // Unused
+    // Normal movement
+    e->pos.x += dir.x * effectiveSpeed * dt;
+    e->pos.y += dir.y * effectiveSpeed * dt;
+
+    if (e->isDecoy) {
+        // Decoy lifetime countdown
+        e->splitTimer -= dt;
+        if (e->splitTimer <= 0) {
+            e->active = false;  // Decoy fades
+            SpawnParticleBurst(e->pos, 4, COLOR_MIRROR, 50, 3);
+        }
+    } else {
+        // Real mirror - manage split timer
+        e->revealTimer -= dt;
+        e->splitTimer -= dt;
+        if (e->splitTimer <= 0) {
+            // Create decoys
+            for (int d = 0; d < MIRROR_DECOY_COUNT; d++) {
+                float offsetAngle = RandomFloat(0, PI * 2);
+                float offsetDist = 50.0f + RandomFloat(0, 50);
+                Vector2 decoyPos = {
+                    e->pos.x + cosf(offsetAngle) * offsetDist,
+                    e->pos.y + sinf(offsetAngle) * offsetDist
+                };
+                // Find this enemy's index for the decoy parent reference
+                int parentIdx = (int)(e - g_game.enemies);
+                SpawnMirrorDecoy(decoyPos, parentIdx);
+            }
+            e->splitTimer = MIRROR_SPLIT_COOLDOWN;
+            // Brief reveal after split
+            e->revealTimer = MIRROR_REVEAL_TIME;
+        }
+    }
+}
+
+// Shielder: rotating shield, charge attack
+static void AI_Shielder(Enemy *e, Player *player, float dt, Vector2 dir, float dist, float effectiveSpeed) {
+    (void)player;  // Unused
+    // Rotate shield to face player
+    float targetAngle = atan2f(dir.y, dir.x);
+    float angleDiff = targetAngle - e->shieldAngle;
+    // Normalize angle difference
+    while (angleDiff > PI) angleDiff -= PI * 2;
+    while (angleDiff < -PI) angleDiff += PI * 2;
+    e->shieldAngle += angleDiff * SHIELDER_ROTATE_SPEED * dt;
+
+    if (e->isCharging) {
+        // Charging toward player
+        e->pos.x += e->chargeDir.x * SHIELDER_CHARGE_SPEED * dt;
+        e->pos.y += e->chargeDir.y * SHIELDER_CHARGE_SPEED * dt;
+        e->chargeTimer -= dt;
+        if (e->chargeTimer <= 0) {
+            e->isCharging = false;
+            e->chargeTimer = SHIELDER_CHARGE_COOLDOWN;
+        }
+    } else {
+        // Normal movement
+        e->pos.x += dir.x * effectiveSpeed * dt;
+        e->pos.y += dir.y * effectiveSpeed * dt;
+        e->chargeTimer -= dt;
+        if (e->chargeTimer <= 0 && dist < 200.0f) {
+            // Start charge attack
+            e->isCharging = true;
+            e->chargeDir = dir;
+            e->chargeTimer = SHIELDER_CHARGE_DURATION;
+        }
+    }
+}
+
+// Bomber: drops mines, stunned after dropping
+static void AI_Bomber(Enemy *e, Player *player, float dt, Vector2 dir, float dist, float effectiveSpeed) {
+    (void)player;  // Unused
+    if (e->stunnedTimer > 0) {
+        e->stunnedTimer -= dt;
+    } else {
+        e->pos.x += dir.x * effectiveSpeed * dt;
+        e->pos.y += dir.y * effectiveSpeed * dt;
+        e->dropTimer -= dt;
+        if (e->dropTimer <= 0 && dist < 300.0f) {
+            // Drop mines in pattern
+            for (int m = 0; m < BOMBER_MINES_PER_DROP; m++) {
+                float mineAngle = (float)m / BOMBER_MINES_PER_DROP * PI * 2;
+                Vector2 minePos = {
+                    e->pos.x + cosf(mineAngle) * 30.0f,
+                    e->pos.y + sinf(mineAngle) * 30.0f
+                };
+                SpawnMine(minePos, BOMBER_MINE_DAMAGE, BOMBER_MINE_RADIUS);
+            }
+            e->dropTimer = BOMBER_DROP_COOLDOWN;
+            e->stunnedTimer = BOMBER_VULNERABLE_AFTER_DROP;
+            SpawnParticleBurst(e->pos, 6, COLOR_MINE, 40, 3);
+        }
+    }
+}
+
+// Phaser: phases in/out, teleports near player
+static void AI_Phaser(Enemy *e, Player *player, float dt, Vector2 dir, float dist, float effectiveSpeed) {
+    (void)dist;  // Unused
+    e->phaseTimer -= dt;
+    if (e->isPhased) {
+        // Phased out - invisible and invulnerable
+        e->visibility = fmaxf(0, e->visibility - dt * 3.0f);
+        if (e->phaseTimer <= 0) {
+            // Phase in - teleport near player and fire burst
+            float teleAngle = RandomFloat(0, PI * 2);
+            e->pos.x = player->pos.x + cosf(teleAngle) * PHASER_TELEPORT_RANGE;
+            e->pos.y = player->pos.y + sinf(teleAngle) * PHASER_TELEPORT_RANGE;
+            e->pos.x = Clampf(e->pos.x, WORLD_PADDING, WORLD_WIDTH - WORLD_PADDING);
+            e->pos.y = Clampf(e->pos.y, WORLD_PADDING, WORLD_HEIGHT - WORLD_PADDING);
+
+            // Fire bullet burst
+            for (int b = 0; b < PHASER_BULLETS_ON_APPEAR; b++) {
+                float bulletAngle = (float)b / PHASER_BULLETS_ON_APPEAR * PI * 2;
+                SpawnEnemyBullet(e->pos, bulletAngle, PHASER_BULLET_DAMAGE, PHASER_BULLET_SPEED);
+            }
+            SpawnParticleBurst(e->pos, 8, COLOR_PHASER, 80, 4);
+
+            e->isPhased = false;
+            e->phaseTimer = PHASER_VISIBLE_DURATION;
+        }
+    } else {
+        // Visible - normal movement
+        e->visibility = fminf(1, e->visibility + dt * 3.0f);
+        e->pos.x += dir.x * effectiveSpeed * dt;
+        e->pos.y += dir.y * effectiveSpeed * dt;
+        if (e->phaseTimer <= 0) {
+            // Phase out
+            e->isPhased = true;
+            e->phaseTimer = PHASER_PHASE_DURATION;
+            SpawnParticleBurst(e->pos, 6, COLOR_PHASER, 60, 3);
+        }
+    }
+}
+
+// AI function lookup table indexed by EnemyType
+static const EnemyAIFunc ENEMY_AI_FUNCS[ENEMY_TYPE_COUNT] = {
+    [ENEMY_WALKER]   = AI_Chase,
+    [ENEMY_FAST]     = AI_Chase,
+    [ENEMY_TANK]     = AI_Chase,
+    [ENEMY_SWARM]    = AI_Chase,
+    [ENEMY_ELITE]    = AI_Chase,
+    [ENEMY_HORNET]   = AI_Hornet,
+    [ENEMY_BRUTE]    = AI_Chase,
+    [ENEMY_SPINNER]  = AI_Spinner,
+    [ENEMY_MIRROR]   = AI_Mirror,
+    [ENEMY_SHIELDER] = AI_Shielder,
+    [ENEMY_BOSS]     = AI_Chase,
+    [ENEMY_BOMBER]   = AI_Bomber,
+    [ENEMY_PHASER]   = AI_Phaser,
+};
+
+// =============================================================================
+// End Enemy AI System
+// =============================================================================
+
 static void UpdateEnemies(float dt) {
     Player *player = &g_game.player;
 
@@ -2092,221 +2345,9 @@ static void UpdateEnemies(float dt) {
         Vector2 dir = Normalize((Vector2){player->pos.x - e->pos.x, player->pos.y - e->pos.y});
         float dist = Distance(e->pos, player->pos);
 
-        // Enemy type-specific AI
-        switch (e->type) {
-            case ENEMY_HORNET: {
-                // Stop at range and fire lasers
-                if (dist > HORNET_ATTACK_RANGE) {
-                    e->pos.x += dir.x * effectiveSpeed * dt;
-                    e->pos.y += dir.y * effectiveSpeed * dt;
-                    e->laserCharging = false;
-                    e->laserFiring = false;
-                } else {
-                    // Manage laser state machine
-                    if (e->laserFiring) {
-                        e->laserActiveTimer -= dt;
-                        if (e->laserActiveTimer <= 0) {
-                            e->laserFiring = false;
-                            e->laserCooldown = HORNET_LASER_COOLDOWN;
-                        }
-                    } else if (e->laserCharging) {
-                        e->laserAngle = atan2f(dir.y, dir.x);
-                        e->laserChargeTimer -= dt;
-                        if (e->laserChargeTimer <= 0) {
-                            e->laserCharging = false;
-                            e->laserFiring = true;
-                            e->laserActiveTimer = HORNET_LASER_DURATION;
-                        }
-                    } else if (e->laserCooldown > 0) {
-                        e->laserCooldown -= dt;
-                    } else {
-                        e->laserCharging = true;
-                        e->laserChargeTimer = HORNET_LASER_CHARGE_TIME;
-                        e->laserAngle = atan2f(dir.y, dir.x);
-                    }
-                }
-                // Laser damage check
-                if (e->laserFiring && player->invincibilityTimer <= 0 && !HasShield()) {
-                    float laserLength = 500.0f;
-                    Vector2 laserEnd = {e->pos.x + cosf(e->laserAngle) * laserLength, e->pos.y + sinf(e->laserAngle) * laserLength};
-                    float dx = laserEnd.x - e->pos.x, dy = laserEnd.y - e->pos.y;
-                    float lineLenSq = dx * dx + dy * dy;
-                    float t = fmaxf(0, fminf(1, ((player->pos.x - e->pos.x) * dx + (player->pos.y - e->pos.y) * dy) / lineLenSq));
-                    Vector2 closest = {e->pos.x + t * dx, e->pos.y + t * dy};
-                    if (Distance(player->pos, closest) < HORNET_LASER_WIDTH / 2 + PLAYER_SIZE / 2) {
-                        DamagePlayer(HORNET_LASER_DAMAGE, e->pos);
-                    }
-                }
-                break;
-            }
-            case ENEMY_SPINNER: {
-                // Stop at range, spin and fire spiral bullet patterns
-                e->spinAngle += 2.0f * dt;  // Always rotating
-                if (dist > SPINNER_ATTACK_RANGE) {
-                    e->pos.x += dir.x * effectiveSpeed * dt;
-                    e->pos.y += dir.y * effectiveSpeed * dt;
-                } else {
-                    // Attack cycle
-                    if (e->isVulnerable) {
-                        // Eye is open - vulnerable period
-                        e->vulnerableTimer -= dt;
-                        if (e->vulnerableTimer <= 0) {
-                            e->isVulnerable = false;
-                            e->attackTimer = 0;
-                            e->bulletsFired = 0;
-                        }
-                    } else if (e->bulletsFired < SPINNER_BARRAGE_COUNT) {
-                        // Firing barrage
-                        e->attackTimer -= dt;
-                        if (e->attackTimer <= 0) {
-                            // Fire bullet in spiral pattern
-                            float bulletAngle = e->spinAngle + (e->bulletsFired * PI * 2.0f / SPINNER_BULLETS_PER_WAVE);
-                            SpawnEnemyBullet(e->pos, bulletAngle, SPINNER_BULLET_DAMAGE, SPINNER_BULLET_SPEED);
-                            e->bulletsFired++;
-                            e->attackTimer = SPINNER_FIRE_RATE;
-                        }
-                    } else {
-                        // Barrage complete - become vulnerable
-                        e->isVulnerable = true;
-                        e->vulnerableTimer = SPINNER_VULNERABLE_TIME;
-                    }
-                }
-                break;
-            }
-            case ENEMY_MIRROR: {
-                // Normal movement
-                e->pos.x += dir.x * effectiveSpeed * dt;
-                e->pos.y += dir.y * effectiveSpeed * dt;
-
-                if (e->isDecoy) {
-                    // Decoy lifetime countdown
-                    e->splitTimer -= dt;
-                    if (e->splitTimer <= 0) {
-                        e->active = false;  // Decoy fades
-                        SpawnParticleBurst(e->pos, 4, COLOR_MIRROR, 50, 3);
-                    }
-                } else {
-                    // Real mirror - manage split timer
-                    e->revealTimer -= dt;
-                    e->splitTimer -= dt;
-                    if (e->splitTimer <= 0) {
-                        // Create decoys
-                        for (int d = 0; d < MIRROR_DECOY_COUNT; d++) {
-                            float offsetAngle = RandomFloat(0, PI * 2);
-                            float offsetDist = 50.0f + RandomFloat(0, 50);
-                            Vector2 decoyPos = {
-                                e->pos.x + cosf(offsetAngle) * offsetDist,
-                                e->pos.y + sinf(offsetAngle) * offsetDist
-                            };
-                            SpawnMirrorDecoy(decoyPos, i);
-                        }
-                        e->splitTimer = MIRROR_SPLIT_COOLDOWN;
-                        // Brief reveal after split
-                        e->revealTimer = MIRROR_REVEAL_TIME;
-                    }
-                }
-                break;
-            }
-            case ENEMY_SHIELDER: {
-                // Rotate shield to face player
-                float targetAngle = atan2f(dir.y, dir.x);
-                float angleDiff = targetAngle - e->shieldAngle;
-                // Normalize angle difference
-                while (angleDiff > PI) angleDiff -= PI * 2;
-                while (angleDiff < -PI) angleDiff += PI * 2;
-                e->shieldAngle += angleDiff * SHIELDER_ROTATE_SPEED * dt;
-
-                if (e->isCharging) {
-                    // Charging toward player
-                    e->pos.x += e->chargeDir.x * SHIELDER_CHARGE_SPEED * dt;
-                    e->pos.y += e->chargeDir.y * SHIELDER_CHARGE_SPEED * dt;
-                    e->chargeTimer -= dt;
-                    if (e->chargeTimer <= 0) {
-                        e->isCharging = false;
-                        e->chargeTimer = SHIELDER_CHARGE_COOLDOWN;
-                    }
-                } else {
-                    // Normal movement
-                    e->pos.x += dir.x * effectiveSpeed * dt;
-                    e->pos.y += dir.y * effectiveSpeed * dt;
-                    e->chargeTimer -= dt;
-                    if (e->chargeTimer <= 0 && dist < 200.0f) {
-                        // Start charge attack
-                        e->isCharging = true;
-                        e->chargeDir = dir;
-                        e->chargeTimer = SHIELDER_CHARGE_DURATION;
-                    }
-                }
-                break;
-            }
-            case ENEMY_BOMBER: {
-                // Normal movement unless stunned
-                if (e->stunnedTimer > 0) {
-                    e->stunnedTimer -= dt;
-                } else {
-                    e->pos.x += dir.x * effectiveSpeed * dt;
-                    e->pos.y += dir.y * effectiveSpeed * dt;
-                    e->dropTimer -= dt;
-                    if (e->dropTimer <= 0 && dist < 300.0f) {
-                        // Drop mines in pattern
-                        for (int m = 0; m < BOMBER_MINES_PER_DROP; m++) {
-                            float mineAngle = (float)m / BOMBER_MINES_PER_DROP * PI * 2;
-                            Vector2 minePos = {
-                                e->pos.x + cosf(mineAngle) * 30.0f,
-                                e->pos.y + sinf(mineAngle) * 30.0f
-                            };
-                            SpawnMine(minePos, BOMBER_MINE_DAMAGE, BOMBER_MINE_RADIUS);
-                        }
-                        e->dropTimer = BOMBER_DROP_COOLDOWN;
-                        e->stunnedTimer = BOMBER_VULNERABLE_AFTER_DROP;
-                        SpawnParticleBurst(e->pos, 6, COLOR_MINE, 40, 3);
-                    }
-                }
-                break;
-            }
-            case ENEMY_PHASER: {
-                // Phase in/out management
-                e->phaseTimer -= dt;
-                if (e->isPhased) {
-                    // Phased out - invisible and invulnerable
-                    e->visibility = fmaxf(0, e->visibility - dt * 3.0f);
-                    if (e->phaseTimer <= 0) {
-                        // Phase in - teleport near player and fire burst
-                        float teleAngle = RandomFloat(0, PI * 2);
-                        e->pos.x = player->pos.x + cosf(teleAngle) * PHASER_TELEPORT_RANGE;
-                        e->pos.y = player->pos.y + sinf(teleAngle) * PHASER_TELEPORT_RANGE;
-                        e->pos.x = Clampf(e->pos.x, WORLD_PADDING, WORLD_WIDTH - WORLD_PADDING);
-                        e->pos.y = Clampf(e->pos.y, WORLD_PADDING, WORLD_HEIGHT - WORLD_PADDING);
-
-                        // Fire bullet burst
-                        for (int b = 0; b < PHASER_BULLETS_ON_APPEAR; b++) {
-                            float bulletAngle = (float)b / PHASER_BULLETS_ON_APPEAR * PI * 2;
-                            SpawnEnemyBullet(e->pos, bulletAngle, PHASER_BULLET_DAMAGE, PHASER_BULLET_SPEED);
-                        }
-                        SpawnParticleBurst(e->pos, 8, COLOR_PHASER, 80, 4);
-
-                        e->isPhased = false;
-                        e->phaseTimer = PHASER_VISIBLE_DURATION;
-                    }
-                } else {
-                    // Visible - normal movement
-                    e->visibility = fminf(1, e->visibility + dt * 3.0f);
-                    e->pos.x += dir.x * effectiveSpeed * dt;
-                    e->pos.y += dir.y * effectiveSpeed * dt;
-                    if (e->phaseTimer <= 0) {
-                        // Phase out
-                        e->isPhased = true;
-                        e->phaseTimer = PHASER_PHASE_DURATION;
-                        SpawnParticleBurst(e->pos, 6, COLOR_PHASER, 60, 3);
-                    }
-                }
-                break;
-            }
-            default:
-                // Normal enemy movement
-                e->pos.x += dir.x * effectiveSpeed * dt;
-                e->pos.y += dir.y * effectiveSpeed * dt;
-                break;
+        // Dispatch to enemy-specific AI via function pointer
+        if (e->type >= 0 && e->type < ENEMY_TYPE_COUNT && ENEMY_AI_FUNCS[e->type]) {
+            ENEMY_AI_FUNCS[e->type](e, player, dt, dir, dist, effectiveSpeed);
         }
         if (dist < (e->size / 2 + PLAYER_SIZE / 2) && player->invincibilityTimer <= 0 && !HasShield()) {
             DamagePlayer(e->damage, e->pos);
