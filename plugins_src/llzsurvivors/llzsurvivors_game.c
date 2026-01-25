@@ -5431,113 +5431,88 @@ static void ApplyUpgrade(int idx) {
     UpgradeChoice *up = &g_game.upgrades[idx];
     Player *player = &g_game.player;
 
-    if (!up->available && up->type != UPGRADE_SKIP) return;
+    // Handle Done/Skip button - close shop and return to game
+    if (up->type == UPGRADE_SKIP) {
+        g_game.state = GAME_STATE_PLAYING;
+        return;
+    }
 
+    // Don't allow purchasing unavailable upgrades
+    if (!up->available) return;
+
+    // Don't allow re-purchasing already purchased upgrades
+    if (g_game.upgradesPurchasedThisSession[idx]) return;
+
+    // Check if player can afford it
+    if (g_game.sessionPointsRemaining < up->cost) return;
+
+    // Deduct cost from both session and actual points
+    g_game.sessionPointsRemaining -= up->cost;
+    player->upgradePoints -= up->cost;
+
+    // Apply the upgrade effect
     switch (up->type) {
         case UPGRADE_WEAPON_TIER:
-            if (player->upgradePoints >= up->cost && up->weapon < WEAPON_COUNT) {
-                player->upgradePoints -= up->cost;
+            if (up->weapon < WEAPON_COUNT) {
                 g_game.weapons[up->weapon].tier++;
             }
             break;
         case UPGRADE_WEAPON_UNLOCK:
-            if (player->upgradePoints >= up->cost && up->weapon < WEAPON_COUNT) {
-                player->upgradePoints -= up->cost;
+            if (up->weapon < WEAPON_COUNT) {
                 g_game.weapons[up->weapon].tier = 1;
                 g_game.weapons[up->weapon].cooldownTimer = 0;
             }
             break;
         case UPGRADE_DAMAGE_ALL:
-            if (player->upgradePoints >= up->cost) {
-                player->upgradePoints -= up->cost;
-                player->damageMultiplier *= (1.0f + up->value / 100.0f);
-            }
+            player->damageMultiplier *= (1.0f + up->value / 100.0f);
             break;
         case UPGRADE_ATTACK_SPEED:
-            if (player->upgradePoints >= up->cost) {
-                player->upgradePoints -= up->cost;
-                player->attackSpeedMult *= (1.0f - up->value / 100.0f);  // Lower = faster
-                if (player->attackSpeedMult < 0.2f) player->attackSpeedMult = 0.2f;
-            }
+            player->attackSpeedMult *= (1.0f - up->value / 100.0f);
+            if (player->attackSpeedMult < 0.2f) player->attackSpeedMult = 0.2f;
             break;
         case UPGRADE_CRIT_CHANCE:
-            if (player->upgradePoints >= up->cost) {
-                player->upgradePoints -= up->cost;
-                player->critChance += up->value;
-                if (player->critChance > 75.0f) player->critChance = 75.0f;
-            }
+            player->critChance += up->value;
+            if (player->critChance > 75.0f) player->critChance = 75.0f;
             break;
         case UPGRADE_AREA_SIZE:
-            if (player->upgradePoints >= up->cost) {
-                player->upgradePoints -= up->cost;
-                player->areaMultiplier *= (1.0f + up->value / 100.0f);
-            }
+            player->areaMultiplier *= (1.0f + up->value / 100.0f);
             break;
         case UPGRADE_PROJECTILE_COUNT:
-            if (player->upgradePoints >= up->cost) {
-                player->upgradePoints -= up->cost;
-                player->bonusProjectiles += up->value;
-            }
+            player->bonusProjectiles += up->value;
             break;
         case UPGRADE_MAX_HP:
-            if (player->upgradePoints >= up->cost) {
-                player->upgradePoints -= up->cost;
-                player->maxHp += up->value;
-                player->hp += up->value;
-            }
+            player->maxHp += up->value;
+            player->hp += up->value;
             break;
         case UPGRADE_HEALTH_REGEN:
-            if (player->upgradePoints >= up->cost) {
-                player->upgradePoints -= up->cost;
-                player->healthRegen += up->value;
-            }
+            player->healthRegen += up->value;
             break;
         case UPGRADE_MOVE_SPEED:
-            if (player->upgradePoints >= up->cost) {
-                player->upgradePoints -= up->cost;
-                player->speed *= (1.0f + up->value / 100.0f);
-            }
+            player->speed *= (1.0f + up->value / 100.0f);
             break;
         case UPGRADE_MAGNET_RANGE:
-            if (player->upgradePoints >= up->cost) {
-                player->upgradePoints -= up->cost;
-                player->magnetRange *= (1.0f + up->value / 100.0f);
-            }
+            player->magnetRange *= (1.0f + up->value / 100.0f);
             break;
         case UPGRADE_ARMOR:
-            if (player->upgradePoints >= up->cost) {
-                player->upgradePoints -= up->cost;
-                player->armor += up->value;
-                if (player->armor > 80.0f) player->armor = 80.0f;
-            }
+            player->armor += up->value;
+            if (player->armor > 80.0f) player->armor = 80.0f;
             break;
         case UPGRADE_LIFESTEAL:
-            if (player->upgradePoints >= up->cost) {
-                player->upgradePoints -= up->cost;
-                player->lifesteal += up->value;
-                if (player->lifesteal > 50.0f) player->lifesteal = 50.0f;
-            }
+            player->lifesteal += up->value;
+            if (player->lifesteal > 50.0f) player->lifesteal = 50.0f;
             break;
         case UPGRADE_DODGE_CHANCE:
-            if (player->upgradePoints >= up->cost) {
-                player->upgradePoints -= up->cost;
-                player->dodgeChance += up->value;
-                if (player->dodgeChance > 50.0f) player->dodgeChance = 50.0f;
-            }
+            player->dodgeChance += up->value;
+            if (player->dodgeChance > 50.0f) player->dodgeChance = 50.0f;
             break;
         case UPGRADE_THORNS:
-            if (player->upgradePoints >= up->cost) {
-                player->upgradePoints -= up->cost;
-                player->thorns += up->value;
-                if (player->thorns > 200.0f) player->thorns = 200.0f;
-            }
+            player->thorns += up->value;
+            if (player->thorns > 200.0f) player->thorns = 200.0f;
             break;
         case UPGRADE_BRANCH_SELECT:
-            if (player->upgradePoints >= up->cost && up->weapon < WEAPON_COUNT && up->branch > 0) {
-                player->upgradePoints -= up->cost;
+            if (up->weapon < WEAPON_COUNT && up->branch > 0) {
                 g_game.weapons[up->weapon].branch = up->branch;
                 g_game.weapons[up->weapon].branchTier = 1;
-                // Initialize branch-specific state
                 g_game.weapons[up->weapon].spinTimer = 0;
                 g_game.weapons[up->weapon].spinning = false;
                 g_game.weapons[up->weapon].pierceCount = 1;
@@ -5547,18 +5522,11 @@ static void ApplyUpgrade(int idx) {
             }
             break;
         case UPGRADE_BRANCH_TIER:
-            if (player->upgradePoints >= up->cost && up->weapon < WEAPON_COUNT) {
-                player->upgradePoints -= up->cost;
+            if (up->weapon < WEAPON_COUNT) {
                 g_game.weapons[up->weapon].branchTier++;
-                // Update branch state based on new tier
                 int bt = g_game.weapons[up->weapon].branchTier;
                 switch (up->weapon) {
                     case WEAPON_MELEE:
-                        if (g_game.weapons[up->weapon].branch == MELEE_BRANCH_POWER) {
-                            // Power strike scales damage
-                        } else if (g_game.weapons[up->weapon].branch == MELEE_BRANCH_SPIN) {
-                            // Spin duration increases
-                        }
                         break;
                     case WEAPON_DISTANCE:
                         if (g_game.weapons[up->weapon].branch == DISTANCE_BRANCH_PIERCE) {
@@ -5584,16 +5552,12 @@ static void ApplyUpgrade(int idx) {
                 }
             }
             break;
-        case UPGRADE_SKIP:
-            // Skip/Close - return to game
-            g_game.state = GAME_STATE_PLAYING;
-            return;
         default:
             break;
     }
 
-    // After purchasing an upgrade (not skip), regenerate choices and stay on screen
-    GenerateUpgradeChoices();
+    // Mark this upgrade as purchased this session (prevents re-purchase)
+    g_game.upgradesPurchasedThisSession[idx] = true;
 }
 
 // =============================================================================
