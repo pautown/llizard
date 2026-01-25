@@ -5046,28 +5046,27 @@ static void UpdatePlayer(const LlzInputState *input, float dt) {
         }
     }
 
-    // Mouse-based aiming: rotate to face mouse cursor
-    Vector2 playerScreen = WorldToScreen(player->pos);
+    // Mouse-based aiming: only update direction when mouse moves
+    static Vector2 lastMousePos = {0};
     Vector2 mousePos = input->mousePos;
-    float dx = mousePos.x - playerScreen.x;
-    float dy = mousePos.y - playerScreen.y;
-    float distToMouse = sqrtf(dx*dx + dy*dy);
+    float mouseDx = mousePos.x - lastMousePos.x;
+    float mouseDy = mousePos.y - lastMousePos.y;
+    float mouseMoveDist = sqrtf(mouseDx*mouseDx + mouseDy*mouseDy);
 
-    // Only update angle if mouse is far enough from player (avoids jitter)
-    if (distToMouse > 10.0f) {
-        float targetAngle = atan2f(dy, dx);
-        // Smooth rotation toward target
-        float angleDiff = targetAngle - player->angle;
-        // Normalize angle difference to -PI to PI
-        while (angleDiff > PI) angleDiff -= 2*PI;
-        while (angleDiff < -PI) angleDiff += 2*PI;
-        // Rotate toward target (faster when further off)
-        float rotSpeed = 12.0f * dt;
-        if (fabsf(angleDiff) < rotSpeed) {
+    // Only update angle if mouse actually moved (threshold to avoid micro-jitter)
+    if (mouseMoveDist > 2.0f) {
+        Vector2 playerScreen = WorldToScreen(player->pos);
+        float dx = mousePos.x - playerScreen.x;
+        float dy = mousePos.y - playerScreen.y;
+        float distToMouse = sqrtf(dx*dx + dy*dy);
+
+        // Only update angle if mouse is far enough from player (avoids jitter)
+        if (distToMouse > 10.0f) {
+            float targetAngle = atan2f(dy, dx);
+            // Snap to target angle immediately when mouse moves
             player->angle = targetAngle;
-        } else {
-            player->angle += (angleDiff > 0 ? rotSpeed : -rotSpeed);
         }
+        lastMousePos = mousePos;
     }
 
     // Scroll wheel can still adjust angle (for fine-tuning or CarThing rotary)
