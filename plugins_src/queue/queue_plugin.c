@@ -71,6 +71,11 @@ static float g_autoRefreshTimer = 0.0f;
 static bool g_isLoading = false;
 static float g_loadingTimer = 0.0f;
 
+// Track change detection
+static char g_lastTrackTitle[LLZ_MEDIA_TEXT_MAX];
+static float g_trackCheckTimer = 0.0f;
+static const float TRACK_CHECK_INTERVAL = 0.5f;
+
 // ============================================================================
 // Forward Declarations
 // ============================================================================
@@ -361,6 +366,10 @@ static void plugin_init(int width, int height) {
     g_isLoading = false;
     g_loadingTimer = 0.0f;
 
+    // Initialize track change detection
+    memset(g_lastTrackTitle, 0, sizeof(g_lastTrackTitle));
+    g_trackCheckTimer = 0.0f;
+
     LlzMediaInit(NULL);
     RequestQueue();
 }
@@ -370,6 +379,48 @@ static void plugin_update(const LlzInputState *input, float deltaTime) {
 
     PollQueueData(deltaTime);
     UpdateSmoothScroll(deltaTime);
+
+    // Check for track changes and keep "Now Playing" in sync with media state
+    g_trackCheckTimer += deltaTime;
+    if (g_trackCheckTimer >= TRACK_CHECK_INTERVAL) {
+        g_trackCheckTimer = 0.0f;
+
+        LlzMediaState mediaState;
+        if (LlzMediaGetState(&mediaState) && mediaState.track[0] != '\0') {
+            // Always keep "Now Playing" in sync with current media state
+            strncpy(g_queueData.currentlyPlaying.title, mediaState.track,
+                    sizeof(g_queueData.currentlyPlaying.title) - 1);
+            g_queueData.currentlyPlaying.title[sizeof(g_queueData.currentlyPlaying.title) - 1] = '\0';
+
+            strncpy(g_queueData.currentlyPlaying.artist, mediaState.artist,
+                    sizeof(g_queueData.currentlyPlaying.artist) - 1);
+            g_queueData.currentlyPlaying.artist[sizeof(g_queueData.currentlyPlaying.artist) - 1] = '\0';
+
+            strncpy(g_queueData.currentlyPlaying.album, mediaState.album,
+                    sizeof(g_queueData.currentlyPlaying.album) - 1);
+            g_queueData.currentlyPlaying.album[sizeof(g_queueData.currentlyPlaying.album) - 1] = '\0';
+
+            g_queueData.currentlyPlaying.durationMs = mediaState.durationSeconds * 1000;
+            g_queueData.hasCurrentlyPlaying = true;
+
+            // Check if track changed - refresh the queue list
+            if (g_lastTrackTitle[0] != '\0' &&
+                strcmp(g_lastTrackTitle, mediaState.track) != 0) {
+                printf("[QUEUE] Track changed: '%s' -> '%s', refreshing queue\n",
+                       g_lastTrackTitle, mediaState.track);
+
+                // Request fresh queue data for the full queue list
+                g_queueValid = false;
+                g_queueRequested = false;
+                g_autoRefreshTimer = 0.0f;
+                RequestQueue();
+            }
+
+            // Update last known track
+            strncpy(g_lastTrackTitle, mediaState.track, sizeof(g_lastTrackTitle) - 1);
+            g_lastTrackTitle[sizeof(g_lastTrackTitle) - 1] = '\0';
+        }
+    }
 
     int totalItems = g_queueValid ? g_queueData.trackCount : 0;
     if (g_queueValid && g_queueData.hasCurrentlyPlaying) totalItems++;
