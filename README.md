@@ -89,7 +89,13 @@ llizardgui-host/
 │   └── llizard_plugin.h    # Plugin API definition
 ├── supporting_projects/    # Related tools and resources
 │   ├── salamander/         # Desktop plugin manager (SSH/SCP deploy)
-│   └── salamanders/        # Per-plugin resources (see below)
+│   ├── salamanders/        # Per-plugin resources (see below)
+│   ├── golang_ble_client/  # BLE-to-Redis bridge daemon (Go)
+│   ├── mediadash-android/  # Android companion app (Janus)
+│   ├── spotSDK/            # Spotify Web API SDK (Kotlin)
+│   ├── llizardOS/          # Firmware build system
+│   ├── llizard_firmware/   # Native flasher tool
+│   └── townhaus/           # Project portfolio website
 └── external/               # Dependencies (git submodules)
     ├── raylib/             # Graphics library
     ├── raygui/             # Immediate-mode GUI
@@ -117,6 +123,58 @@ supporting_projects/salamanders/
 **Build Flow:** `CMakeLists.txt` copies `salamanders/{plugin}/questions/` → `plugins/{plugin}/questions/` at build time.
 
 **Deploy Flow:** `build-deploy-carthing.sh` copies `plugins/{plugin}/questions/` → `/tmp/{plugin}/questions/` on CarThing.
+
+## Supporting Projects Ecosystem
+
+The llizard stack spans multiple repositories and components:
+
+### Media Bridge Stack
+
+| Project | Language | Description |
+|---------|----------|-------------|
+| **mediadash-android** | Kotlin | Android companion app ("Janus") that captures media metadata and streams it over BLE |
+| **spotSDK** | Kotlin | Standalone Spotify Web API SDK with OAuth PKCE, used by mediadash-android |
+| **golang_ble_client** | Go | Always-on daemon that receives BLE data and writes to Redis |
+
+**Data Flow:**
+```
+[Phone: MediaDash/Janus] --BLE--> [CarThing: golang_ble_client] --Redis--> [llizardgui-host]
+                                                                              ↓
+                                                                    [Plugins read via SDK]
+```
+
+### Firmware & Deployment
+
+| Project | Description |
+|---------|-------------|
+| **llizardOS** | Void Linux-based firmware build system. Produces flashable images via Docker/QEMU |
+| **llizard_firmware** | Native raylib GUI flasher implementing Amlogic USB boot protocol |
+| **salamander** | Desktop raylib app for managing plugin installation via SSH/SCP |
+| **carthing_installer** | SSH-based installer for development (no reflash needed) |
+
+### Documentation
+
+| Project | Description |
+|---------|-------------|
+| **townhaus** | Project portfolio and devlog at [pautown.github.io](https://pautown.github.io) |
+
+### spotSDK
+
+A standalone Kotlin library providing typed access to the Spotify Web API:
+
+- **OAuth 2.0 PKCE** authentication flow (no client secret needed)
+- **Endpoints**: User profile, library (tracks/albums/playlists), playback control, queue
+- **Playback control**: Play/pause, shuffle (off/on/smart), repeat (off/track/context), skip
+- **Repository**: [github.com/pautown/spotSDK](https://github.com/pautown/spotSDK)
+
+### mediadash-android (Janus)
+
+The Android companion app that bridges phone media to CarThing:
+
+- **MediaSession integration**: Captures now-playing from any app (Spotify, YouTube Music, etc.)
+- **BLE transmission**: Streams metadata and album art to CarThing
+- **Spotify integration**: Uses spotSDK for library browsing and playback control
+- **Repository**: [github.com/pautown/mediadash-android](https://github.com/pautown/mediadash-android)
 
 ## Plugin Categories
 

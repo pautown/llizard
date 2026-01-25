@@ -321,8 +321,69 @@ just docker-run   # Build image
 
 See `supporting_projects/llizardOS/CLAUDE.md` for full documentation.
 
-### `supporting_projects/mediadash-android`
+### `supporting_projects/mediadash-android` (Janus)
 Android companion app that provides media metadata over BLE to the CarThing.
+
+**Key Features:**
+- BLE GATT server exposing media state to CarThing
+- Universal media control via NotificationListenerService
+- Built-in podcast player with subscription management
+- Album art transfer with optimized chunking
+- Synced lyrics from LRCLIB API
+- Media channel selection (Spotify, YouTube Music, Podcasts)
+- **Spotify OAuth integration** via spotSDK (page 4 in app)
+
+**Spotify Integration:**
+- Uses spotSDK for OAuth 2.0 PKCE authentication
+- Accessible via 4th page in the horizontal pager
+- Stores tokens securely in DataStore
+- Redirect URI: `janus://spotify-callback`
+- Requires Spotify Developer Dashboard app configuration
+
+**Build:**
+```bash
+cd supporting_projects/mediadash-android
+./gradlew assembleDebug
+./gradlew installDebug
+```
+
+See `supporting_projects/mediadash-android/README.md` for full BLE protocol documentation.
+
+### `supporting_projects/spotSDK`
+Android library for Spotify Web API integration with OAuth 2.0 PKCE authentication.
+
+**Features:**
+- OAuth 2.0 PKCE authentication (no client secret required)
+- Recently played tracks, top artists/tracks
+- Saved library, playlists, followed artists
+- Built-in caching with configurable durations
+- Rate limit handling with automatic retry
+- UI components: SpotifyLoginButton, SpotifyUserIndicator
+
+**Usage:**
+```kotlin
+// Configure in Application.onCreate()
+SpotSDK.configure(context) {
+    clientId = "your_spotify_client_id"
+    redirectUri = "yourapp://spotify-callback"
+}
+
+// Use the SDK
+val sdk = SpotSDK.getInstance()
+sdk.getRecentTracks { result ->
+    when (result) {
+        is SpotifyResult.Success -> handleTracks(result.data)
+        is SpotifyResult.Error -> handleError(result)
+    }
+}
+```
+
+**Limitations:**
+- Development mode: max 25 authenticated users
+- Extended quota requires Spotify review
+- Some endpoints restricted (recommendations, audio features)
+
+See `supporting_projects/spotSDK/README.md` for full documentation.
 
 ### `supporting_projects/townhaus`
 Personal portfolio and creative showcase website hosted at pautown.github.io. An interactive web art space featuring a generative grid interface with contemplative design.
