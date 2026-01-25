@@ -324,6 +324,55 @@ bool LlzMediaSelectChannel(const char *channelName);
 bool LlzMediaGetControlledChannel(char *outChannel, size_t maxLen);
 
 // ============================================================================
+// Queue API (Spotify playback queue)
+// ============================================================================
+
+#define LLZ_QUEUE_TRACK_MAX 50
+#define LLZ_QUEUE_TITLE_MAX 128
+#define LLZ_QUEUE_ARTIST_MAX 128
+#define LLZ_QUEUE_ALBUM_MAX 128
+#define LLZ_QUEUE_URI_MAX 256
+
+// A single track in the queue
+typedef struct {
+    char title[LLZ_QUEUE_TITLE_MAX];
+    char artist[LLZ_QUEUE_ARTIST_MAX];
+    char album[LLZ_QUEUE_ALBUM_MAX];
+    int64_t durationMs;
+    char uri[LLZ_QUEUE_URI_MAX];
+} LlzQueueTrack;
+
+// Complete queue data
+typedef struct {
+    char service[32];                        // Service name (e.g., "spotify")
+    LlzQueueTrack currentlyPlaying;          // Currently playing track
+    bool hasCurrentlyPlaying;                // True if currentlyPlaying is valid
+    LlzQueueTrack tracks[LLZ_QUEUE_TRACK_MAX]; // Queue tracks
+    int trackCount;                          // Number of tracks in queue
+    int64_t timestamp;                       // When queue was fetched
+} LlzQueueData;
+
+// Request playback queue from Android companion via BLE
+// Returns true if request was queued successfully
+bool LlzMediaRequestQueue(void);
+
+// Get cached queue from Redis
+// outQueue: pointer to receive queue data
+// Returns true if queue was retrieved successfully
+bool LlzMediaGetQueue(LlzQueueData *outQueue);
+
+// Get queue as raw JSON string
+// outJson: buffer to store JSON string
+// maxLen: maximum buffer size
+// Returns true if queue was retrieved successfully
+bool LlzMediaGetQueueJson(char *outJson, size_t maxLen);
+
+// Skip to a specific position in the queue
+// queueIndex: 0-based index in the queue (0 = first track in queue)
+// Returns true if command was queued successfully
+bool LlzMediaQueueShift(int queueIndex);
+
+// ============================================================================
 // Timezone API
 // ============================================================================
 

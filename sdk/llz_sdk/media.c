@@ -1569,6 +1569,218 @@ bool LlzMediaGetControlledChannel(char *outChannel, size_t maxLen)
 }
 
 // ============================================================================
+// Queue API Implementation
+// ============================================================================
+
+bool LlzMediaRequestQueue(void)
+{
+    if (!llz_media_ensure_connection()) return false;
+
+    // Build JSON command: {"action":"request_queue","timestamp":...}
+    char cmd[256];
+    snprintf(cmd, sizeof(cmd),
+             "{\"action\":\"request_queue\",\"timestamp\":%lld}",
+             (long long)time(NULL));
+
+    printf("[QUEUE] Requesting playback queue\n");
+
+    redisReply *reply = llz_media_command("RPUSH %s %s",
+                                          g_activeKeys.playbackCommandQueue, cmd);
+    if (!reply) return false;
+
+    bool success = reply->type == REDIS_REPLY_INTEGER;
+    freeReplyObject(reply);
+    return success;
+}
+
+bool LlzMediaGetQueueJson(char *outJson, size_t maxLen)
+{
+    if (!outJson || maxLen == 0) return false;
+    outJson[0] = '\0';
+
+    redisReply *reply = llz_media_command("GET queue:data");
+    if (!reply) return false;
+
+    bool success = false;
+    if (reply->type == REDIS_REPLY_STRING && reply->str) {
+        size_t len = strlen(reply->str);
+        if (len < maxLen) {
+            strcpy(outJson, reply->str);
+            success = true;
+        }
+    }
+
+    freeReplyObject(reply);
+    return success;
+}
+
+// Helper to parse JSON string value for queue
+static bool llz_queue_parse_string(const char *json, const char *key, char *outValue, size_t maxLen)
+{
+    char searchKey[64];
+    snprintf(searchKey, sizeof(searchKey), "\"%s\":\"", key);
+    const char *start = strstr(json, searchKey);
+    if (!start) {
+        // Try alternate format with space after colon
+        snprintf(searchKey, sizeof(searchKey), "\"%s\": \"", key);
+        start = strstr(json, searchKey);
+        if (!start) return false;
+    }
+    start = strchr(start, ':');
+    if (!start) return false;
+    start++;
+    while (*start == ' ' || *start == '\t') start++;
+    if (*start != '"') return false;
+    start++;
+
+    const char *end = start;
+    while (*end && *end != '"') {
+        if (*end == '\\' && *(end+1)) end++; // Skip escaped chars
+        end++;
+    }
+
+    size_t len = end - start;
+    if (len >= maxLen) len = maxLen - 1;
+    memcpy(outValue, start, len);
+    outValue[len] = '\0';
+    return true;
+}
+
+// Helper to parse JSON integer value for queue
+static bool llz_queue_parse_int64(const char *json, const char *key, int64_t *outValue)
+{
+    char searchKey[64];
+    snprintf(searchKey, sizeof(searchKey), "\"%s\":", key);
+    const char *start = strstr(json, searchKey);
+    if (!start) return false;
+    start = strchr(start, ':');
+    if (!start) return false;
+    start++;
+    while (*start == ' ' || *start == '\t') start++;
+    *outValue = strtoll(start, NULL, 10);
+    return true;
+}
+
+// Helper to parse a single track from JSON
+static bool llz_queue_parse_track(const char *json, const char *end, LlzQueueTrack *track)
+{
+    // Create a null-terminated copy of this track's JSON
+    size_t len = end - json;
+    char *trackJson = (char *)malloc(len + 1);
+    if (!trackJson) return false;
+    memcpy(trackJson, json, len);
+    trackJson[len] = '\0';
+
+    memset(track, 0, sizeof(LlzQueueTrack));
+    llz_queue_parse_string(trackJson, "title", track->title, LLZ_QUEUE_TITLE_MAX);
+    llz_queue_parse_string(trackJson, "artist", track->artist, LLZ_QUEUE_ARTIST_MAX);
+    llz_queue_parse_string(trackJson, "album", track->album, LLZ_QUEUE_ALBUM_MAX);
+    llz_queue_parse_string(trackJson, "uri", track->uri, LLZ_QUEUE_URI_MAX);
+    llz_queue_parse_int64(trackJson, "duration", &track->durationMs);
+
+    free(trackJson);
+    return track->title[0] != '\0';
+}
+
+bool LlzMediaGetQueue(LlzQueueData *outQueue)
+{
+    if (!outQueue) return false;
+    memset(outQueue, 0, sizeof(LlzQueueData));
+
+    char jsonBuffer[32768];
+    if (!LlzMediaGetQueueJson(jsonBuffer, sizeof(jsonBuffer))) {
+        return false;
+    }
+
+    // Parse service
+    llz_queue_parse_string(jsonBuffer, "service", outQueue->service, sizeof(outQueue->service));
+
+    // Parse timestamp
+    llz_queue_parse_int64(jsonBuffer, "timestamp", &outQueue->timestamp);
+
+    // Parse currentlyPlaying (may be null)
+    const char *cpStart = strstr(jsonBuffer, "\"currentlyPlaying\":");
+    if (cpStart) {
+        cpStart = strchr(cpStart, ':');
+        if (cpStart) {
+            cpStart++;
+            while (*cpStart == ' ' || *cpStart == '\t') cpStart++;
+            if (*cpStart == '{') {
+                // Find the closing brace
+                int braceCount = 1;
+                const char *cpEnd = cpStart + 1;
+                while (*cpEnd && braceCount > 0) {
+                    if (*cpEnd == '{') braceCount++;
+                    else if (*cpEnd == '}') braceCount--;
+                    cpEnd++;
+                }
+                if (llz_queue_parse_track(cpStart, cpEnd, &outQueue->currentlyPlaying)) {
+                    outQueue->hasCurrentlyPlaying = true;
+                }
+            }
+        }
+    }
+
+    // Parse tracks array
+    const char *tracksStart = strstr(jsonBuffer, "\"tracks\":");
+    if (tracksStart) {
+        tracksStart = strchr(tracksStart, '[');
+        if (tracksStart) {
+            tracksStart++;
+
+            while (*tracksStart && outQueue->trackCount < LLZ_QUEUE_TRACK_MAX) {
+                // Skip whitespace
+                while (*tracksStart == ' ' || *tracksStart == '\t' || *tracksStart == '\n' || *tracksStart == ',') {
+                    tracksStart++;
+                }
+
+                if (*tracksStart == ']') break;
+                if (*tracksStart != '{') break;
+
+                // Find the closing brace for this track
+                int braceCount = 1;
+                const char *trackEnd = tracksStart + 1;
+                while (*trackEnd && braceCount > 0) {
+                    if (*trackEnd == '{') braceCount++;
+                    else if (*trackEnd == '}') braceCount--;
+                    trackEnd++;
+                }
+
+                if (llz_queue_parse_track(tracksStart, trackEnd, &outQueue->tracks[outQueue->trackCount])) {
+                    outQueue->trackCount++;
+                }
+
+                tracksStart = trackEnd;
+            }
+        }
+    }
+
+    return true;
+}
+
+bool LlzMediaQueueShift(int queueIndex)
+{
+    if (queueIndex < 0) return false;
+    if (!llz_media_ensure_connection()) return false;
+
+    // Build JSON command: {"action":"queue_shift","queueIndex":0,"timestamp":...}
+    char cmd[256];
+    snprintf(cmd, sizeof(cmd),
+             "{\"action\":\"queue_shift\",\"queueIndex\":%d,\"timestamp\":%lld}",
+             queueIndex, (long long)time(NULL));
+
+    printf("[QUEUE] Queue shift to index: %d\n", queueIndex);
+
+    redisReply *reply = llz_media_command("RPUSH %s %s",
+                                          g_activeKeys.playbackCommandQueue, cmd);
+    if (!reply) return false;
+
+    bool success = reply->type == REDIS_REPLY_INTEGER;
+    freeReplyObject(reply);
+    return success;
+}
+
+// ============================================================================
 // Timezone API Implementation
 // ============================================================================
 

@@ -44,6 +44,7 @@ add_library(llz_sdk STATIC
     sdk/llz_sdk/navigation.c
     sdk/llz_sdk/font.c
     sdk/llz_sdk/shapes.c
+    sdk/llz_sdk/connections.c
     shared/host_input/carthing_input.c
 )
 set_target_properties(llz_sdk PROPERTIES POSITION_INDEPENDENT_CODE ON)
@@ -667,4 +668,32 @@ add_custom_command(TARGET shapes_demo_plugin POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/plugins
     COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:shapes_demo_plugin> ${CMAKE_CURRENT_SOURCE_DIR}/plugins/
     COMMENT "Copying shapes_demo plugin to runtime plugins directory"
+)
+
+# ===== Queue Plugin =====
+set(QUEUE_PLUGIN_SOURCES
+    plugins_src/queue/queue_plugin.c
+)
+
+add_library(queue_plugin SHARED ${QUEUE_PLUGIN_SOURCES})
+set_target_properties(queue_plugin PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+target_include_directories(queue_plugin PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/external/raylib/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/sdk/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/plugins_src
+)
+
+target_link_libraries(queue_plugin llz_sdk)
+
+set_target_properties(queue_plugin PROPERTIES
+    PREFIX ""
+    OUTPUT_NAME "queue"
+)
+
+add_custom_command(TARGET queue_plugin POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/plugins
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:queue_plugin> ${CMAKE_CURRENT_SOURCE_DIR}/plugins/
+    COMMENT "Copying queue plugin to runtime plugins directory"
 )
