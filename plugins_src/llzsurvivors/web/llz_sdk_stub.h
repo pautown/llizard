@@ -107,38 +107,40 @@ static inline void LlzBackgroundShutdown(void) {
 // Gem Color System Stub
 // =============================================================================
 
+// Gem color enum - must match sdk/include/llz_sdk_shapes.h order exactly
 typedef enum {
-    LLZ_GEM_RUBY = 0,
+    LLZ_GEM_RUBY,
+    LLZ_GEM_AMBER,
+    LLZ_GEM_TOPAZ,
     LLZ_GEM_EMERALD,
     LLZ_GEM_SAPPHIRE,
-    LLZ_GEM_TOPAZ,
     LLZ_GEM_AMETHYST,
     LLZ_GEM_DIAMOND,
-    LLZ_GEM_PEARL,
-    LLZ_GEM_OBSIDIAN,
+    LLZ_GEM_PINK,
     LLZ_GEM_COUNT
 } LlzGemColor;
 
+// Color arrays - must match LlzGemColor enum order
 static const Color LLZ_GEM_COLORS[] = {
     {220, 50, 50, 255},    // Ruby - red
+    {255, 140, 0, 255},    // Amber - orange
+    {255, 220, 0, 255},    // Topaz - gold
     {50, 200, 80, 255},    // Emerald - green
-    {50, 100, 220, 255},   // Sapphire - blue
-    {240, 180, 50, 255},   // Topaz - gold
+    {60, 120, 230, 255},   // Sapphire - blue
     {150, 80, 200, 255},   // Amethyst - purple
-    {220, 220, 240, 255},  // Diamond - white
-    {240, 235, 220, 255},  // Pearl - cream
-    {40, 40, 50, 255},     // Obsidian - dark
+    {230, 230, 250, 255},  // Diamond - white
+    {255, 105, 180, 255},  // Pink - rose
 };
 
 static const Color LLZ_GEM_COLORS_LIGHT[] = {
-    {255, 150, 150, 255},  // Ruby light
-    {150, 255, 180, 255},  // Emerald light
-    {150, 180, 255, 255},  // Sapphire light
-    {255, 220, 150, 255},  // Topaz light
+    {255, 120, 120, 255},  // Ruby light
+    {255, 190, 80, 255},   // Amber light
+    {255, 255, 120, 255},  // Topaz light
+    {120, 255, 150, 255},  // Emerald light
+    {140, 180, 255, 255},  // Sapphire light
     {200, 150, 255, 255},  // Amethyst light
     {255, 255, 255, 255},  // Diamond light
-    {255, 250, 240, 255},  // Pearl light
-    {100, 100, 120, 255},  // Obsidian light
+    {255, 182, 213, 255},  // Pink light
 };
 
 static inline Color LlzGetGemColor(LlzGemColor gem) {
@@ -155,18 +157,23 @@ static inline Color LlzGetGemColorLight(LlzGemColor gem) {
 // Gem Shape Drawing Stub
 // =============================================================================
 
+// Shape enum - must match sdk/include/llz_sdk_shapes.h order exactly
 typedef enum {
-    LLZ_SHAPE_CIRCLE = 0,
-    LLZ_SHAPE_DIAMOND,
-    LLZ_SHAPE_TRIANGLE,
-    LLZ_SHAPE_STAR,
-    LLZ_SHAPE_HEXAGON,
+    LLZ_SHAPE_CIRCLE,
     LLZ_SHAPE_SQUARE,
+    LLZ_SHAPE_DIAMOND,
     LLZ_SHAPE_TALL_DIAMOND,
-} LlzGemShape;
+    LLZ_SHAPE_TRIANGLE,
+    LLZ_SHAPE_HEXAGON,
+    LLZ_SHAPE_OCTAGON,
+    LLZ_SHAPE_KITE,
+    LLZ_SHAPE_STAR,
+    LLZ_SHAPE_DUTCH_CUT,
+    LLZ_SHAPE_COUNT
+} LlzShapeType;
 
 // Alias for compatibility
-typedef LlzGemShape LlzShapeType;
+typedef LlzShapeType LlzGemShape;
 
 static inline void LlzDrawGemShape(LlzGemShape shape, float x, float y, float size, LlzGemColor gemColor) {
     Color color = LlzGetGemColor(gemColor);
@@ -239,6 +246,53 @@ static inline void LlzDrawGemShape(LlzGemShape shape, float x, float y, float si
             DrawCircle((int)x, (int)(y - size * 0.4f), size * 0.15f, light);
             break;
         }
+        case LLZ_SHAPE_OCTAGON:
+            for (int i = 0; i < 8; i++) {
+                float a1 = (i * 45 + 22.5f) * DEG2RAD;
+                float a2 = ((i + 1) * 45 + 22.5f) * DEG2RAD;
+                DrawTriangle(
+                    (Vector2){x, y},
+                    (Vector2){x + cosf(a1) * size, y + sinf(a1) * size},
+                    (Vector2){x + cosf(a2) * size, y + sinf(a2) * size},
+                    color
+                );
+            }
+            break;
+        case LLZ_SHAPE_KITE: {
+            Vector2 pts[4] = {
+                {x, y - size * 1.2f},
+                {x + size * 0.6f, y - size * 0.2f},
+                {x, y + size},
+                {x - size * 0.6f, y - size * 0.2f}
+            };
+            DrawTriangle(pts[0], pts[1], pts[2], color);
+            DrawTriangle(pts[0], pts[2], pts[3], color);
+            break;
+        }
+        case LLZ_SHAPE_DUTCH_CUT: {
+            // Rectangular emerald cut shape
+            float w = size * 0.8f, h = size * 1.2f;
+            float corner = size * 0.25f;
+            DrawRectangle((int)(x - w), (int)(y - h + corner), (int)(w * 2), (int)(h * 2 - corner * 2), color);
+            DrawTriangle(
+                (Vector2){x - w, y - h + corner},
+                (Vector2){x - w + corner, y - h},
+                (Vector2){x + w - corner, y - h},
+                color
+            );
+            DrawTriangle(
+                (Vector2){x - w, y - h + corner},
+                (Vector2){x + w - corner, y - h},
+                (Vector2){x + w, y - h + corner},
+                color
+            );
+            break;
+        }
+        case LLZ_SHAPE_COUNT:
+        default:
+            // Fallback to circle for unknown shapes
+            DrawCircle((int)x, (int)y, size, color);
+            break;
     }
 }
 
