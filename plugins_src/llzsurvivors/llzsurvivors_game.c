@@ -5303,8 +5303,8 @@ static void GenerateUpgradeChoices(void) {
     // Skip option (always last)
     UpgradeChoice *skip = &g_game.upgrades[NUM_UPGRADE_CHOICES];
     skip->type = UPGRADE_SKIP;
-    snprintf(skip->name, sizeof(skip->name), "Skip");
-    snprintf(skip->desc, sizeof(skip->desc), "Save point for later");
+    snprintf(skip->name, sizeof(skip->name), "Done");
+    snprintf(skip->desc, sizeof(skip->desc), "Close shop & resume game");
     skip->cost = 0;
     skip->available = true;
     skip->isOffensive = false;
@@ -5585,12 +5585,15 @@ static void ApplyUpgrade(int idx) {
             }
             break;
         case UPGRADE_SKIP:
+            // Skip/Close - return to game
+            g_game.state = GAME_STATE_PLAYING;
+            return;
         default:
-            // Do nothing, keep the point
             break;
     }
 
-    g_game.state = GAME_STATE_PLAYING;
+    // After purchasing an upgrade (not skip), regenerate choices and stay on screen
+    GenerateUpgradeChoices();
 }
 
 // =============================================================================
