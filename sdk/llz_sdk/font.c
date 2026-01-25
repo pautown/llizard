@@ -23,7 +23,8 @@ static const char* FONT_FILENAMES[LLZ_FONT_COUNT] = {
     "ZegoeUI-U.ttf",         // LLZ_FONT_UI
     "ZegoeUI-U.ttf",         // LLZ_FONT_UI_BOLD (same file, bold via rendering)
     "DejaVuSansMono.ttf",    // LLZ_FONT_MONO
-    "QuincyCapsRegular.ttf"  // LLZ_FONT_DISPLAY
+    "QuincyCapsRegular.ttf", // LLZ_FONT_DISPLAY
+    "FlangeB.ttf"            // LLZ_FONT_ACCENT
 };
 
 // Search paths for fonts (in priority order)
@@ -147,6 +148,26 @@ static bool FindFontFile(LlzFontType type, char* outPath, int outPathSize) {
         }
     }
 
+    // Fallback for Accent font - try bold alternatives
+    if (type == LLZ_FONT_ACCENT) {
+        const char* accentFallbacks[] = {
+            "FlangeB.ttf",
+            "ZegoeUI-UBold.ttf",
+            "ZegoeCapsBold.ttf",
+            "DejaVuSans-Bold.ttf",
+            NULL
+        };
+
+        for (int i = 0; accentFallbacks[i] != NULL; i++) {
+            for (int j = 0; FONT_SEARCH_PATHS[j] != NULL; j++) {
+                snprintf(outPath, outPathSize, "%s%s", FONT_SEARCH_PATHS[j], accentFallbacks[i]);
+                if (FontFileExists(outPath)) {
+                    return true;
+                }
+            }
+        }
+    }
+
     outPath[0] = '\0';
     return false;
 }
@@ -218,7 +239,7 @@ bool LlzFontInit(void) {
 
     // Find font files for each type
     bool foundAny = false;
-    static const char* fontTypeNames[] = {"UI", "UI Bold", "Mono", "Display"};
+    static const char* fontTypeNames[] = {"UI", "UI Bold", "Mono", "Display", "Accent"};
     for (int i = 0; i < LLZ_FONT_COUNT; i++) {
         if (FindFontFile((LlzFontType)i, g_fontState.fontPaths[i], sizeof(g_fontState.fontPaths[i]))) {
             foundAny = true;

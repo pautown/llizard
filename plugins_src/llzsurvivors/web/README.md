@@ -46,13 +46,32 @@ make emrun
 
 ## Controls
 
-| Action | Keyboard | Touch |
-|--------|----------|-------|
-| Move | WASD / Arrows | N/A (auto-aim) |
-| Select | Space / Enter | Tap |
-| Back | Escape / Backspace | Swipe down |
-| Scroll | Left/Right arrows | Swipe left/right |
-| Navigate | Mouse wheel | Swipe |
+### Mouse (Recommended for Web)
+
+| Action | Input |
+|--------|-------|
+| Aim | Move mouse - player rotates to face cursor |
+| Toggle Movement | Left-click (tap) |
+| Auto-Move | Hold left-click and drag |
+| Menu Navigation | Hover over buttons |
+| Select | Click |
+
+### Keyboard
+
+| Action | Keys |
+|--------|------|
+| Toggle Movement | Space / Enter |
+| Back/Pause | Escape / Backspace |
+| Menu Navigate | Arrow keys / WASD |
+| Fine-tune Aim | Scroll wheel |
+
+### Touch
+
+| Action | Gesture |
+|--------|---------|
+| Select | Tap |
+| Back | Swipe down |
+| Navigate | Swipe left/right |
 
 ## Architecture
 
@@ -101,4 +120,15 @@ Upload all three to your web server. The HTML can be renamed (e.g., `index.html`
 
 - No save/load (localStorage could be added)
 - No audio yet (raylib audio works with Emscripten, just needs setup)
-- Touch controls are basic (could be enhanced with virtual joystick)
+- Touch controls are basic (mouse recommended for best experience)
+
+## Deployment to townhaus
+
+The `build_and_deploy.sh` script automatically copies the build to the townhaus pages directory:
+
+```bash
+./build_and_deploy.sh
+# Deploys to: supporting_projects/townhaus/pages/games/survivors/
+```
+
+Then commit and push to the townhaus repo to publish to GitHub Pages.
