@@ -8,7 +8,7 @@
  * - Shows currently playing track
  * - Shows upcoming tracks in queue
  * - Select a track to skip to it
- * - Automatic queue refresh
+ * - Back button returns to Now Playing
  */
 
 #include "llz_sdk.h"
@@ -26,35 +26,32 @@
 
 #define SCREEN_WIDTH 800
 #define SCREEN_HEIGHT 480
-#define HEADER_HEIGHT 80
-#define ITEM_HEIGHT 72
-#define ITEM_SPACING 8
+#define ITEM_HEIGHT 80
+#define ITEM_SPACING 4
 #define ITEMS_PER_PAGE 5
-#define PADDING 32
-#define LIST_TOP 100
+#define PADDING 24
+#define LIST_TOP 24
 
 // ============================================================================
-// Color Palette (matching other plugins)
+// Color Palette
 // ============================================================================
 
-static const Color COLOR_BG_DARK = {18, 18, 22, 255};
-static const Color COLOR_BG_GRADIENT = {28, 24, 38, 255};
+static const Color COLOR_BG = {12, 12, 16, 255};
 static const Color COLOR_ACCENT = {30, 215, 96, 255};        // Spotify green
-static const Color COLOR_ACCENT_DIM = {20, 140, 65, 255};
-static const Color COLOR_TEXT_PRIMARY = {245, 245, 250, 255};
-static const Color COLOR_TEXT_SECONDARY = {160, 160, 175, 255};
-static const Color COLOR_TEXT_DIM = {100, 100, 115, 255};
-static const Color COLOR_CARD_BG = {32, 30, 42, 255};
-static const Color COLOR_CARD_SELECTED = {48, 42, 68, 255};
-static const Color COLOR_CARD_BORDER = {60, 55, 80, 255};
-static const Color COLOR_NOW_PLAYING_BG = {40, 60, 45, 255};
+static const Color COLOR_TEXT_PRIMARY = {255, 255, 255, 255};
+static const Color COLOR_TEXT_SECONDARY = {180, 180, 190, 255};
+static const Color COLOR_TEXT_DIM = {100, 100, 110, 255};
+static const Color COLOR_CARD_BG = {24, 24, 30, 255};
+static const Color COLOR_CARD_SELECTED = {36, 36, 46, 255};
+static const Color COLOR_NOW_PLAYING_BG = {25, 50, 35, 255};
+static const Color COLOR_NOW_PLAYING_SELECTED = {35, 65, 45, 255};
 
 // ============================================================================
 // Plugin State
 // ============================================================================
 
 static bool g_wantsClose = false;
-static int g_highlightedItem = 0;       // -1 = now playing, 0+ = queue items
+static int g_highlightedItem = 0;
 static float g_highlightPulse = 0.0f;
 
 // Smooth scroll state
@@ -67,12 +64,8 @@ static bool g_queueValid = false;
 static bool g_queueRequested = false;
 static float g_refreshTimer = 0.0f;
 static const float REFRESH_INTERVAL = 0.5f;
-static const float AUTO_REFRESH_INTERVAL = 10.0f;  // Auto-refresh queue every 10 seconds
+static const float AUTO_REFRESH_INTERVAL = 10.0f;
 static float g_autoRefreshTimer = 0.0f;
-
-// Font
-static Font g_queueFont;
-static bool g_fontLoaded = false;
 
 // Loading state
 static bool g_isLoading = false;
@@ -84,64 +77,6 @@ static float g_loadingTimer = 0.0f;
 
 static void RequestQueue(void);
 static void DrawLoadingSpinner(float x, float y, float radius);
-
-// ============================================================================
-// Font Loading
-// ============================================================================
-
-static int *BuildUnicodeCodepoints(int *outCount) {
-    static const int ranges[][2] = {
-        {0x0020, 0x007E},   // ASCII
-        {0x00A0, 0x00FF},   // Latin-1 Supplement
-        {0x0100, 0x017F},   // Latin Extended-A
-    };
-
-    const int numRanges = sizeof(ranges) / sizeof(ranges[0]);
-    int total = 0;
-    for (int i = 0; i < numRanges; i++) {
-        total += (ranges[i][1] - ranges[i][0] + 1);
-    }
-
-    int *codepoints = (int *)malloc(total * sizeof(int));
-    if (!codepoints) {
-        *outCount = 0;
-        return NULL;
-    }
-
-    int idx = 0;
-    for (int i = 0; i < numRanges; i++) {
-        for (int cp = ranges[i][0]; cp <= ranges[i][1]; cp++) {
-            codepoints[idx++] = cp;
-        }
-    }
-
-    *outCount = total;
-    return codepoints;
-}
-
-static void LoadQueueFont(void) {
-    int codepointCount = 0;
-    int *codepoints = BuildUnicodeCodepoints(&codepointCount);
-
-    g_queueFont = LlzFontLoadCustom(LLZ_FONT_UI, 48, codepoints, codepointCount);
-
-    if (g_queueFont.texture.id != 0) {
-        g_fontLoaded = true;
-        SetTextureFilter(g_queueFont.texture, TEXTURE_FILTER_BILINEAR);
-    } else {
-        g_queueFont = LlzFontGet(LLZ_FONT_UI, 48);
-        g_fontLoaded = false;
-    }
-
-    if (codepoints) free(codepoints);
-}
-
-static void UnloadQueueFont(void) {
-    if (g_fontLoaded && g_queueFont.texture.id != 0) {
-        UnloadFont(g_queueFont);
-    }
-    g_fontLoaded = false;
-}
 
 // ============================================================================
 // Smooth Scroll
@@ -161,7 +96,7 @@ static float CalculateTargetScroll(int selected, int totalItems, int visibleItem
 
     float itemTotalHeight = ITEM_HEIGHT + ITEM_SPACING;
     float totalListHeight = totalItems * itemTotalHeight;
-    float visibleArea = SCREEN_HEIGHT - LIST_TOP - 40;
+    float visibleArea = SCREEN_HEIGHT - LIST_TOP - 24;
     float maxScroll = totalListHeight - visibleArea;
     if (maxScroll < 0) maxScroll = 0;
 
@@ -206,14 +141,12 @@ static void PollQueueData(float deltaTime) {
     g_refreshTimer += deltaTime;
     g_autoRefreshTimer += deltaTime;
 
-    // Auto-refresh queue periodically
     if (g_autoRefreshTimer >= AUTO_REFRESH_INTERVAL) {
         g_autoRefreshTimer = 0.0f;
-        g_queueRequested = false;  // Allow new request
+        g_queueRequested = false;
         RequestQueue();
     }
 
-    // Poll for data
     if (g_refreshTimer >= REFRESH_INTERVAL) {
         g_refreshTimer = 0.0f;
 
@@ -230,10 +163,8 @@ static void PollQueueData(float deltaTime) {
         }
     }
 
-    // Update loading timer
     if (g_isLoading) {
         g_loadingTimer += deltaTime;
-        // Timeout after 5 seconds
         if (g_loadingTimer > 5.0f) {
             g_isLoading = false;
             g_queueRequested = false;
@@ -245,12 +176,9 @@ static void SkipToQueuePosition(int index) {
     printf("[QUEUE] Skipping to queue position: %d\n", index);
     LlzMediaQueueShift(index);
 
-    // Refresh queue after skip
     g_queueValid = false;
     g_queueRequested = false;
     g_autoRefreshTimer = 0.0f;
-
-    // Small delay then request new queue
     g_refreshTimer = REFRESH_INTERVAL - 0.3f;
 }
 
@@ -271,11 +199,13 @@ static void DrawLoadingSpinner(float x, float y, float radius) {
     }
 }
 
-static void DrawTruncatedText(Font font, const char *text, float x, float y,
-                              float maxWidth, float fontSize, Color color) {
-    Vector2 size = MeasureTextEx(font, text, fontSize, 1);
-    if (size.x <= maxWidth) {
-        DrawTextEx(font, text, (Vector2){x, y}, fontSize, 1, color);
+static void DrawTruncatedText(const char *text, float x, float y,
+                              float maxWidth, int fontSize, Color color) {
+    Font font = LlzFontGet(LLZ_FONT_UI, fontSize);
+    int textWidth = LlzMeasureText(text, fontSize);
+
+    if (textWidth <= (int)maxWidth) {
+        LlzDrawText(text, (int)x, (int)y, fontSize, color);
         return;
     }
 
@@ -286,13 +216,12 @@ static void DrawTruncatedText(Font font, const char *text, float x, float y,
         strncpy(truncated, text, i);
         truncated[i] = '\0';
         strcat(truncated, "...");
-        size = MeasureTextEx(font, truncated, fontSize, 1);
-        if (size.x <= maxWidth) {
-            DrawTextEx(font, truncated, (Vector2){x, y}, fontSize, 1, color);
+        if (LlzMeasureText(truncated, fontSize) <= (int)maxWidth) {
+            LlzDrawText(truncated, (int)x, (int)y, fontSize, color);
             return;
         }
     }
-    DrawTextEx(font, "...", (Vector2){x, y}, fontSize, 1, color);
+    LlzDrawText("...", (int)x, (int)y, fontSize, color);
 }
 
 static void DrawQueueItem(int index, const LlzQueueTrack *track, float yPos,
@@ -300,146 +229,104 @@ static void DrawQueueItem(int index, const LlzQueueTrack *track, float yPos,
     float x = PADDING;
     float width = SCREEN_WIDTH - PADDING * 2;
 
-    // Background
-    Color bgColor = isNowPlaying ? COLOR_NOW_PLAYING_BG :
-                    (isSelected ? COLOR_CARD_SELECTED : COLOR_CARD_BG);
-
-    // Pulse effect for selected item
-    if (isSelected) {
-        float pulse = (sinf(g_highlightPulse * 3.0f) + 1.0f) * 0.5f;
-        bgColor = ColorAlpha(bgColor, 0.9f + pulse * 0.1f);
-    }
-
-    DrawRectangleRounded((Rectangle){x, yPos, width, ITEM_HEIGHT}, 0.1f, 8, bgColor);
-
-    // Selection indicator
-    if (isSelected) {
-        DrawRectangleRounded((Rectangle){x, yPos, 4, ITEM_HEIGHT}, 0.5f, 4, COLOR_ACCENT);
-    }
-
-    // Index or "Now Playing" indicator
-    float textX = x + 20;
-    float textY = yPos + 8;
-
+    // Background color
+    Color bgColor;
     if (isNowPlaying) {
-        // Draw play icon or "NOW" label
-        DrawTextEx(g_queueFont, "NOW", (Vector2){textX, textY + 18}, 16, 1, COLOR_ACCENT);
+        bgColor = isSelected ? COLOR_NOW_PLAYING_SELECTED : COLOR_NOW_PLAYING_BG;
     } else {
-        // Draw queue position
+        bgColor = isSelected ? COLOR_CARD_SELECTED : COLOR_CARD_BG;
+    }
+
+    DrawRectangleRounded((Rectangle){x, yPos, width, ITEM_HEIGHT}, 0.08f, 8, bgColor);
+
+    // Selection indicator bar
+    if (isSelected) {
+        DrawRectangleRounded((Rectangle){x, yPos, 3, ITEM_HEIGHT}, 0.5f, 4, COLOR_ACCENT);
+    }
+
+    // Content layout
+    float contentX = x + 16;
+    float titleY = yPos + 16;
+    float artistY = yPos + 46;
+    float maxTextWidth = width - 100;
+
+    // Now Playing badge or index
+    if (isNowPlaying) {
+        Color badgeColor = ColorAlpha(COLOR_ACCENT, 0.2f);
+        DrawRectangleRounded((Rectangle){contentX, yPos + 28, 52, 24}, 0.4f, 4, badgeColor);
+        LlzDrawText("NOW", (int)contentX + 8, (int)yPos + 32, 14, COLOR_ACCENT);
+        contentX += 64;
+        maxTextWidth -= 64;
+    } else {
+        // Queue position number
         char indexStr[8];
         snprintf(indexStr, sizeof(indexStr), "%d", index + 1);
-        DrawTextEx(g_queueFont, indexStr, (Vector2){textX, textY + 18}, 20, 1, COLOR_TEXT_DIM);
+        LlzDrawText(indexStr, (int)contentX, (int)yPos + 30, 18, COLOR_TEXT_DIM);
+        contentX += 40;
+        maxTextWidth -= 40;
     }
 
-    // Track info
-    float infoX = textX + 50;
-    float maxTextWidth = width - 90;
+    // Title (larger, white)
+    DrawTruncatedText(track->title, contentX, titleY, maxTextWidth, 22, COLOR_TEXT_PRIMARY);
 
-    // Title
-    DrawTruncatedText(g_queueFont, track->title, infoX, textY + 4,
-                      maxTextWidth, 22, COLOR_TEXT_PRIMARY);
+    // Artist (smaller, gray)
+    DrawTruncatedText(track->artist, contentX, artistY, maxTextWidth, 16, COLOR_TEXT_SECONDARY);
 
-    // Artist
-    DrawTruncatedText(g_queueFont, track->artist, infoX, textY + 30,
-                      maxTextWidth, 18, COLOR_TEXT_SECONDARY);
-
-    // Duration
+    // Duration (right-aligned)
     int durationSec = (int)(track->durationMs / 1000);
     int minutes = durationSec / 60;
     int seconds = durationSec % 60;
     char durationStr[16];
     snprintf(durationStr, sizeof(durationStr), "%d:%02d", minutes, seconds);
-    Vector2 durSize = MeasureTextEx(g_queueFont, durationStr, 16, 1);
-    DrawTextEx(g_queueFont, durationStr, (Vector2){x + width - durSize.x - 16, textY + 26},
-               16, 1, COLOR_TEXT_DIM);
+    int durWidth = LlzMeasureText(durationStr, 14);
+    LlzDrawText(durationStr, (int)(x + width - durWidth - 16), (int)(yPos + 32), 14, COLOR_TEXT_DIM);
 }
 
 // ============================================================================
 // Main Drawing
 // ============================================================================
 
-static void DrawHeader(void) {
-    // Background gradient at top
-    DrawRectangleGradientV(0, 0, SCREEN_WIDTH, HEADER_HEIGHT,
-                          COLOR_BG_GRADIENT, COLOR_BG_DARK);
-
-    // Title
-    const char *title = "Queue";
-    Vector2 titleSize = MeasureTextEx(g_queueFont, title, 32, 1);
-    DrawTextEx(g_queueFont, title, (Vector2){(SCREEN_WIDTH - titleSize.x) / 2, 24},
-               32, 1, COLOR_TEXT_PRIMARY);
-
-    // Subtitle with service info
-    if (g_queueValid && g_queueData.service[0] != '\0') {
-        char subtitle[64];
-        snprintf(subtitle, sizeof(subtitle), "%s - %d tracks",
-                 g_queueData.service, g_queueData.trackCount);
-        Vector2 subSize = MeasureTextEx(g_queueFont, subtitle, 16, 1);
-        DrawTextEx(g_queueFont, subtitle, (Vector2){(SCREEN_WIDTH - subSize.x) / 2, 58},
-                   16, 1, COLOR_TEXT_SECONDARY);
-    }
-}
-
 static void DrawQueueList(void) {
     if (!g_queueValid) {
-        // Show loading state
         if (g_isLoading) {
             DrawLoadingSpinner(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, 30);
-            const char *loadMsg = "Loading queue...";
-            Vector2 msgSize = MeasureTextEx(g_queueFont, loadMsg, 20, 1);
-            DrawTextEx(g_queueFont, loadMsg,
-                      (Vector2){(SCREEN_WIDTH - msgSize.x) / 2, SCREEN_HEIGHT / 2 + 50},
-                      20, 1, COLOR_TEXT_SECONDARY);
+            LlzDrawTextCentered("Loading queue...", SCREEN_WIDTH / 2,
+                               SCREEN_HEIGHT / 2 + 60, 18, COLOR_TEXT_SECONDARY);
         } else {
-            // Show empty state
-            const char *emptyMsg = "No queue available";
-            Vector2 msgSize = MeasureTextEx(g_queueFont, emptyMsg, 24, 1);
-            DrawTextEx(g_queueFont, emptyMsg,
-                      (Vector2){(SCREEN_WIDTH - msgSize.x) / 2, SCREEN_HEIGHT / 2 - 12},
-                      24, 1, COLOR_TEXT_DIM);
-
-            const char *hintMsg = "Play music on Spotify to see queue";
-            Vector2 hintSize = MeasureTextEx(g_queueFont, hintMsg, 16, 1);
-            DrawTextEx(g_queueFont, hintMsg,
-                      (Vector2){(SCREEN_WIDTH - hintSize.x) / 2, SCREEN_HEIGHT / 2 + 20},
-                      16, 1, COLOR_TEXT_DIM);
+            LlzDrawTextCentered("No queue available", SCREEN_WIDTH / 2,
+                               SCREEN_HEIGHT / 2 - 20, 24, COLOR_TEXT_DIM);
+            LlzDrawTextCentered("Play music on Spotify to see queue", SCREEN_WIDTH / 2,
+                               SCREEN_HEIGHT / 2 + 16, 16, COLOR_TEXT_DIM);
         }
         return;
     }
 
     if (g_queueData.trackCount == 0 && !g_queueData.hasCurrentlyPlaying) {
-        const char *emptyMsg = "Queue is empty";
-        Vector2 msgSize = MeasureTextEx(g_queueFont, emptyMsg, 24, 1);
-        DrawTextEx(g_queueFont, emptyMsg,
-                  (Vector2){(SCREEN_WIDTH - msgSize.x) / 2, SCREEN_HEIGHT / 2 - 12},
-                  24, 1, COLOR_TEXT_DIM);
+        LlzDrawTextCentered("Queue is empty", SCREEN_WIDTH / 2,
+                           SCREEN_HEIGHT / 2, 24, COLOR_TEXT_DIM);
         return;
     }
 
-    // Calculate total items (now playing + queue)
     int totalItems = g_queueData.trackCount;
     if (g_queueData.hasCurrentlyPlaying) totalItems++;
 
-    // Draw items with scroll offset
     float yOffset = LIST_TOP - g_smoothScrollOffset;
 
-    // Draw "Now Playing" section if available
+    // Draw "Now Playing" item if available
     int itemIndex = 0;
     if (g_queueData.hasCurrentlyPlaying) {
         if (yOffset > -ITEM_HEIGHT && yOffset < SCREEN_HEIGHT) {
             DrawQueueItem(-1, &g_queueData.currentlyPlaying, yOffset,
                          g_highlightedItem == 0, true);
         }
-        yOffset += ITEM_HEIGHT + ITEM_SPACING + 20;  // Extra spacing after now playing
+        yOffset += ITEM_HEIGHT + ITEM_SPACING + 16;  // Extra spacing after now playing
         itemIndex = 1;
     }
 
-    // "Up Next" label
-    if (g_queueData.trackCount > 0) {
-        if (yOffset > -20 && yOffset < SCREEN_HEIGHT) {
-            DrawTextEx(g_queueFont, "Up Next", (Vector2){PADDING, yOffset - 24},
-                       18, 1, COLOR_TEXT_DIM);
-        }
+    // "Up Next" section label
+    if (g_queueData.trackCount > 0 && yOffset > -30 && yOffset < SCREEN_HEIGHT) {
+        LlzDrawText("Up Next", PADDING, (int)yOffset - 4, 14, COLOR_TEXT_DIM);
+        yOffset += 24;
     }
 
     // Draw queue items
@@ -451,16 +338,6 @@ static void DrawQueueList(void) {
         yOffset += ITEM_HEIGHT + ITEM_SPACING;
         itemIndex++;
     }
-}
-
-static void DrawFooter(void) {
-    // Hint text at bottom
-    float footerY = SCREEN_HEIGHT - 40;
-    const char *hint = "Select to skip  |  Back to exit";
-    Vector2 hintSize = MeasureTextEx(g_queueFont, hint, 14, 1);
-    DrawTextEx(g_queueFont, hint,
-              (Vector2){(SCREEN_WIDTH - hintSize.x) / 2, footerY},
-              14, 1, COLOR_TEXT_DIM);
 }
 
 // ============================================================================
@@ -476,7 +353,6 @@ static void plugin_init(int width, int height) {
     g_smoothScrollOffset = 0.0f;
     g_targetScrollOffset = 0.0f;
 
-    // Reset queue state
     memset(&g_queueData, 0, sizeof(g_queueData));
     g_queueValid = false;
     g_queueRequested = false;
@@ -485,40 +361,29 @@ static void plugin_init(int width, int height) {
     g_isLoading = false;
     g_loadingTimer = 0.0f;
 
-    // Initialize media SDK
     LlzMediaInit(NULL);
-
-    // Load font
-    LoadQueueFont();
-
-    // Request initial queue data
     RequestQueue();
 }
 
 static void plugin_update(const LlzInputState *input, float deltaTime) {
     g_highlightPulse += deltaTime;
 
-    // Poll for queue data
     PollQueueData(deltaTime);
-
-    // Update smooth scroll
     UpdateSmoothScroll(deltaTime);
 
-    // Calculate total items
     int totalItems = g_queueValid ? g_queueData.trackCount : 0;
     if (g_queueValid && g_queueData.hasCurrentlyPlaying) totalItems++;
 
-    // Handle back button
-    if (input->backPressed) {
+    // Handle back button - return to Now Playing
+    if (input->backReleased || IsKeyReleased(KEY_ESCAPE)) {
+        printf("[QUEUE] Back pressed - returning to Now Playing\n");
+        LlzRequestOpenPlugin("Now Playing");
         g_wantsClose = true;
         return;
     }
 
     // Handle selection
     if (input->selectPressed && g_queueValid && totalItems > 0) {
-        // Skip to selected track in queue
-        // If now playing is selected (item 0 with hasCurrentlyPlaying), do nothing
-        // Otherwise, skip to queue index
         if (g_queueData.hasCurrentlyPlaying) {
             if (g_highlightedItem > 0) {
                 int queueIndex = g_highlightedItem - 1;
@@ -547,7 +412,7 @@ static void plugin_update(const LlzInputState *input, float deltaTime) {
         }
     }
 
-    // Manual refresh on tap (if queue is loaded)
+    // Manual refresh on tap
     if (input->tap && g_queueValid && !g_isLoading) {
         g_queueValid = false;
         g_queueRequested = false;
@@ -556,19 +421,12 @@ static void plugin_update(const LlzInputState *input, float deltaTime) {
 }
 
 static void plugin_draw(void) {
-    // Background
-    ClearBackground(COLOR_BG_DARK);
-    DrawRectangleGradientV(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT,
-                          COLOR_BG_DARK, COLOR_BG_GRADIENT);
-
+    ClearBackground(COLOR_BG);
     DrawQueueList();
-    DrawHeader();
-    DrawFooter();
 }
 
 static void plugin_shutdown(void) {
     printf("[QUEUE] Shutting down queue plugin\n");
-    UnloadQueueFont();
 }
 
 static bool plugin_wants_close(void) {

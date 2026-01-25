@@ -14,6 +14,7 @@
 #include "nowplaying/overlays/np_overlay_colorpicker.h"
 #include "nowplaying/overlays/np_overlay_lyrics.h"
 #include "nowplaying/overlays/np_overlay_media_channels.h"
+#include "nowplaying/overlays/np_overlay_actions.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -41,6 +42,9 @@ static NpColorPickerOverlay g_colorPicker;
 
 // Media channels overlay state
 static NpMediaChannelsOverlay g_mediaChannelsOverlay;
+
+// Actions overlay state (for selectHold menu)
+static NpActionsOverlay g_actionsOverlay;
 
 static char g_trackTitle[LLZ_MEDIA_TEXT_MAX] = "No track";
 static char g_trackArtist[LLZ_MEDIA_TEXT_MAX] = "No artist";
@@ -350,6 +354,9 @@ static void PluginInit(int width, int height)
 
     // Initialize media channels overlay
     NpMediaChannelsOverlayInit(&g_mediaChannelsOverlay);
+
+    // Initialize actions overlay
+    NpActionsOverlayInit(&g_actionsOverlay);
 
     // Note: Don't call LlzBackgroundInit() - host manages the lifecycle
 
@@ -1111,31 +1118,44 @@ static void PluginUpdate(const LlzInputState *hostInput, float deltaTime)
         }
     }
 
-    // Select long press - open Lyrics plugin and request lyrics when lyrics are enabled
+    // Select long press - show actions overlay menu
     if (input->selectHold) {
-        bool lyricsEnabled = LlzLyricsIsEnabled();
-        printf("[LYRICS] Long-press select detected (lyrics enabled=%d)\n", lyricsEnabled);
+        if (g_actionsOverlay.visible) {
+            NpActionsOverlayHide(&g_actionsOverlay);
+            printf("[ACTIONS] Overlay closed (select hold)\n");
+        } else if (!NpActionsOverlayIsActive(&g_actionsOverlay)) {
+            NpActionsOverlayShow(&g_actionsOverlay);
+            printf("[ACTIONS] Overlay opened (select hold detected)\n");
+        }
+    }
 
-        if (lyricsEnabled) {
-            // Request lyrics for current track via SDK before switching plugins
-            // This queues a request to the golang_ble_client to fetch lyrics from Android
-            if (g_trackArtist[0] != '\0' && g_trackTitle[0] != '\0') {
-                printf("[LYRICS] Requesting lyrics for: '%s' - '%s'\n", g_trackArtist, g_trackTitle);
-                if (LlzLyricsRequest(g_trackArtist, g_trackTitle)) {
-                    printf("[LYRICS] Lyrics request queued successfully\n");
-                } else {
-                    printf("[LYRICS] Failed to queue lyrics request\n");
+    // When actions overlay is active, update it
+    if (NpActionsOverlayIsActive(&g_actionsOverlay)) {
+        bool wasVisible = g_actionsOverlay.visible;
+        NpActionsOverlayUpdate(&g_actionsOverlay, input, deltaTime);
+
+        // Handle action selection when overlay closes
+        if (wasVisible && !g_actionsOverlay.visible) {
+            NpActionType action = NpActionsOverlayGetSelectedAction(&g_actionsOverlay);
+            if (action == NP_ACTION_VIEW_LYRICS) {
+                // Request lyrics for current track
+                if (g_trackArtist[0] != '\0' && g_trackTitle[0] != '\0') {
+                    printf("[LYRICS] Requesting lyrics for: '%s' - '%s'\n", g_trackArtist, g_trackTitle);
+                    LlzLyricsRequest(g_trackArtist, g_trackTitle);
                 }
-            } else {
-                printf("[LYRICS] Cannot request lyrics - missing artist or track title\n");
+                printf("[ACTIONS] Opening Lyrics plugin\n");
+                LlzRequestOpenPlugin("Lyrics");
+                g_wantsClose = true;
+            } else if (action == NP_ACTION_VIEW_QUEUE) {
+                printf("[ACTIONS] Opening Queue plugin\n");
+                LlzRequestOpenPlugin("Queue");
+                g_wantsClose = true;
             }
+        }
 
-            // Open the Lyrics plugin
-            printf("[LYRICS] Opening Lyrics plugin\n");
-            LlzRequestOpenPlugin("Lyrics");
-            g_wantsClose = true;
-        } else {
-            printf("[LYRICS] Long-press ignored - lyrics feature is disabled\n");
+        // Don't process other inputs while actions overlay is visible
+        if (g_actionsOverlay.visible) {
+            return;
         }
     }
 
@@ -1329,6 +1349,9 @@ static void PluginDraw(void)
 
     // Draw media channels overlay on top of everything
     NpMediaChannelsOverlayDraw(&g_mediaChannelsOverlay, &uiColors);
+
+    // Draw actions overlay on top of everything
+    NpActionsOverlayDraw(&g_actionsOverlay, &uiColors);
 }
 
 static void PluginShutdown(void)
@@ -1355,6 +1378,7 @@ static void PluginShutdown(void)
 
     NpColorPickerOverlayShutdown(&g_colorPicker);
     NpMediaChannelsOverlayShutdown(&g_mediaChannelsOverlay);
+    NpActionsOverlayShutdown(&g_actionsOverlay);
     NpThemeShutdown();
     g_wantsClose = false;
     printf("NowPlaying plugin shutdown\n");
