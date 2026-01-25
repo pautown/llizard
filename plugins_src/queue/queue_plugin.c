@@ -382,15 +382,26 @@ static void plugin_update(const LlzInputState *input, float deltaTime) {
         return;
     }
 
-    // Handle selection
+    // Handle selection - skip to track and return to Now Playing
     if (input->selectPressed && g_queueValid && totalItems > 0) {
+        bool didSkip = false;
         if (g_queueData.hasCurrentlyPlaying) {
             if (g_highlightedItem > 0) {
                 int queueIndex = g_highlightedItem - 1;
                 SkipToQueuePosition(queueIndex);
+                didSkip = true;
             }
         } else if (g_highlightedItem >= 0 && g_highlightedItem < g_queueData.trackCount) {
             SkipToQueuePosition(g_highlightedItem);
+            didSkip = true;
+        }
+
+        // Return to Now Playing after skipping
+        if (didSkip) {
+            printf("[QUEUE] Returning to Now Playing after skip\n");
+            LlzRequestOpenPlugin("Now Playing");
+            g_wantsClose = true;
+            return;
         }
     }
 
@@ -398,7 +409,7 @@ static void plugin_update(const LlzInputState *input, float deltaTime) {
     if (totalItems > 0) {
         int delta = 0;
         if (input->scrollDelta != 0) {
-            delta = (input->scrollDelta > 0) ? -1 : 1;
+            delta = (input->scrollDelta > 0) ? 1 : -1;
         }
         if (input->downPressed) delta = 1;
         if (input->upPressed) delta = -1;
