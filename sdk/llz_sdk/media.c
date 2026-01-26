@@ -50,6 +50,10 @@ static redisContext *g_mediaCtx = NULL;
 static bool g_lastStateValid = false;
 static bool g_lastIsPlaying = false;
 
+// Cached Spotify state for toggle operations
+static bool g_lastShuffleEnabled = false;
+static LlzRepeatMode g_lastRepeatMode = LLZ_REPEAT_OFF;
+
 static void llz_media_disconnect(void)
 {
     if (g_mediaCtx) {
@@ -206,6 +210,7 @@ bool LlzMediaGetState(LlzMediaState *outState)
     memset(outState, 0, sizeof(*outState));
     outState->volumePercent = -1;
 
+    // Fetch basic media state
     redisReply *reply = llz_media_command(
         "MGET %s %s %s %s %s %s %s %s",
         g_activeKeys.trackTitle,
@@ -238,8 +243,42 @@ bool LlzMediaGetState(LlzMediaState *outState)
         g_lastStateValid = true;
         success = true;
     }
-
     freeReplyObject(reply);
+
+    // Fetch Spotify-specific state (shuffle, repeat, liked, track ID)
+    if (success) {
+        redisReply *spotifyReply = llz_media_command(
+            "MGET media:shuffle_enabled media:repeat_mode media:track_liked media:track_id"
+        );
+        if (spotifyReply && spotifyReply->type == REDIS_REPLY_ARRAY && spotifyReply->elements >= 4) {
+            // Shuffle enabled
+            outState->shuffleEnabled = llz_media_reply_bool(spotifyReply->element[0]);
+            g_lastShuffleEnabled = outState->shuffleEnabled;
+
+            // Repeat mode
+            if (spotifyReply->element[1] && spotifyReply->element[1]->type == REDIS_REPLY_STRING) {
+                const char *mode = spotifyReply->element[1]->str;
+                if (mode) {
+                    if (strcmp(mode, "track") == 0) {
+                        outState->repeatMode = LLZ_REPEAT_TRACK;
+                    } else if (strcmp(mode, "context") == 0) {
+                        outState->repeatMode = LLZ_REPEAT_CONTEXT;
+                    } else {
+                        outState->repeatMode = LLZ_REPEAT_OFF;
+                    }
+                    g_lastRepeatMode = outState->repeatMode;
+                }
+            }
+
+            // Track liked
+            outState->isLiked = llz_media_reply_bool(spotifyReply->element[2]);
+
+            // Spotify track ID
+            llz_media_copy_reply(outState->spotifyTrackId, sizeof(outState->spotifyTrackId), spotifyReply->element[3]);
+        }
+        if (spotifyReply) freeReplyObject(spotifyReply);
+    }
+
     return success;
 }
 
@@ -301,6 +340,24 @@ static const char *llz_media_action_string(LlzPlaybackCommand action, int *value
                 return "pause";
             }
             return "play";
+        // Spotify-specific controls
+        case LLZ_PLAYBACK_SHUFFLE_ON: return "shuffle_on";
+        case LLZ_PLAYBACK_SHUFFLE_OFF: return "shuffle_off";
+        case LLZ_PLAYBACK_SHUFFLE_TOGGLE:
+            return g_lastShuffleEnabled ? "shuffle_off" : "shuffle_on";
+        case LLZ_PLAYBACK_REPEAT_OFF: return "repeat_off";
+        case LLZ_PLAYBACK_REPEAT_TRACK: return "repeat_track";
+        case LLZ_PLAYBACK_REPEAT_CONTEXT: return "repeat_context";
+        case LLZ_PLAYBACK_REPEAT_CYCLE:
+            // Cycle: off -> track -> context -> off
+            switch (g_lastRepeatMode) {
+                case LLZ_REPEAT_OFF: return "repeat_track";
+                case LLZ_REPEAT_TRACK: return "repeat_context";
+                case LLZ_REPEAT_CONTEXT: return "repeat_off";
+            }
+            return "repeat_off";
+        case LLZ_PLAYBACK_LIKE_TRACK: return "like_track";
+        case LLZ_PLAYBACK_UNLIKE_TRACK: return "unlike_track";
         default:
             return NULL;
     }
@@ -340,6 +397,104 @@ bool LlzMediaSeekSeconds(int seconds)
 bool LlzMediaSetVolume(int percent)
 {
     return LlzMediaSendCommand(LLZ_PLAYBACK_SET_VOLUME, percent);
+}
+
+// ============================================================================
+// Spotify Playback Controls Implementation
+// ============================================================================
+
+bool LlzMediaSetShuffle(bool enabled)
+{
+    return LlzMediaSendCommand(enabled ? LLZ_PLAYBACK_SHUFFLE_ON : LLZ_PLAYBACK_SHUFFLE_OFF, 0);
+}
+
+bool LlzMediaToggleShuffle(void)
+{
+    return LlzMediaSendCommand(LLZ_PLAYBACK_SHUFFLE_TOGGLE, 0);
+}
+
+bool LlzMediaSetRepeat(LlzRepeatMode mode)
+{
+    switch (mode) {
+        case LLZ_REPEAT_OFF:
+            return LlzMediaSendCommand(LLZ_PLAYBACK_REPEAT_OFF, 0);
+        case LLZ_REPEAT_TRACK:
+            return LlzMediaSendCommand(LLZ_PLAYBACK_REPEAT_TRACK, 0);
+        case LLZ_REPEAT_CONTEXT:
+            return LlzMediaSendCommand(LLZ_PLAYBACK_REPEAT_CONTEXT, 0);
+    }
+    return false;
+}
+
+bool LlzMediaCycleRepeat(void)
+{
+    return LlzMediaSendCommand(LLZ_PLAYBACK_REPEAT_CYCLE, 0);
+}
+
+// Helper to push command with trackId
+static bool llz_media_push_track_command(const char *action, const char *trackId)
+{
+    if (!action || !g_activeKeys.playbackCommandQueue) return false;
+
+    long long ts = (long long)time(NULL);
+    redisReply *reply;
+
+    if (trackId && trackId[0] != '\0') {
+        // Include trackId in command
+        reply = llz_media_command(
+            "LPUSH %s {\"action\":\"%s\",\"trackId\":\"%s\",\"timestamp\":%lld}",
+            g_activeKeys.playbackCommandQueue,
+            action,
+            trackId,
+            ts
+        );
+    } else {
+        // No trackId - use current track
+        reply = llz_media_command(
+            "LPUSH %s {\"action\":\"%s\",\"timestamp\":%lld}",
+            g_activeKeys.playbackCommandQueue,
+            action,
+            ts
+        );
+    }
+
+    if (!reply) return false;
+    bool success = reply->type == REDIS_REPLY_INTEGER;
+    freeReplyObject(reply);
+
+    printf("[SPOTIFY] Queued %s command (trackId=%s)\n", action, trackId ? trackId : "(current)");
+    return success;
+}
+
+bool LlzMediaLikeTrack(const char *trackId)
+{
+    return llz_media_push_track_command("like_track", trackId);
+}
+
+bool LlzMediaUnlikeTrack(const char *trackId)
+{
+    return llz_media_push_track_command("unlike_track", trackId);
+}
+
+bool LlzMediaRequestSpotifyState(void)
+{
+    if (!g_activeKeys.playbackCommandQueue) return false;
+
+    long long ts = (long long)time(NULL);
+    redisReply *reply = llz_media_command(
+        "LPUSH %s {\"action\":\"request_spotify_state\",\"timestamp\":%lld}",
+        g_activeKeys.playbackCommandQueue,
+        ts
+    );
+
+    if (!reply) return false;
+    bool success = reply->type == REDIS_REPLY_INTEGER;
+    freeReplyObject(reply);
+
+    if (success) {
+        printf("[SPOTIFY] Requested Spotify playback state refresh\n");
+    }
+    return success;
 }
 
 // CRC32 implementation matching Android's java.util.zip.CRC32
@@ -1778,6 +1933,608 @@ bool LlzMediaQueueShift(int queueIndex)
     bool success = reply->type == REDIS_REPLY_INTEGER;
     freeReplyObject(reply);
     return success;
+}
+
+// ============================================================================
+// Spotify Library API Implementation
+// ============================================================================
+
+bool LlzMediaRequestLibraryOverview(void)
+{
+    if (!g_activeKeys.playbackCommandQueue) return false;
+
+    long long ts = (long long)time(NULL);
+    redisReply *reply = llz_media_command(
+        "LPUSH %s {\"action\":\"library_overview\",\"timestamp\":%lld}",
+        g_activeKeys.playbackCommandQueue,
+        ts
+    );
+
+    if (!reply) return false;
+    bool success = reply->type == REDIS_REPLY_INTEGER;
+    freeReplyObject(reply);
+
+    if (success) {
+        printf("[SPOTIFY_LIB] Requested library overview\n");
+    }
+    return success;
+}
+
+bool LlzMediaRequestLibraryRecent(int limit)
+{
+    if (!g_activeKeys.playbackCommandQueue) return false;
+    if (limit <= 0) limit = 20;
+
+    long long ts = (long long)time(NULL);
+    redisReply *reply = llz_media_command(
+        "LPUSH %s {\"action\":\"library_recent\",\"limit\":%d,\"timestamp\":%lld}",
+        g_activeKeys.playbackCommandQueue,
+        limit,
+        ts
+    );
+
+    if (!reply) return false;
+    bool success = reply->type == REDIS_REPLY_INTEGER;
+    freeReplyObject(reply);
+
+    if (success) {
+        printf("[SPOTIFY_LIB] Requested recent tracks (limit=%d)\n", limit);
+    }
+    return success;
+}
+
+bool LlzMediaRequestLibraryLiked(int offset, int limit)
+{
+    if (!g_activeKeys.playbackCommandQueue) return false;
+    if (offset < 0) offset = 0;
+    if (limit <= 0) limit = 20;
+
+    long long ts = (long long)time(NULL);
+    redisReply *reply = llz_media_command(
+        "LPUSH %s {\"action\":\"library_liked\",\"offset\":%d,\"limit\":%d,\"timestamp\":%lld}",
+        g_activeKeys.playbackCommandQueue,
+        offset,
+        limit,
+        ts
+    );
+
+    if (!reply) return false;
+    bool success = reply->type == REDIS_REPLY_INTEGER;
+    freeReplyObject(reply);
+
+    if (success) {
+        printf("[SPOTIFY_LIB] Requested liked tracks (offset=%d, limit=%d)\n", offset, limit);
+    }
+    return success;
+}
+
+bool LlzMediaRequestLibraryAlbums(int offset, int limit)
+{
+    if (!g_activeKeys.playbackCommandQueue) return false;
+    if (offset < 0) offset = 0;
+    if (limit <= 0) limit = 20;
+
+    long long ts = (long long)time(NULL);
+    redisReply *reply = llz_media_command(
+        "LPUSH %s {\"action\":\"library_albums\",\"offset\":%d,\"limit\":%d,\"timestamp\":%lld}",
+        g_activeKeys.playbackCommandQueue,
+        offset,
+        limit,
+        ts
+    );
+
+    if (!reply) return false;
+    bool success = reply->type == REDIS_REPLY_INTEGER;
+    freeReplyObject(reply);
+
+    if (success) {
+        printf("[SPOTIFY_LIB] Requested albums (offset=%d, limit=%d)\n", offset, limit);
+    }
+    return success;
+}
+
+bool LlzMediaRequestLibraryPlaylists(int offset, int limit)
+{
+    if (!g_activeKeys.playbackCommandQueue) return false;
+    if (offset < 0) offset = 0;
+    if (limit <= 0) limit = 20;
+
+    long long ts = (long long)time(NULL);
+    redisReply *reply = llz_media_command(
+        "LPUSH %s {\"action\":\"library_playlists\",\"offset\":%d,\"limit\":%d,\"timestamp\":%lld}",
+        g_activeKeys.playbackCommandQueue,
+        offset,
+        limit,
+        ts
+    );
+
+    if (!reply) return false;
+    bool success = reply->type == REDIS_REPLY_INTEGER;
+    freeReplyObject(reply);
+
+    if (success) {
+        printf("[SPOTIFY_LIB] Requested playlists (offset=%d, limit=%d)\n", offset, limit);
+    }
+    return success;
+}
+
+bool LlzMediaPlaySpotifyUri(const char *uri)
+{
+    if (!uri || uri[0] == '\0') return false;
+    if (!g_activeKeys.playbackCommandQueue) return false;
+
+    long long ts = (long long)time(NULL);
+    redisReply *reply = llz_media_command(
+        "LPUSH %s {\"action\":\"play_uri\",\"uri\":\"%s\",\"timestamp\":%lld}",
+        g_activeKeys.playbackCommandQueue,
+        uri,
+        ts
+    );
+
+    if (!reply) return false;
+    bool success = reply->type == REDIS_REPLY_INTEGER;
+    freeReplyObject(reply);
+
+    if (success) {
+        printf("[SPOTIFY_LIB] Queued play URI: %s\n", uri);
+    }
+    return success;
+}
+
+// JSON helper: parse a string field from JSON
+static bool llz_lib_parse_string(const char *json, const char *key, char *out, size_t maxLen)
+{
+    if (!json || !key || !out || maxLen == 0) return false;
+    out[0] = '\0';
+
+    // Build search pattern (check for both short and long keys)
+    char pattern[64];
+    snprintf(pattern, sizeof(pattern), "\"%s\":\"", key);
+
+    const char *start = strstr(json, pattern);
+    if (!start) return false;
+
+    start = strchr(start, ':');
+    if (!start) return false;
+    start++;
+    while (*start == ' ' || *start == '\t') start++;
+    if (*start != '"') return false;
+    start++;
+
+    // Find end of string (handle escape sequences)
+    const char *end = start;
+    while (*end && *end != '"') {
+        if (*end == '\\' && *(end + 1)) end++;
+        end++;
+    }
+
+    size_t len = end - start;
+    if (len >= maxLen) len = maxLen - 1;
+    memcpy(out, start, len);
+    out[len] = '\0';
+    return true;
+}
+
+// JSON helper: parse an integer field from JSON
+static int llz_lib_parse_int(const char *json, const char *key)
+{
+    if (!json || !key) return 0;
+
+    char pattern[64];
+    snprintf(pattern, sizeof(pattern), "\"%s\":", key);
+
+    const char *start = strstr(json, pattern);
+    if (!start) return 0;
+
+    start = strchr(start, ':');
+    if (!start) return 0;
+    start++;
+    while (*start == ' ' || *start == '\t') start++;
+
+    return atoi(start);
+}
+
+// JSON helper: parse an int64 field from JSON
+static int64_t llz_lib_parse_int64(const char *json, const char *key)
+{
+    if (!json || !key) return 0;
+
+    char pattern[64];
+    snprintf(pattern, sizeof(pattern), "\"%s\":", key);
+
+    const char *start = strstr(json, pattern);
+    if (!start) return 0;
+
+    start = strchr(start, ':');
+    if (!start) return 0;
+    start++;
+    while (*start == ' ' || *start == '\t') start++;
+
+    return strtoll(start, NULL, 10);
+}
+
+// JSON helper: parse a bool field from JSON
+static bool llz_lib_parse_bool(const char *json, const char *key)
+{
+    if (!json || !key) return false;
+
+    char pattern[64];
+    snprintf(pattern, sizeof(pattern), "\"%s\":", key);
+
+    const char *start = strstr(json, pattern);
+    if (!start) return false;
+
+    start = strchr(start, ':');
+    if (!start) return false;
+    start++;
+    while (*start == ' ' || *start == '\t') start++;
+
+    return (strncmp(start, "true", 4) == 0);
+}
+
+// Get raw JSON for library overview
+bool LlzMediaGetLibraryOverviewJson(char *outJson, size_t maxLen)
+{
+    if (!outJson || maxLen == 0) return false;
+    outJson[0] = '\0';
+
+    redisReply *reply = llz_media_command("GET spotify:library:overview");
+    if (!reply) return false;
+
+    bool success = false;
+    if (reply->type == REDIS_REPLY_STRING && reply->str) {
+        size_t len = strlen(reply->str);
+        if (len < maxLen) {
+            strcpy(outJson, reply->str);
+            success = true;
+        }
+    }
+
+    freeReplyObject(reply);
+    return success;
+}
+
+bool LlzMediaGetLibraryOverview(LlzSpotifyLibraryOverview *outOverview)
+{
+    if (!outOverview) return false;
+    memset(outOverview, 0, sizeof(*outOverview));
+
+    char json[4096];
+    if (!LlzMediaGetLibraryOverviewJson(json, sizeof(json))) {
+        return false;
+    }
+
+    // Parse using short JSON keys from Android (matching SpotifyLibraryModels.kt)
+    llz_lib_parse_string(json, "u", outOverview->userName, sizeof(outOverview->userName));
+    outOverview->likedCount = llz_lib_parse_int(json, "lt");
+    outOverview->albumsCount = llz_lib_parse_int(json, "al");
+    outOverview->playlistsCount = llz_lib_parse_int(json, "pl");
+    outOverview->artistsCount = llz_lib_parse_int(json, "ar");
+    llz_lib_parse_string(json, "ct", outOverview->currentTrack, sizeof(outOverview->currentTrack));
+    llz_lib_parse_string(json, "ca", outOverview->currentArtist, sizeof(outOverview->currentArtist));
+    outOverview->isPremium = llz_lib_parse_bool(json, "pr");
+    outOverview->timestamp = llz_lib_parse_int64(json, "t");
+    outOverview->valid = (outOverview->userName[0] != '\0');
+
+    return outOverview->valid;
+}
+
+// Get raw JSON for track lists
+bool LlzMediaGetLibraryTracksJson(const char *type, char *outJson, size_t maxLen)
+{
+    if (!outJson || maxLen == 0) return false;
+    outJson[0] = '\0';
+
+    const char *key = "spotify:library:recent";
+    if (type && strcmp(type, "liked") == 0) {
+        key = "spotify:library:liked";
+    }
+
+    redisReply *reply = llz_media_command("GET %s", key);
+    if (!reply) return false;
+
+    bool success = false;
+    if (reply->type == REDIS_REPLY_STRING && reply->str) {
+        size_t len = strlen(reply->str);
+        if (len < maxLen) {
+            strcpy(outJson, reply->str);
+            success = true;
+        }
+    }
+
+    freeReplyObject(reply);
+    return success;
+}
+
+// Parse a track item from JSON object starting at 'start'
+static bool llz_lib_parse_track_item(const char *start, const char *end, LlzSpotifyTrackItem *track)
+{
+    if (!start || !end || !track || end <= start) return false;
+
+    // Create null-terminated copy
+    size_t len = end - start;
+    char *itemJson = (char *)malloc(len + 1);
+    if (!itemJson) return false;
+    memcpy(itemJson, start, len);
+    itemJson[len] = '\0';
+
+    memset(track, 0, sizeof(*track));
+    llz_lib_parse_string(itemJson, "i", track->id, sizeof(track->id));
+    llz_lib_parse_string(itemJson, "n", track->name, sizeof(track->name));
+    llz_lib_parse_string(itemJson, "a", track->artist, sizeof(track->artist));
+    llz_lib_parse_string(itemJson, "al", track->album, sizeof(track->album));
+    track->durationMs = llz_lib_parse_int64(itemJson, "d");
+    llz_lib_parse_string(itemJson, "u", track->uri, sizeof(track->uri));
+    llz_lib_parse_string(itemJson, "im", track->imageUrl, sizeof(track->imageUrl));
+
+    free(itemJson);
+    return track->id[0] != '\0';
+}
+
+bool LlzMediaGetLibraryTracks(const char *type, LlzSpotifyTrackListResponse *outResponse)
+{
+    if (!outResponse) return false;
+    memset(outResponse, 0, sizeof(*outResponse));
+
+    char *json = (char *)malloc(65536);  // 64KB buffer
+    if (!json) return false;
+
+    if (!LlzMediaGetLibraryTracksJson(type, json, 65536)) {
+        free(json);
+        return false;
+    }
+
+    // Parse response fields
+    llz_lib_parse_string(json, "ty", outResponse->type, sizeof(outResponse->type));
+    outResponse->offset = llz_lib_parse_int(json, "o");
+    outResponse->limit = llz_lib_parse_int(json, "l");
+    outResponse->total = llz_lib_parse_int(json, "tt");
+    outResponse->hasMore = llz_lib_parse_bool(json, "hm");
+    outResponse->timestamp = llz_lib_parse_int64(json, "t");
+
+    // Parse items array
+    const char *itemsStart = strstr(json, "\"it\":[");
+    if (itemsStart) {
+        itemsStart = strchr(itemsStart, '[');
+        if (itemsStart) {
+            itemsStart++;
+
+            while (outResponse->itemCount < LLZ_SPOTIFY_LIST_MAX) {
+                // Skip whitespace
+                while (*itemsStart == ' ' || *itemsStart == '\t' || *itemsStart == '\n' || *itemsStart == ',') {
+                    itemsStart++;
+                }
+
+                if (*itemsStart == ']') break;
+                if (*itemsStart != '{') break;
+
+                // Find closing brace
+                int braceCount = 1;
+                const char *itemEnd = itemsStart + 1;
+                while (*itemEnd && braceCount > 0) {
+                    if (*itemEnd == '{') braceCount++;
+                    else if (*itemEnd == '}') braceCount--;
+                    itemEnd++;
+                }
+
+                if (llz_lib_parse_track_item(itemsStart, itemEnd, &outResponse->items[outResponse->itemCount])) {
+                    outResponse->itemCount++;
+                }
+
+                itemsStart = itemEnd;
+            }
+        }
+    }
+
+    outResponse->valid = true;
+    free(json);
+    return true;
+}
+
+// Get raw JSON for album list
+bool LlzMediaGetLibraryAlbumsJson(char *outJson, size_t maxLen)
+{
+    if (!outJson || maxLen == 0) return false;
+    outJson[0] = '\0';
+
+    redisReply *reply = llz_media_command("GET spotify:library:albums");
+    if (!reply) return false;
+
+    bool success = false;
+    if (reply->type == REDIS_REPLY_STRING && reply->str) {
+        size_t len = strlen(reply->str);
+        if (len < maxLen) {
+            strcpy(outJson, reply->str);
+            success = true;
+        }
+    }
+
+    freeReplyObject(reply);
+    return success;
+}
+
+// Parse an album item from JSON object
+static bool llz_lib_parse_album_item(const char *start, const char *end, LlzSpotifyAlbumItem *album)
+{
+    if (!start || !end || !album || end <= start) return false;
+
+    size_t len = end - start;
+    char *itemJson = (char *)malloc(len + 1);
+    if (!itemJson) return false;
+    memcpy(itemJson, start, len);
+    itemJson[len] = '\0';
+
+    memset(album, 0, sizeof(*album));
+    llz_lib_parse_string(itemJson, "i", album->id, sizeof(album->id));
+    llz_lib_parse_string(itemJson, "n", album->name, sizeof(album->name));
+    llz_lib_parse_string(itemJson, "a", album->artist, sizeof(album->artist));
+    album->trackCount = llz_lib_parse_int(itemJson, "tc");
+    llz_lib_parse_string(itemJson, "u", album->uri, sizeof(album->uri));
+    llz_lib_parse_string(itemJson, "im", album->imageUrl, sizeof(album->imageUrl));
+    llz_lib_parse_string(itemJson, "y", album->year, sizeof(album->year));
+
+    free(itemJson);
+    return album->id[0] != '\0';
+}
+
+bool LlzMediaGetLibraryAlbums(LlzSpotifyAlbumListResponse *outResponse)
+{
+    if (!outResponse) return false;
+    memset(outResponse, 0, sizeof(*outResponse));
+
+    char *json = (char *)malloc(65536);
+    if (!json) return false;
+
+    if (!LlzMediaGetLibraryAlbumsJson(json, 65536)) {
+        free(json);
+        return false;
+    }
+
+    // Parse response fields
+    outResponse->offset = llz_lib_parse_int(json, "o");
+    outResponse->limit = llz_lib_parse_int(json, "l");
+    outResponse->total = llz_lib_parse_int(json, "tt");
+    outResponse->hasMore = llz_lib_parse_bool(json, "hm");
+    outResponse->timestamp = llz_lib_parse_int64(json, "t");
+
+    // Parse items array
+    const char *itemsStart = strstr(json, "\"it\":[");
+    if (itemsStart) {
+        itemsStart = strchr(itemsStart, '[');
+        if (itemsStart) {
+            itemsStart++;
+
+            while (outResponse->itemCount < LLZ_SPOTIFY_LIST_MAX) {
+                while (*itemsStart == ' ' || *itemsStart == '\t' || *itemsStart == '\n' || *itemsStart == ',') {
+                    itemsStart++;
+                }
+
+                if (*itemsStart == ']') break;
+                if (*itemsStart != '{') break;
+
+                int braceCount = 1;
+                const char *itemEnd = itemsStart + 1;
+                while (*itemEnd && braceCount > 0) {
+                    if (*itemEnd == '{') braceCount++;
+                    else if (*itemEnd == '}') braceCount--;
+                    itemEnd++;
+                }
+
+                if (llz_lib_parse_album_item(itemsStart, itemEnd, &outResponse->items[outResponse->itemCount])) {
+                    outResponse->itemCount++;
+                }
+
+                itemsStart = itemEnd;
+            }
+        }
+    }
+
+    outResponse->valid = true;
+    free(json);
+    return true;
+}
+
+// Get raw JSON for playlist list
+bool LlzMediaGetLibraryPlaylistsJson(char *outJson, size_t maxLen)
+{
+    if (!outJson || maxLen == 0) return false;
+    outJson[0] = '\0';
+
+    redisReply *reply = llz_media_command("GET spotify:library:playlists");
+    if (!reply) return false;
+
+    bool success = false;
+    if (reply->type == REDIS_REPLY_STRING && reply->str) {
+        size_t len = strlen(reply->str);
+        if (len < maxLen) {
+            strcpy(outJson, reply->str);
+            success = true;
+        }
+    }
+
+    freeReplyObject(reply);
+    return success;
+}
+
+// Parse a playlist item from JSON object
+static bool llz_lib_parse_playlist_item(const char *start, const char *end, LlzSpotifyPlaylistItem *playlist)
+{
+    if (!start || !end || !playlist || end <= start) return false;
+
+    size_t len = end - start;
+    char *itemJson = (char *)malloc(len + 1);
+    if (!itemJson) return false;
+    memcpy(itemJson, start, len);
+    itemJson[len] = '\0';
+
+    memset(playlist, 0, sizeof(*playlist));
+    llz_lib_parse_string(itemJson, "i", playlist->id, sizeof(playlist->id));
+    llz_lib_parse_string(itemJson, "n", playlist->name, sizeof(playlist->name));
+    llz_lib_parse_string(itemJson, "o", playlist->owner, sizeof(playlist->owner));
+    playlist->trackCount = llz_lib_parse_int(itemJson, "tc");
+    llz_lib_parse_string(itemJson, "u", playlist->uri, sizeof(playlist->uri));
+    llz_lib_parse_string(itemJson, "im", playlist->imageUrl, sizeof(playlist->imageUrl));
+    playlist->isPublic = llz_lib_parse_bool(itemJson, "pu");
+
+    free(itemJson);
+    return playlist->id[0] != '\0';
+}
+
+bool LlzMediaGetLibraryPlaylists(LlzSpotifyPlaylistListResponse *outResponse)
+{
+    if (!outResponse) return false;
+    memset(outResponse, 0, sizeof(*outResponse));
+
+    char *json = (char *)malloc(65536);
+    if (!json) return false;
+
+    if (!LlzMediaGetLibraryPlaylistsJson(json, 65536)) {
+        free(json);
+        return false;
+    }
+
+    // Parse response fields
+    outResponse->offset = llz_lib_parse_int(json, "o");
+    outResponse->limit = llz_lib_parse_int(json, "l");
+    outResponse->total = llz_lib_parse_int(json, "tt");
+    outResponse->hasMore = llz_lib_parse_bool(json, "hm");
+    outResponse->timestamp = llz_lib_parse_int64(json, "t");
+
+    // Parse items array
+    const char *itemsStart = strstr(json, "\"it\":[");
+    if (itemsStart) {
+        itemsStart = strchr(itemsStart, '[');
+        if (itemsStart) {
+            itemsStart++;
+
+            while (outResponse->itemCount < LLZ_SPOTIFY_LIST_MAX) {
+                while (*itemsStart == ' ' || *itemsStart == '\t' || *itemsStart == '\n' || *itemsStart == ',') {
+                    itemsStart++;
+                }
+
+                if (*itemsStart == ']') break;
+                if (*itemsStart != '{') break;
+
+                int braceCount = 1;
+                const char *itemEnd = itemsStart + 1;
+                while (*itemEnd && braceCount > 0) {
+                    if (*itemEnd == '{') braceCount++;
+                    else if (*itemEnd == '}') braceCount--;
+                    itemEnd++;
+                }
+
+                if (llz_lib_parse_playlist_item(itemsStart, itemEnd, &outResponse->items[outResponse->itemCount])) {
+                    outResponse->itemCount++;
+                }
+
+                itemsStart = itemEnd;
+            }
+        }
+    }
+
+    outResponse->valid = true;
+    free(json);
+    return true;
 }
 
 // ============================================================================

@@ -12,6 +12,13 @@ extern "C" {
 #define LLZ_MEDIA_TEXT_MAX 128
 #define LLZ_MEDIA_PATH_MAX 256
 
+// Repeat mode values (matches Spotify API)
+typedef enum {
+    LLZ_REPEAT_OFF = 0,
+    LLZ_REPEAT_TRACK,     // Repeat single track
+    LLZ_REPEAT_CONTEXT    // Repeat playlist/album
+} LlzRepeatMode;
+
 typedef struct {
     char track[LLZ_MEDIA_TEXT_MAX];
     char artist[LLZ_MEDIA_TEXT_MAX];
@@ -22,6 +29,11 @@ typedef struct {
     int positionSeconds;
     int volumePercent;
     int64_t updatedAt;
+    // Spotify-specific state (requires Spotify auth in companion app)
+    bool shuffleEnabled;
+    LlzRepeatMode repeatMode;
+    bool isLiked;                        // Current track is in user's library
+    char spotifyTrackId[LLZ_MEDIA_TEXT_MAX];  // Spotify track ID (for like/unlike)
 } LlzMediaState;
 
 typedef struct {
@@ -49,7 +61,17 @@ typedef enum {
     LLZ_PLAYBACK_NEXT,
     LLZ_PLAYBACK_PREVIOUS,
     LLZ_PLAYBACK_SEEK_TO,
-    LLZ_PLAYBACK_SET_VOLUME
+    LLZ_PLAYBACK_SET_VOLUME,
+    // Spotify-specific controls (require Spotify auth in companion app)
+    LLZ_PLAYBACK_SHUFFLE_ON,
+    LLZ_PLAYBACK_SHUFFLE_OFF,
+    LLZ_PLAYBACK_SHUFFLE_TOGGLE,
+    LLZ_PLAYBACK_REPEAT_OFF,
+    LLZ_PLAYBACK_REPEAT_TRACK,
+    LLZ_PLAYBACK_REPEAT_CONTEXT,
+    LLZ_PLAYBACK_REPEAT_CYCLE,
+    LLZ_PLAYBACK_LIKE_TRACK,
+    LLZ_PLAYBACK_UNLIKE_TRACK
 } LlzPlaybackCommand;
 
 typedef struct {
@@ -95,6 +117,30 @@ float LlzMediaGetProgressPercent(const LlzMediaState *state);
 bool LlzMediaSendCommand(LlzPlaybackCommand action, int value);
 bool LlzMediaSeekSeconds(int seconds);
 bool LlzMediaSetVolume(int percent);
+
+// ============================================================================
+// Spotify Playback Controls (require Spotify auth in companion app)
+// ============================================================================
+
+// Shuffle control
+// Returns true if command was queued successfully
+bool LlzMediaSetShuffle(bool enabled);
+bool LlzMediaToggleShuffle(void);
+
+// Repeat control
+// mode: LLZ_REPEAT_OFF, LLZ_REPEAT_TRACK, or LLZ_REPEAT_CONTEXT
+bool LlzMediaSetRepeat(LlzRepeatMode mode);
+bool LlzMediaCycleRepeat(void);  // Cycles: off -> track -> context -> off
+
+// Like/Unlike tracks (saves/removes from Spotify library)
+// trackId: Spotify track ID, or NULL to use current track
+bool LlzMediaLikeTrack(const char *trackId);
+bool LlzMediaUnlikeTrack(const char *trackId);
+
+// Request Spotify playback state update (triggers fetch of shuffle/repeat/liked state)
+// This causes the companion app to fetch fresh state from Spotify API
+// State will be available via LlzMediaGetState() after a short delay
+bool LlzMediaRequestSpotifyState(void);
 
 // Album art request - sends request to Android companion to fetch/transmit album art
 // hash: CRC32 decimal string of "artist.lowercase()|album.lowercase()"
@@ -371,6 +417,162 @@ bool LlzMediaGetQueueJson(char *outJson, size_t maxLen);
 // queueIndex: 0-based index in the queue (0 = first track in queue)
 // Returns true if command was queued successfully
 bool LlzMediaQueueShift(int queueIndex);
+
+// ============================================================================
+// Spotify Library API (library browsing via BLE)
+// ============================================================================
+
+#define LLZ_SPOTIFY_TRACK_NAME_MAX 68
+#define LLZ_SPOTIFY_ARTIST_NAME_MAX 52
+#define LLZ_SPOTIFY_ALBUM_NAME_MAX 52
+#define LLZ_SPOTIFY_PLAYLIST_NAME_MAX 52
+#define LLZ_SPOTIFY_URI_MAX 64
+#define LLZ_SPOTIFY_ID_MAX 32
+#define LLZ_SPOTIFY_IMAGE_URL_MAX 256
+#define LLZ_SPOTIFY_LIST_MAX 50
+
+// Spotify library overview stats
+typedef struct {
+    char userName[LLZ_MEDIA_TEXT_MAX];
+    int likedCount;
+    int albumsCount;
+    int playlistsCount;
+    int artistsCount;
+    char currentTrack[LLZ_SPOTIFY_TRACK_NAME_MAX];
+    char currentArtist[LLZ_SPOTIFY_ARTIST_NAME_MAX];
+    bool isPremium;
+    int64_t timestamp;
+    bool valid;
+} LlzSpotifyLibraryOverview;
+
+// A track item from Spotify library (recent, liked, etc.)
+typedef struct {
+    char id[LLZ_SPOTIFY_ID_MAX];
+    char name[LLZ_SPOTIFY_TRACK_NAME_MAX];
+    char artist[LLZ_SPOTIFY_ARTIST_NAME_MAX];
+    char album[LLZ_SPOTIFY_ALBUM_NAME_MAX];
+    int64_t durationMs;
+    char uri[LLZ_SPOTIFY_URI_MAX];
+    char imageUrl[LLZ_SPOTIFY_IMAGE_URL_MAX];
+} LlzSpotifyTrackItem;
+
+// Paginated response for track lists
+typedef struct {
+    char type[16];                              // "recent" or "liked"
+    LlzSpotifyTrackItem items[LLZ_SPOTIFY_LIST_MAX];
+    int itemCount;
+    int offset;
+    int limit;
+    int total;
+    bool hasMore;
+    int64_t timestamp;
+    bool valid;
+} LlzSpotifyTrackListResponse;
+
+// An album item from Spotify library
+typedef struct {
+    char id[LLZ_SPOTIFY_ID_MAX];
+    char name[LLZ_SPOTIFY_ALBUM_NAME_MAX];
+    char artist[LLZ_SPOTIFY_ARTIST_NAME_MAX];
+    int trackCount;
+    char uri[LLZ_SPOTIFY_URI_MAX];
+    char imageUrl[LLZ_SPOTIFY_IMAGE_URL_MAX];
+    char year[8];
+} LlzSpotifyAlbumItem;
+
+// Paginated response for album lists
+typedef struct {
+    LlzSpotifyAlbumItem items[LLZ_SPOTIFY_LIST_MAX];
+    int itemCount;
+    int offset;
+    int limit;
+    int total;
+    bool hasMore;
+    int64_t timestamp;
+    bool valid;
+} LlzSpotifyAlbumListResponse;
+
+// A playlist item from Spotify library
+typedef struct {
+    char id[LLZ_SPOTIFY_ID_MAX];
+    char name[LLZ_SPOTIFY_PLAYLIST_NAME_MAX];
+    char owner[LLZ_SPOTIFY_ARTIST_NAME_MAX];
+    int trackCount;
+    char uri[LLZ_SPOTIFY_URI_MAX];
+    char imageUrl[LLZ_SPOTIFY_IMAGE_URL_MAX];
+    bool isPublic;
+} LlzSpotifyPlaylistItem;
+
+// Paginated response for playlist lists
+typedef struct {
+    LlzSpotifyPlaylistItem items[LLZ_SPOTIFY_LIST_MAX];
+    int itemCount;
+    int offset;
+    int limit;
+    int total;
+    bool hasMore;
+    int64_t timestamp;
+    bool valid;
+} LlzSpotifyPlaylistListResponse;
+
+// Request library overview stats from Android companion
+// Returns true if request was queued successfully
+bool LlzMediaRequestLibraryOverview(void);
+
+// Request recently played tracks
+// limit: max tracks to return (default 20 if 0)
+// Returns true if request was queued successfully
+bool LlzMediaRequestLibraryRecent(int limit);
+
+// Request liked/saved tracks with pagination
+// offset: starting index
+// limit: max tracks per page (default 20 if 0)
+// Returns true if request was queued successfully
+bool LlzMediaRequestLibraryLiked(int offset, int limit);
+
+// Request saved albums with pagination
+// offset: starting index
+// limit: max albums per page (default 20 if 0)
+// Returns true if request was queued successfully
+bool LlzMediaRequestLibraryAlbums(int offset, int limit);
+
+// Request playlists with pagination
+// offset: starting index
+// limit: max playlists per page (default 20 if 0)
+// Returns true if request was queued successfully
+bool LlzMediaRequestLibraryPlaylists(int offset, int limit);
+
+// Play a Spotify URI (track, album, or playlist)
+// uri: Spotify URI (e.g., "spotify:track:xxx", "spotify:album:xxx", "spotify:playlist:xxx")
+// Returns true if command was queued successfully
+bool LlzMediaPlaySpotifyUri(const char *uri);
+
+// Get cached library overview from Redis
+// outOverview: pointer to receive overview data
+// Returns true if data was retrieved successfully
+bool LlzMediaGetLibraryOverview(LlzSpotifyLibraryOverview *outOverview);
+
+// Get cached track list from Redis (recent or liked)
+// type: "recent" or "liked"
+// outResponse: pointer to receive track list
+// Returns true if data was retrieved successfully
+bool LlzMediaGetLibraryTracks(const char *type, LlzSpotifyTrackListResponse *outResponse);
+
+// Get cached album list from Redis
+// outResponse: pointer to receive album list
+// Returns true if data was retrieved successfully
+bool LlzMediaGetLibraryAlbums(LlzSpotifyAlbumListResponse *outResponse);
+
+// Get cached playlist list from Redis
+// outResponse: pointer to receive playlist list
+// Returns true if data was retrieved successfully
+bool LlzMediaGetLibraryPlaylists(LlzSpotifyPlaylistListResponse *outResponse);
+
+// Get raw JSON for library data (for debugging or custom parsing)
+bool LlzMediaGetLibraryOverviewJson(char *outJson, size_t maxLen);
+bool LlzMediaGetLibraryTracksJson(const char *type, char *outJson, size_t maxLen);
+bool LlzMediaGetLibraryAlbumsJson(char *outJson, size_t maxLen);
+bool LlzMediaGetLibraryPlaylistsJson(char *outJson, size_t maxLen);
 
 // ============================================================================
 // Timezone API
