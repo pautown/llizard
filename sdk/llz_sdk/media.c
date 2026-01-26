@@ -1,4 +1,5 @@
 #include "llz_sdk_media.h"
+#include "llz_sdk_connections.h"
 
 #include "hiredis.h"
 
@@ -2653,4 +2654,92 @@ bool LlzMediaGetPhoneTimePrecise(int *hours, int *minutes, int *seconds, double 
         if (fractionalSecond) *fractionalSecond = tv.tv_usec / 1000000.0;
     }
     return false;
+}
+
+// ============================================================================
+// Spotify Playback State API
+// ============================================================================
+
+bool LlzSpotifyGetShuffle(void)
+{
+    redisReply *reply = llz_media_command("GET spotify:shuffle");
+    if (!reply) return false;
+
+    bool shuffle = false;
+    if (reply->type == REDIS_REPLY_STRING && reply->str) {
+        shuffle = (strcmp(reply->str, "true") == 0);
+    }
+
+    freeReplyObject(reply);
+    return shuffle;
+}
+
+LlzSpotifyRepeatMode LlzSpotifyGetRepeat(void)
+{
+    redisReply *reply = llz_media_command("GET spotify:repeat");
+    if (!reply) return LLZ_SPOTIFY_REPEAT_OFF;
+
+    LlzSpotifyRepeatMode mode = LLZ_SPOTIFY_REPEAT_OFF;
+    if (reply->type == REDIS_REPLY_STRING && reply->str) {
+        if (strcmp(reply->str, "all") == 0 || strcmp(reply->str, "context") == 0) {
+            mode = LLZ_SPOTIFY_REPEAT_ALL;
+        } else if (strcmp(reply->str, "one") == 0 || strcmp(reply->str, "track") == 0) {
+            mode = LLZ_SPOTIFY_REPEAT_ONE;
+        }
+        // "off" or anything else stays as LLZ_SPOTIFY_REPEAT_OFF
+    }
+
+    freeReplyObject(reply);
+    return mode;
+}
+
+bool LlzSpotifyGetLiked(void)
+{
+    redisReply *reply = llz_media_command("GET spotify:liked");
+    if (!reply) return false;
+
+    bool liked = false;
+    if (reply->type == REDIS_REPLY_STRING && reply->str) {
+        liked = (strcmp(reply->str, "true") == 0);
+    }
+
+    freeReplyObject(reply);
+    return liked;
+}
+
+bool LlzSpotifyIsConnected(void)
+{
+    return LlzConnectionsIsConnected(LLZ_SERVICE_SPOTIFY);
+}
+
+bool LlzSpotifyIsCurrentChannel(void)
+{
+    char channel[LLZ_MEDIA_CHANNEL_NAME_MAX];
+    if (!LlzMediaGetControlledChannel(channel, sizeof(channel))) {
+        return false;
+    }
+
+    // Case-insensitive comparison
+    return (strcasecmp(channel, "Spotify") == 0);
+}
+
+bool LlzSpotifyGetPlaybackState(LlzSpotifyPlaybackState *outState)
+{
+    if (!outState) return false;
+
+    // Initialize to defaults
+    outState->shuffle = false;
+    outState->repeat = LLZ_SPOTIFY_REPEAT_OFF;
+    outState->liked = false;
+    outState->connected = false;
+    outState->isCurrentChannel = false;
+
+    // Get individual states
+    outState->shuffle = LlzSpotifyGetShuffle();
+    outState->repeat = LlzSpotifyGetRepeat();
+    outState->liked = LlzSpotifyGetLiked();
+    outState->connected = LlzSpotifyIsConnected();
+    outState->isCurrentChannel = LlzSpotifyIsCurrentChannel();
+
+    return true;
 }

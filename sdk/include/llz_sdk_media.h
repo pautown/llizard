@@ -604,6 +604,51 @@ bool LlzMediaGetPhoneTime(int *hours, int *minutes, int *seconds);
 // Returns true if timezone was applied, false if using system local time
 bool LlzMediaGetPhoneTimePrecise(int *hours, int *minutes, int *seconds, double *fractionalSecond);
 
+// ============================================================================
+// Spotify Playback State API (simple getters for current Spotify state)
+// ============================================================================
+
+// Spotify repeat mode (matches spotify:repeat Redis values)
+typedef enum {
+    LLZ_SPOTIFY_REPEAT_OFF = 0,
+    LLZ_SPOTIFY_REPEAT_ALL,    // Repeat context (album/playlist)
+    LLZ_SPOTIFY_REPEAT_ONE     // Repeat single track
+} LlzSpotifyRepeatMode;
+
+// Get Spotify shuffle state
+// Returns true if shuffle is enabled, false otherwise
+bool LlzSpotifyGetShuffle(void);
+
+// Get Spotify repeat mode
+// Returns LLZ_SPOTIFY_REPEAT_OFF, LLZ_SPOTIFY_REPEAT_ALL, or LLZ_SPOTIFY_REPEAT_ONE
+LlzSpotifyRepeatMode LlzSpotifyGetRepeat(void);
+
+// Get whether the current track is liked (saved to library)
+// Returns true if the current track is in user's Spotify library
+bool LlzSpotifyGetLiked(void);
+
+// Check if Spotify is properly set up and authenticated on the Android companion app
+// Returns true if Spotify is connected/authorized
+bool LlzSpotifyIsConnected(void);
+
+// Check if Spotify is the current media channel being controlled
+// Returns true if the current media channel is "Spotify"
+bool LlzSpotifyIsCurrentChannel(void);
+
+// Get all Spotify playback state at once (more efficient than individual calls)
+typedef struct {
+    bool shuffle;
+    LlzSpotifyRepeatMode repeat;
+    bool liked;
+    bool connected;
+    bool isCurrentChannel;
+} LlzSpotifyPlaybackState;
+
+// Get complete Spotify playback state
+// outState: pointer to receive state data
+// Returns true if state was retrieved successfully
+bool LlzSpotifyGetPlaybackState(LlzSpotifyPlaybackState *outState);
+
 #ifdef __cplusplus
 }
 #endif
