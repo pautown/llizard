@@ -515,6 +515,29 @@ typedef struct {
     bool valid;
 } LlzSpotifyPlaylistListResponse;
 
+// An artist item from Spotify library (followed artists)
+typedef struct {
+    char id[LLZ_SPOTIFY_ID_MAX];
+    char name[LLZ_SPOTIFY_ARTIST_NAME_MAX];
+    char genres[3][32];                      // Up to 3 genres
+    int genreCount;
+    int followers;
+    char uri[LLZ_SPOTIFY_URI_MAX];
+    char imageUrl[LLZ_SPOTIFY_IMAGE_URL_MAX];
+    char artHash[20];                        // For art caching
+} LlzSpotifyArtistItem;
+
+// Paginated response for artist lists
+typedef struct {
+    LlzSpotifyArtistItem items[LLZ_SPOTIFY_LIST_MAX];
+    int itemCount;
+    int total;
+    bool hasMore;
+    char nextCursor[64];                     // Cursor for pagination (artists use cursor, not offset)
+    int64_t timestamp;
+    bool valid;
+} LlzSpotifyArtistListResponse;
+
 // Request library overview stats from Android companion
 // Returns true if request was queued successfully
 bool LlzMediaRequestLibraryOverview(void);
@@ -542,6 +565,12 @@ bool LlzMediaRequestLibraryAlbums(int offset, int limit);
 // Returns true if request was queued successfully
 bool LlzMediaRequestLibraryPlaylists(int offset, int limit);
 
+// Request followed artists
+// limit: max artists per page (default 20 if 0)
+// afterCursor: cursor for pagination (NULL or empty for first page)
+// Returns true if request was queued successfully
+bool LlzMediaRequestLibraryArtists(int limit, const char *afterCursor);
+
 // Play a Spotify URI (track, album, or playlist)
 // uri: Spotify URI (e.g., "spotify:track:xxx", "spotify:album:xxx", "spotify:playlist:xxx")
 // Returns true if command was queued successfully
@@ -567,6 +596,11 @@ bool LlzMediaGetLibraryAlbums(LlzSpotifyAlbumListResponse *outResponse);
 // outResponse: pointer to receive playlist list
 // Returns true if data was retrieved successfully
 bool LlzMediaGetLibraryPlaylists(LlzSpotifyPlaylistListResponse *outResponse);
+
+// Get cached artist list from Redis
+// outResponse: pointer to receive artist list
+// Returns true if data was retrieved successfully
+bool LlzMediaGetLibraryArtists(LlzSpotifyArtistListResponse *outResponse);
 
 // Get raw JSON for library data (for debugging or custom parsing)
 bool LlzMediaGetLibraryOverviewJson(char *outJson, size_t maxLen);

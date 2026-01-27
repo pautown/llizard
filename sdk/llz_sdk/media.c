@@ -2743,3 +2743,175 @@ bool LlzSpotifyGetPlaybackState(LlzSpotifyPlaybackState *outState)
 
     return true;
 }
+
+// ============================================================================
+// Spotify Library Artists API
+// ============================================================================
+
+bool LlzMediaRequestLibraryArtists(int limit, const char *afterCursor)
+{
+    if (!g_activeKeys.playbackCommandQueue) return false;
+    if (limit <= 0) limit = 20;
+
+    long long ts = (long long)time(NULL);
+    redisReply *reply;
+
+    if (afterCursor && afterCursor[0] != '\0') {
+        reply = llz_media_command(
+            "LPUSH %s {\"action\":\"library_artists\",\"limit\":%d,\"after\":\"%s\",\"timestamp\":%lld}",
+            g_activeKeys.playbackCommandQueue,
+            limit,
+            afterCursor,
+            ts
+        );
+    } else {
+        reply = llz_media_command(
+            "LPUSH %s {\"action\":\"library_artists\",\"limit\":%d,\"timestamp\":%lld}",
+            g_activeKeys.playbackCommandQueue,
+            limit,
+            ts
+        );
+    }
+
+    if (!reply) return false;
+    bool success = reply->type == REDIS_REPLY_INTEGER;
+    freeReplyObject(reply);
+
+    if (success) {
+        printf("[SPOTIFY_LIB] Requested artists (limit=%d, cursor=%s)\n", limit, afterCursor ? afterCursor : "(none)");
+    }
+    return success;
+}
+
+// Get raw JSON for artist list
+static bool LlzMediaGetLibraryArtistsJson(char *outJson, size_t maxLen)
+{
+    if (!outJson || maxLen == 0) return false;
+    outJson[0] = '\0';
+
+    redisReply *reply = llz_media_command("GET spotify:library:artists");
+    if (!reply) return false;
+
+    bool success = false;
+    if (reply->type == REDIS_REPLY_STRING && reply->str) {
+        size_t len = strlen(reply->str);
+        if (len < maxLen) {
+            strcpy(outJson, reply->str);
+            success = true;
+        }
+    }
+
+    freeReplyObject(reply);
+    return success;
+}
+
+// Parse an artist item from JSON object
+static bool llz_lib_parse_artist_item(const char *start, const char *end, LlzSpotifyArtistItem *artist)
+{
+    if (!start || !end || !artist || end <= start) return false;
+
+    size_t len = end - start;
+    char *itemJson = (char *)malloc(len + 1);
+    if (!itemJson) return false;
+    memcpy(itemJson, start, len);
+    itemJson[len] = '\0';
+
+    memset(artist, 0, sizeof(*artist));
+    llz_lib_parse_string(itemJson, "i", artist->id, sizeof(artist->id));
+    llz_lib_parse_string(itemJson, "n", artist->name, sizeof(artist->name));
+    artist->followers = llz_lib_parse_int(itemJson, "f");
+    llz_lib_parse_string(itemJson, "u", artist->uri, sizeof(artist->uri));
+    llz_lib_parse_string(itemJson, "im", artist->imageUrl, sizeof(artist->imageUrl));
+    llz_lib_parse_string(itemJson, "ah", artist->artHash, sizeof(artist->artHash));
+
+    // Parse genres array (up to 3)
+    const char *genresStart = strstr(itemJson, "\"g\":[");
+    if (genresStart) {
+        genresStart = strchr(genresStart, '[');
+        if (genresStart) {
+            genresStart++;
+            int genreIdx = 0;
+            while (genreIdx < 3) {
+                const char *strStart = strchr(genresStart, '"');
+                if (!strStart) break;
+                strStart++;
+
+                const char *strEnd = strchr(strStart, '"');
+                if (!strEnd) break;
+
+                size_t gLen = strEnd - strStart;
+                if (gLen >= 32) gLen = 31;
+                strncpy(artist->genres[genreIdx], strStart, gLen);
+                artist->genres[genreIdx][gLen] = '\0';
+
+                genreIdx++;
+                artist->genreCount = genreIdx;
+
+                genresStart = strEnd + 1;
+                while (*genresStart && *genresStart != '"' && *genresStart != ']') {
+                    genresStart++;
+                }
+                if (*genresStart == ']') break;
+            }
+        }
+    }
+
+    free(itemJson);
+    return artist->id[0] != '\0';
+}
+
+bool LlzMediaGetLibraryArtists(LlzSpotifyArtistListResponse *outResponse)
+{
+    if (!outResponse) return false;
+    memset(outResponse, 0, sizeof(*outResponse));
+
+    char *json = (char *)malloc(65536);
+    if (!json) return false;
+
+    if (!LlzMediaGetLibraryArtistsJson(json, 65536)) {
+        free(json);
+        return false;
+    }
+
+    // Parse response fields
+    outResponse->total = llz_lib_parse_int(json, "tt");
+    outResponse->hasMore = llz_lib_parse_bool(json, "hm");
+    llz_lib_parse_string(json, "nc", outResponse->nextCursor, sizeof(outResponse->nextCursor));
+    outResponse->timestamp = llz_lib_parse_int64(json, "t");
+
+    // Parse items array
+    const char *itemsStart = strstr(json, "\"it\":[");
+    if (itemsStart) {
+        itemsStart = strchr(itemsStart, '[');
+        if (itemsStart) {
+            itemsStart++;
+
+            while (outResponse->itemCount < LLZ_SPOTIFY_LIST_MAX) {
+                while (*itemsStart == ' ' || *itemsStart == '\t' || *itemsStart == '\n' || *itemsStart == ',') {
+                    itemsStart++;
+                }
+
+                if (*itemsStart == ']') break;
+                if (*itemsStart != '{') break;
+
+                int braceCount = 1;
+                const char *itemEnd = itemsStart + 1;
+                while (*itemEnd && braceCount > 0) {
+                    if (*itemEnd == '{') braceCount++;
+                    else if (*itemEnd == '}') braceCount--;
+                    itemEnd++;
+                }
+
+                if (llz_lib_parse_artist_item(itemsStart, itemEnd, &outResponse->items[outResponse->itemCount])) {
+                    outResponse->itemCount++;
+                }
+
+                itemsStart = itemEnd;
+            }
+        }
+    }
+
+    outResponse->valid = true;
+    free(json);
+    return true;
+}

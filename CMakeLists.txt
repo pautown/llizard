@@ -756,3 +756,32 @@ add_custom_command(TARGET albums_plugin POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:albums_plugin> ${CMAKE_CURRENT_SOURCE_DIR}/plugins/
     COMMENT "Copying albums plugin to runtime plugins directory"
 )
+
+# ===== Artists Plugin =====
+set(ARTISTS_PLUGIN_SOURCES
+    plugins_src/artists/artists_plugin.c
+)
+
+add_library(artists_plugin SHARED ${ARTISTS_PLUGIN_SOURCES})
+set_target_properties(artists_plugin PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+target_include_directories(artists_plugin PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/external/raylib/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/sdk/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/plugins_src
+    ${WEBP_INCLUDE_DIRS}
+)
+
+target_link_libraries(artists_plugin llz_sdk ${WEBP_LIBRARIES})
+
+set_target_properties(artists_plugin PROPERTIES
+    PREFIX ""
+    OUTPUT_NAME "artists"
+)
+
+add_custom_command(TARGET artists_plugin POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/plugins
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:artists_plugin> ${CMAKE_CURRENT_SOURCE_DIR}/plugins/
+    COMMENT "Copying artists plugin to runtime plugins directory"
+)
