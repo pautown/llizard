@@ -65,6 +65,7 @@ Abstracts raylib/DRM platform differences:
 - **llz_sdk_subscribe.h** - Event callbacks for media changes
 - **llz_sdk_navigation.h** - Plugin-to-plugin navigation requests
 - **llz_sdk_font.h** - Centralized font loading with automatic path resolution
+- **llz_sdk_connections.h** - Service connection status (Spotify auth, etc.)
 
 Plugins include `llz_sdk.h` and receive `const LlzInputState*` in their update callback.
 
@@ -99,6 +100,38 @@ Centralized font storage for consistent text rendering:
 - Header with Redis/BLE connection indicators
 - Requires Redis running on CarThing (`sv start redis`)
 - Uses SDK's `LlzMedia*` APIs to fetch state from Redis
+
+**spotify** (`plugins_src/spotify/`)
+- Full-featured Spotify control interface leveraging Janus Android companion app
+- Three screens: Hub (now playing), Queue (browser with skip-to), Controls (shuffle/repeat/like/volume)
+- Spotify-themed color palette (green accent on dark background)
+- Album art display with automatic loading
+- Connection status indicator for Spotify auth
+- Swipe/scroll navigation between screens
+- Track change detection with automatic queue refresh
+- **Shuffle/Repeat/Like controls** via Spotify Web API:
+  - Toggle shuffle on/off
+  - Cycle repeat modes (off → track → context → off)
+  - Like/unlike current track (saves to Spotify library)
+- Requires Spotify OAuth authentication in Janus companion app
+
+**albums** (`plugins_src/albums/`)
+- Browse saved Spotify albums in a horizontal carousel
+- Large album art cards with smooth spring-based scrolling
+- Displays album name, artist, year, and track count
+- Album art loaded from preview cache (150x150) or full cache (250x250)
+- Select album to play and navigate to Now Playing
+- Requires Spotify OAuth authentication in Janus companion app
+
+**artists** (`plugins_src/artists/`)
+- Browse followed Spotify artists in a horizontal carousel
+- Circular artist cards for profile aesthetic
+- Displays artist name, primary genre, and follower count
+- Smooth spring-based scrolling physics
+- Artist art loaded from cache with BLE request fallback
+- Select artist to play (shuffles top tracks) and navigate to Now Playing
+- Uses cursor-based pagination (Spotify artists API requirement)
+- Requires Spotify OAuth authentication in Janus companion app
 
 ### Plugin Structure (nowplaying example)
 ```
@@ -146,6 +179,72 @@ LlzDrawTextShadow("Shadow", 100, 200, 28, WHITE, BLACK);
 
 // Measure text
 int width = LlzMeasureText("Text", 24);
+```
+
+### Connections API
+Check service connection status (Spotify, etc.) via the Android companion app:
+```c
+#include "llz_sdk.h"
+
+// Initialize connections module (auto-checks every 3 minutes)
+LlzConnectionsInit(NULL);
+
+// In plugin update loop
+void PluginUpdate(const LlzInputState *input, float dt) {
+    LlzConnectionsUpdate(dt);  // Handle auto-refresh timing
+
+    // Check if Spotify is connected
+    if (LlzConnectionsIsConnected(LLZ_SERVICE_SPOTIFY)) {
+        DrawText("Spotify: Connected", 100, 100, 20, GREEN);
+    }
+
+    // Manual refresh on button press
+    if (input->selectPressed) {
+        LlzConnectionsRefresh();
+    }
+}
+
+// Get detailed status
+LlzServiceStatus status;
+if (LlzConnectionsGetServiceStatus(LLZ_SERVICE_SPOTIFY, &status)) {
+    // status.state: LLZ_CONN_STATUS_CONNECTED, DISCONNECTED, ERROR, CHECKING, UNKNOWN
+    // status.error: error message if state is ERROR
+    // status.lastChecked: Unix timestamp of last check
+}
+```
+
+### Spotify Playback Controls
+Control Spotify playback features via the SDK (requires Spotify OAuth in Janus app):
+```c
+#include "llz_sdk.h"
+
+// Shuffle control
+LlzMediaSetShuffle(true);   // Enable shuffle
+LlzMediaSetShuffle(false);  // Disable shuffle
+LlzMediaToggleShuffle();    // Toggle current state
+
+// Repeat control
+LlzMediaSetRepeat(LLZ_REPEAT_OFF);     // Disable repeat
+LlzMediaSetRepeat(LLZ_REPEAT_TRACK);   // Repeat current track
+LlzMediaSetRepeat(LLZ_REPEAT_CONTEXT); // Repeat playlist/album
+LlzMediaCycleRepeat();                 // Cycle: off → track → context → off
+
+// Like/Unlike tracks (save to Spotify library)
+LlzMediaLikeTrack(NULL);     // Like current track
+LlzMediaUnlikeTrack(NULL);   // Unlike current track
+LlzMediaLikeTrack("trackId"); // Like specific track by Spotify ID
+
+// Request fresh state from Spotify API
+LlzMediaRequestSpotifyState();
+
+// State is available in LlzMediaState:
+LlzMediaState state;
+if (LlzMediaGetState(&state)) {
+    bool shuffle = state.shuffleEnabled;
+    LlzRepeatMode repeat = state.repeatMode;  // LLZ_REPEAT_OFF, TRACK, CONTEXT
+    bool liked = state.isLiked;
+    const char *trackId = state.spotifyTrackId;
+}
 ```
 
 ### Adding a New Plugin
