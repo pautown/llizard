@@ -246,12 +246,12 @@ bool LlzMediaGetState(LlzMediaState *outState)
     }
     freeReplyObject(reply);
 
-    // Fetch Spotify-specific state (shuffle, repeat, liked, track ID)
+    // Fetch Spotify-specific state (shuffle, repeat, liked, track/album/artist IDs)
     if (success) {
         redisReply *spotifyReply = llz_media_command(
-            "MGET media:shuffle_enabled media:repeat_mode media:track_liked media:track_id"
+            "MGET media:shuffle_enabled media:repeat_mode media:track_liked media:track_id media:spotify_track_id media:spotify_album_id media:spotify_artist_id"
         );
-        if (spotifyReply && spotifyReply->type == REDIS_REPLY_ARRAY && spotifyReply->elements >= 4) {
+        if (spotifyReply && spotifyReply->type == REDIS_REPLY_ARRAY && spotifyReply->elements >= 7) {
             // Shuffle enabled
             outState->shuffleEnabled = llz_media_reply_bool(spotifyReply->element[0]);
             g_lastShuffleEnabled = outState->shuffleEnabled;
@@ -274,8 +274,22 @@ bool LlzMediaGetState(LlzMediaState *outState)
             // Track liked
             outState->isLiked = llz_media_reply_bool(spotifyReply->element[2]);
 
-            // Spotify track ID
+            // Spotify track ID (legacy key)
             llz_media_copy_reply(outState->spotifyTrackId, sizeof(outState->spotifyTrackId), spotifyReply->element[3]);
+
+            // Spotify IDs from MediaState (new keys for context menu actions)
+            // These may override the legacy track_id if present
+            char tempTrackId[LLZ_MEDIA_TEXT_MAX] = {0};
+            llz_media_copy_reply(tempTrackId, sizeof(tempTrackId), spotifyReply->element[4]);
+            if (tempTrackId[0]) {
+                strncpy(outState->spotifyTrackId, tempTrackId, sizeof(outState->spotifyTrackId) - 1);
+            }
+
+            // Spotify album ID
+            llz_media_copy_reply(outState->spotifyAlbumId, sizeof(outState->spotifyAlbumId), spotifyReply->element[5]);
+
+            // Spotify artist ID
+            llz_media_copy_reply(outState->spotifyArtistId, sizeof(outState->spotifyArtistId), spotifyReply->element[6]);
         }
         if (spotifyReply) freeReplyObject(spotifyReply);
     }

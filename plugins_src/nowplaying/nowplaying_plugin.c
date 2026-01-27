@@ -1150,6 +1150,28 @@ static void PluginUpdate(const LlzInputState *hostInput, float deltaTime)
                 printf("[ACTIONS] Opening Queue plugin\n");
                 LlzRequestOpenPlugin("Queue");
                 g_wantsClose = true;
+            } else if (action == NP_ACTION_PLAY_ALBUM) {
+                // Play the current track's album
+                LlzMediaState state;
+                if (LlzMediaGetState(&state) && state.spotifyAlbumId[0]) {
+                    char uri[256];
+                    snprintf(uri, sizeof(uri), "spotify:album:%s", state.spotifyAlbumId);
+                    printf("[ACTIONS] Playing album: %s (ID: %s)\n", state.album, state.spotifyAlbumId);
+                    LlzMediaPlaySpotifyUri(uri);
+                } else {
+                    printf("[ACTIONS] Play Album: No album ID available\n");
+                }
+            } else if (action == NP_ACTION_PLAY_ARTIST) {
+                // Play the current track's artist
+                LlzMediaState state;
+                if (LlzMediaGetState(&state) && state.spotifyArtistId[0]) {
+                    char uri[256];
+                    snprintf(uri, sizeof(uri), "spotify:artist:%s", state.spotifyArtistId);
+                    printf("[ACTIONS] Playing artist: %s (ID: %s)\n", state.artist, state.spotifyArtistId);
+                    LlzMediaPlaySpotifyUri(uri);
+                } else {
+                    printf("[ACTIONS] Play Artist: No artist ID available\n");
+                }
             }
         }
 

@@ -8,7 +8,7 @@
 
 // Layout constants
 #define PANEL_WIDTH 320
-#define PANEL_HEIGHT 180
+#define PANEL_HEIGHT 310
 #define ITEM_HEIGHT 52
 #define ITEM_SPACING 8
 #define ITEM_MARGIN 16
@@ -21,7 +21,9 @@ typedef struct {
 
 static const ActionMenuItem g_menuItems[] = {
     {"View Lyrics", NP_ACTION_VIEW_LYRICS},
-    {"View Queue", NP_ACTION_VIEW_QUEUE}
+    {"View Queue", NP_ACTION_VIEW_QUEUE},
+    {"Play Album", NP_ACTION_PLAY_ALBUM},
+    {"Play Artist", NP_ACTION_PLAY_ARTIST}
 };
 static const int g_menuItemCount = sizeof(g_menuItems) / sizeof(g_menuItems[0]);
 

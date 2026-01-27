@@ -33,7 +33,9 @@ typedef struct {
     bool shuffleEnabled;
     LlzRepeatMode repeatMode;
     bool isLiked;                        // Current track is in user's library
-    char spotifyTrackId[LLZ_MEDIA_TEXT_MAX];  // Spotify track ID (for like/unlike)
+    char spotifyTrackId[LLZ_MEDIA_TEXT_MAX];   // Spotify track ID (for like/unlike)
+    char spotifyAlbumId[LLZ_MEDIA_TEXT_MAX];   // Spotify album ID (for "Play Album" action)
+    char spotifyArtistId[LLZ_MEDIA_TEXT_MAX];  // Spotify artist ID (for "Play Artist" action)
 } LlzMediaState;
 
 typedef struct {

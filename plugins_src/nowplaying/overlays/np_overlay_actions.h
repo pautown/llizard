@@ -10,7 +10,9 @@
 typedef enum {
     NP_ACTION_NONE = 0,
     NP_ACTION_VIEW_LYRICS,
-    NP_ACTION_VIEW_QUEUE
+    NP_ACTION_VIEW_QUEUE,
+    NP_ACTION_PLAY_ALBUM,
+    NP_ACTION_PLAY_ARTIST
 } NpActionType;
 
 // Actions overlay structure
