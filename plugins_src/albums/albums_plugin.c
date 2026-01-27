@@ -86,6 +86,18 @@ typedef struct {
 } AlbumArtCacheEntry;
 
 // ============================================================================
+// Loading State Machine
+// ============================================================================
+
+typedef enum {
+    LOAD_STATE_INIT,        // Initial state, about to request data
+    LOAD_STATE_REQUESTING,  // Data request sent, waiting for response
+    LOAD_STATE_LOADED,      // Data loaded successfully
+    LOAD_STATE_EMPTY,       // Data loaded but empty
+    LOAD_STATE_ERROR        // Error occurred
+} LoadState;
+
+// ============================================================================
 // Plugin State
 // ============================================================================
 
@@ -94,9 +106,9 @@ static float g_animTimer = 0.0f;
 
 // Albums data
 static LlzSpotifyAlbumListResponse g_albums = {0};
-static bool g_albumsValid = false;
-static bool g_albumsLoading = false;
+static LoadState g_loadState = LOAD_STATE_INIT;
 static float g_pollTimer = 0.0f;
+static int g_dataVersion = 0;  // Incremented when data changes, for cache invalidation
 
 // Album art cache
 static AlbumArtCacheEntry g_artCache[MAX_ALBUM_ART_CACHE];
@@ -110,6 +122,30 @@ static float g_scrollVelocity = 0.0f;    // Current scroll velocity
 
 // Art check timer
 static float g_artCheckTimer = 0.0f;
+static float g_initDelay = 0.0f;  // Delay before starting art loading
+
+// ============================================================================
+// Helper: Safe Item Count Access
+// ============================================================================
+
+static inline int SafeItemCount(void) {
+    return (g_loadState == LOAD_STATE_LOADED) ? g_albums.itemCount : 0;
+}
+
+static inline bool HasValidData(void) {
+    return g_loadState == LOAD_STATE_LOADED && g_albums.itemCount > 0;
+}
+
+static inline void ClampSelectedIndex(void) {
+    int count = SafeItemCount();
+    if (count == 0) {
+        g_selectedIndex = 0;
+    } else if (g_selectedIndex >= count) {
+        g_selectedIndex = count - 1;
+    } else if (g_selectedIndex < 0) {
+        g_selectedIndex = 0;
+    }
+}
 
 // ============================================================================
 // Forward Declarations
@@ -347,9 +383,15 @@ static bool TryLoadAlbumArt(AlbumArtCacheEntry *entry, const char *albumName) {
 }
 
 static void CheckAndLoadAlbumArt(int albumIndex) {
-    if (albumIndex < 0 || albumIndex >= g_albums.itemCount) return;
+    // Defensive bounds check with safe accessor
+    int count = SafeItemCount();
+    if (albumIndex < 0 || albumIndex >= count || count == 0) return;
 
     LlzSpotifyAlbumItem *album = &g_albums.items[albumIndex];
+
+    // Validate album data before proceeding
+    if (!album->artist[0] || !album->name[0]) return;
+
     AlbumArtCacheEntry *entry = GetOrCreateArtCacheEntry(album->artist, album->name);
     if (!entry) return;
 
@@ -371,19 +413,30 @@ static void CheckAndLoadAlbumArt(int albumIndex) {
 }
 
 static void UpdateAlbumArtLoading(float dt) {
+    // Wait for init delay before loading art (prevents overwhelming system)
+    if (g_initDelay < 0.5f) {
+        g_initDelay += dt;
+        return;
+    }
+
     g_artCheckTimer += dt;
     if (g_artCheckTimer < 0.3f) return;  // Check every 0.3 seconds
     g_artCheckTimer = 0;
 
-    if (!g_albumsValid || g_albums.itemCount == 0) return;
+    if (!HasValidData()) return;
 
-    // Check art for visible albums (selected +/- 3)
-    for (int offset = -3; offset <= 3; offset++) {
-        int idx = g_selectedIndex + offset;
-        if (idx >= 0 && idx < g_albums.itemCount) {
-            CheckAndLoadAlbumArt(idx);
-        }
+    // Clamp selected index before using it
+    ClampSelectedIndex();
+    int count = SafeItemCount();
+
+    // Check art for visible albums (selected +/- 3), staggered to prevent burst loading
+    static int loadOffset = -3;
+    int idx = g_selectedIndex + loadOffset;
+    if (idx >= 0 && idx < count) {
+        CheckAndLoadAlbumArt(idx);
     }
+    loadOffset++;
+    if (loadOffset > 3) loadOffset = -3;
 }
 
 // ============================================================================
@@ -395,7 +448,7 @@ static void DrawHeader(void) {
     LlzDrawText("Albums", PADDING, 15, TITLE_FONT_SIZE, SPOTIFY_WHITE);
 
     // Album count
-    if (g_albumsValid && g_albums.total > 0) {
+    if (g_loadState == LOAD_STATE_LOADED && g_albums.total > 0) {
         char countStr[64];
         snprintf(countStr, sizeof(countStr), "%d albums", g_albums.total);
         int countWidth = LlzMeasureText(countStr, 22);
@@ -403,7 +456,7 @@ static void DrawHeader(void) {
     }
 
     // Loading indicator
-    if (g_albumsLoading) {
+    if (g_loadState == LOAD_STATE_INIT || g_loadState == LOAD_STATE_REQUESTING) {
         int dots = ((int)(g_animTimer * 4)) % 4;
         char loadStr[32] = "Loading";
         for (int i = 0; i < dots; i++) strcat(loadStr, ".");
@@ -427,9 +480,15 @@ static void DrawFooter(void) {
     LlzDrawText(backHint, SCREEN_WIDTH - PADDING - backWidth, footerY, HINT_FONT_SIZE, SPOTIFY_LIGHT_GRAY);
 
     // Page indicator - larger and more prominent
-    if (g_albumsValid && g_albums.itemCount > 0) {
+    int count = SafeItemCount();
+    if (count > 0) {
+        // Ensure selectedIndex is valid before displaying
+        int displayIndex = g_selectedIndex;
+        if (displayIndex >= count) displayIndex = count - 1;
+        if (displayIndex < 0) displayIndex = 0;
+
         char pageStr[32];
-        snprintf(pageStr, sizeof(pageStr), "%d / %d", g_selectedIndex + 1, g_albums.itemCount);
+        snprintf(pageStr, sizeof(pageStr), "%d / %d", displayIndex + 1, count);
         int pageWidth = LlzMeasureText(pageStr, 24);
         LlzDrawText(pageStr, SCREEN_WIDTH / 2 - pageWidth / 2, SCREEN_HEIGHT - 70, 24, SPOTIFY_WHITE);
     }
@@ -440,9 +499,15 @@ static void DrawFooter(void) {
 // ============================================================================
 
 static void DrawAlbumCard(int index, float centerX, float y, float scale, float alpha) {
-    if (index < 0 || index >= g_albums.itemCount) return;
+    // Double-check bounds with safe accessor
+    int count = SafeItemCount();
+    if (index < 0 || index >= count || count == 0) return;
 
     LlzSpotifyAlbumItem *album = &g_albums.items[index];
+
+    // Validate album has minimum required data
+    if (!album->name[0]) return;
+
     bool isSelected = (index == g_selectedIndex);
 
     // Calculate scaled size
@@ -558,8 +623,11 @@ static void DrawAlbumCard(int index, float centerX, float y, float scale, float 
 // ============================================================================
 
 static void DrawCarousel(void) {
-    if (!g_albumsValid || g_albums.itemCount == 0) {
-        if (g_albumsLoading) {
+    int count = SafeItemCount();
+
+    // Show loading/empty state
+    if (count == 0) {
+        if (g_loadState == LOAD_STATE_INIT || g_loadState == LOAD_STATE_REQUESTING) {
             LlzDrawTextCentered("Loading albums...", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 - 25, 32, SPOTIFY_SUBTLE);
             int dots = ((int)(g_animTimer * 3)) % 4;
             char dotsStr[8] = "";
@@ -573,13 +641,16 @@ static void DrawCarousel(void) {
         return;
     }
 
+    // Ensure selectedIndex is valid before drawing
+    ClampSelectedIndex();
+
     float centerX = SCREEN_WIDTH / 2.0f;
     float cardSpacing = ALBUM_SIZE + ALBUM_SPACING;
 
     // Draw albums from back to front for proper layering
     // First pass: draw non-selected (distant) albums
     for (int pass = 0; pass < 2; pass++) {
-        for (int i = 0; i < g_albums.itemCount; i++) {
+        for (int i = 0; i < count; i++) {
             float offset = (float)i - g_visualOffset;
             bool isSelected = (i == g_selectedIndex);
 
@@ -622,7 +693,7 @@ static void DrawCarousel(void) {
     if (g_selectedIndex > 0) {
         LlzDrawTextCentered("<", 30, (int)(CAROUSEL_Y + ALBUM_SIZE / 2), 52, arrowColor);
     }
-    if (g_selectedIndex < g_albums.itemCount - 1) {
+    if (g_selectedIndex < count - 1) {
         LlzDrawTextCentered(">", SCREEN_WIDTH - 30, (int)(CAROUSEL_Y + ALBUM_SIZE / 2), 52, arrowColor);
     }
 }
@@ -630,6 +701,11 @@ static void DrawCarousel(void) {
 static void UpdateCarousel(const LlzInputState *input, float dt) {
     // Clamp dt to prevent physics explosions on lag spikes
     if (dt > 0.1f) dt = 0.1f;
+
+    int count = SafeItemCount();
+
+    // Ensure selectedIndex stays valid if data changed
+    ClampSelectedIndex();
 
     // Navigation input
     int delta = 0;
@@ -643,10 +719,10 @@ static void UpdateCarousel(const LlzInputState *input, float dt) {
     if (input->upPressed) delta = -1;
 
     // Apply input
-    if (delta != 0 && g_albums.itemCount > 0) {
+    if (delta != 0 && count > 0) {
         int newIndex = g_selectedIndex + delta;
         if (newIndex < 0) newIndex = 0;
-        if (newIndex >= g_albums.itemCount) newIndex = g_albums.itemCount - 1;
+        if (newIndex >= count) newIndex = count - 1;
 
         if (newIndex != g_selectedIndex) {
             g_selectedIndex = newIndex;
@@ -687,7 +763,7 @@ static void UpdateCarousel(const LlzInputState *input, float dt) {
 
     // Select to play album
     if (input->selectPressed) {
-        if (g_albumsValid && g_albums.itemCount > 0 && g_selectedIndex < g_albums.itemCount) {
+        if (HasValidData() && g_selectedIndex >= 0 && g_selectedIndex < count) {
             const char *uri = g_albums.items[g_selectedIndex].uri;
             if (uri[0] != '\0') {
                 printf("[ALBUMS] Playing album: %s\n", g_albums.items[g_selectedIndex].name);
@@ -696,13 +772,13 @@ static void UpdateCarousel(const LlzInputState *input, float dt) {
                 LlzRequestOpenPlugin("Now Playing");
                 g_wantsClose = true;
             }
-        } else {
+        } else if (!HasValidData()) {
             RefreshAlbums();
         }
     }
 
     // Tap to refresh if no albums
-    if (input->tap && !g_albumsValid) {
+    if (input->tap && !HasValidData()) {
         RefreshAlbums();
     }
 }
@@ -713,21 +789,38 @@ static void UpdateCarousel(const LlzInputState *input, float dt) {
 
 static void RefreshAlbums(void) {
     printf("[ALBUMS] Requesting saved albums from Spotify...\n");
-    g_albumsLoading = true;
+    g_loadState = LOAD_STATE_REQUESTING;
     LlzMediaRequestLibraryAlbums(0, 50);
 }
 
 static void PollAlbums(float dt) {
+    // Only poll if we're still loading
+    if (g_loadState != LOAD_STATE_INIT && g_loadState != LOAD_STATE_REQUESTING) {
+        return;
+    }
+
     g_pollTimer += dt;
     if (g_pollTimer >= 0.5f) {
         g_pollTimer = 0;
 
-        LlzSpotifyAlbumListResponse temp;
+        LlzSpotifyAlbumListResponse temp = {0};
         if (LlzMediaGetLibraryAlbums(&temp) && temp.valid) {
+            int oldCount = g_albums.itemCount;
             memcpy(&g_albums, &temp, sizeof(temp));
-            g_albumsValid = true;
-            g_albumsLoading = false;
-            printf("[ALBUMS] Got %d albums (total: %d)\n", g_albums.itemCount, g_albums.total);
+
+            if (g_albums.itemCount > 0) {
+                g_loadState = LOAD_STATE_LOADED;
+                printf("[ALBUMS] Got %d albums (total: %d)\n", g_albums.itemCount, g_albums.total);
+            } else {
+                g_loadState = LOAD_STATE_EMPTY;
+                printf("[ALBUMS] No albums found\n");
+            }
+
+            // Clamp selection if data changed
+            if (oldCount != g_albums.itemCount) {
+                g_dataVersion++;
+                ClampSelectedIndex();
+            }
         }
     }
 }
@@ -741,10 +834,11 @@ static void plugin_init(int width, int height) {
     g_animTimer = 0;
 
     memset(&g_albums, 0, sizeof(g_albums));
-    g_albumsValid = false;
-    g_albumsLoading = false;
+    g_loadState = LOAD_STATE_INIT;
     g_pollTimer = 0;
     g_artCheckTimer = 0;
+    g_initDelay = 0;
+    g_dataVersion = 0;
 
     g_selectedIndex = 0;
     g_visualOffset = 0;

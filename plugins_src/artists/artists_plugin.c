@@ -86,6 +86,18 @@ typedef struct {
 } ArtistArtCacheEntry;
 
 // ============================================================================
+// Loading State Machine
+// ============================================================================
+
+typedef enum {
+    LOAD_STATE_INIT,        // Initial state, about to request data
+    LOAD_STATE_REQUESTING,  // Data request sent, waiting for response
+    LOAD_STATE_LOADED,      // Data loaded successfully
+    LOAD_STATE_EMPTY,       // Data loaded but empty
+    LOAD_STATE_ERROR        // Error occurred
+} LoadState;
+
+// ============================================================================
 // Plugin State
 // ============================================================================
 
@@ -94,9 +106,9 @@ static float g_animTimer = 0.0f;
 
 // Artists data
 static LlzSpotifyArtistListResponse g_artists = {0};
-static bool g_artistsValid = false;
-static bool g_artistsLoading = false;
+static LoadState g_loadState = LOAD_STATE_INIT;
 static float g_pollTimer = 0.0f;
+static int g_dataVersion = 0;  // Incremented when data changes
 
 // Artist art cache
 static ArtistArtCacheEntry g_artCache[MAX_ARTIST_ART_CACHE];
@@ -110,6 +122,30 @@ static float g_scrollVelocity = 0.0f;
 
 // Art check timer
 static float g_artCheckTimer = 0.0f;
+static float g_initDelay = 0.0f;  // Delay before starting art loading
+
+// ============================================================================
+// Helper: Safe Item Count Access
+// ============================================================================
+
+static inline int SafeItemCount(void) {
+    return (g_loadState == LOAD_STATE_LOADED) ? g_artists.itemCount : 0;
+}
+
+static inline bool HasValidData(void) {
+    return g_loadState == LOAD_STATE_LOADED && g_artists.itemCount > 0;
+}
+
+static inline void ClampSelectedIndex(void) {
+    int count = SafeItemCount();
+    if (count == 0) {
+        g_selectedIndex = 0;
+    } else if (g_selectedIndex >= count) {
+        g_selectedIndex = count - 1;
+    } else if (g_selectedIndex < 0) {
+        g_selectedIndex = 0;
+    }
+}
 
 // ============================================================================
 // Forward Declarations
@@ -330,9 +366,15 @@ static bool TryLoadArtistArt(ArtistArtCacheEntry *entry, const char *artistName)
 }
 
 static void CheckAndLoadArtistArt(int artistIndex) {
-    if (artistIndex < 0 || artistIndex >= g_artists.itemCount) return;
+    // Defensive bounds check with safe accessor
+    int count = SafeItemCount();
+    if (artistIndex < 0 || artistIndex >= count || count == 0) return;
 
     LlzSpotifyArtistItem *artist = &g_artists.items[artistIndex];
+
+    // Validate artist data before proceeding
+    if (!artist->name[0]) return;
+
     ArtistArtCacheEntry *entry = GetOrCreateArtCacheEntry(artist->name);
     if (!entry) return;
 
@@ -354,19 +396,30 @@ static void CheckAndLoadArtistArt(int artistIndex) {
 }
 
 static void UpdateArtistArtLoading(float dt) {
+    // Wait for init delay before loading art (prevents overwhelming system)
+    if (g_initDelay < 0.5f) {
+        g_initDelay += dt;
+        return;
+    }
+
     g_artCheckTimer += dt;
     if (g_artCheckTimer < 0.3f) return;
     g_artCheckTimer = 0;
 
-    if (!g_artistsValid || g_artists.itemCount == 0) return;
+    if (!HasValidData()) return;
 
-    // Check art for visible artists (selected +/- 3)
-    for (int offset = -3; offset <= 3; offset++) {
-        int idx = g_selectedIndex + offset;
-        if (idx >= 0 && idx < g_artists.itemCount) {
-            CheckAndLoadArtistArt(idx);
-        }
+    // Clamp selected index before using it
+    ClampSelectedIndex();
+    int count = SafeItemCount();
+
+    // Check art for visible artists (selected +/- 3), staggered to prevent burst loading
+    static int loadOffset = -3;
+    int idx = g_selectedIndex + loadOffset;
+    if (idx >= 0 && idx < count) {
+        CheckAndLoadArtistArt(idx);
     }
+    loadOffset++;
+    if (loadOffset > 3) loadOffset = -3;
 }
 
 // ============================================================================
@@ -378,7 +431,7 @@ static void DrawHeader(void) {
     LlzDrawText("Artists", PADDING, 15, TITLE_FONT_SIZE, SPOTIFY_WHITE);
 
     // Artist count
-    if (g_artistsValid && g_artists.total > 0) {
+    if (g_loadState == LOAD_STATE_LOADED && g_artists.total > 0) {
         char countStr[64];
         snprintf(countStr, sizeof(countStr), "%d artists", g_artists.total);
         int countWidth = LlzMeasureText(countStr, 22);
@@ -386,7 +439,7 @@ static void DrawHeader(void) {
     }
 
     // Loading indicator
-    if (g_artistsLoading) {
+    if (g_loadState == LOAD_STATE_INIT || g_loadState == LOAD_STATE_REQUESTING) {
         int dots = ((int)(g_animTimer * 4)) % 4;
         char loadStr[32] = "Loading";
         for (int i = 0; i < dots; i++) strcat(loadStr, ".");
@@ -410,9 +463,15 @@ static void DrawFooter(void) {
     LlzDrawText(backHint, SCREEN_WIDTH - PADDING - backWidth, footerY, HINT_FONT_SIZE, SPOTIFY_LIGHT_GRAY);
 
     // Page indicator
-    if (g_artistsValid && g_artists.itemCount > 0) {
+    int count = SafeItemCount();
+    if (count > 0) {
+        // Ensure selectedIndex is valid before displaying
+        int displayIndex = g_selectedIndex;
+        if (displayIndex >= count) displayIndex = count - 1;
+        if (displayIndex < 0) displayIndex = 0;
+
         char pageStr[32];
-        snprintf(pageStr, sizeof(pageStr), "%d / %d", g_selectedIndex + 1, g_artists.itemCount);
+        snprintf(pageStr, sizeof(pageStr), "%d / %d", displayIndex + 1, count);
         int pageWidth = LlzMeasureText(pageStr, 24);
         LlzDrawText(pageStr, SCREEN_WIDTH / 2 - pageWidth / 2, SCREEN_HEIGHT - 70, 24, SPOTIFY_WHITE);
     }
@@ -423,9 +482,15 @@ static void DrawFooter(void) {
 // ============================================================================
 
 static void DrawArtistCard(int index, float centerX, float y, float scale, float alpha) {
-    if (index < 0 || index >= g_artists.itemCount) return;
+    // Double-check bounds with safe accessor
+    int count = SafeItemCount();
+    if (index < 0 || index >= count || count == 0) return;
 
     LlzSpotifyArtistItem *artist = &g_artists.items[index];
+
+    // Validate artist has minimum required data
+    if (!artist->name[0]) return;
+
     bool isSelected = (index == g_selectedIndex);
 
     // Calculate scaled size
@@ -536,8 +601,11 @@ static void DrawArtistCard(int index, float centerX, float y, float scale, float
 // ============================================================================
 
 static void DrawCarousel(void) {
-    if (!g_artistsValid || g_artists.itemCount == 0) {
-        if (g_artistsLoading) {
+    int count = SafeItemCount();
+
+    // Show loading/empty state
+    if (count == 0) {
+        if (g_loadState == LOAD_STATE_INIT || g_loadState == LOAD_STATE_REQUESTING) {
             LlzDrawTextCentered("Loading artists...", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 - 25, 32, SPOTIFY_SUBTLE);
             int dots = ((int)(g_animTimer * 3)) % 4;
             char dotsStr[8] = "";
@@ -551,12 +619,15 @@ static void DrawCarousel(void) {
         return;
     }
 
+    // Ensure selectedIndex is valid before drawing
+    ClampSelectedIndex();
+
     float centerX = SCREEN_WIDTH / 2.0f;
     float cardSpacing = ARTIST_SIZE + ARTIST_SPACING;
 
     // Draw artists from back to front
     for (int pass = 0; pass < 2; pass++) {
-        for (int i = 0; i < g_artists.itemCount; i++) {
+        for (int i = 0; i < count; i++) {
             float offset = (float)i - g_visualOffset;
             bool isSelected = (i == g_selectedIndex);
 
@@ -593,13 +664,18 @@ static void DrawCarousel(void) {
     if (g_selectedIndex > 0) {
         LlzDrawTextCentered("<", 30, (int)(CAROUSEL_Y + ARTIST_SIZE / 2), 52, arrowColor);
     }
-    if (g_selectedIndex < g_artists.itemCount - 1) {
+    if (g_selectedIndex < count - 1) {
         LlzDrawTextCentered(">", SCREEN_WIDTH - 30, (int)(CAROUSEL_Y + ARTIST_SIZE / 2), 52, arrowColor);
     }
 }
 
 static void UpdateCarousel(const LlzInputState *input, float dt) {
     if (dt > 0.1f) dt = 0.1f;
+
+    int count = SafeItemCount();
+
+    // Ensure selectedIndex stays valid if data changed
+    ClampSelectedIndex();
 
     int delta = 0;
 
@@ -611,10 +687,10 @@ static void UpdateCarousel(const LlzInputState *input, float dt) {
     if (input->downPressed) delta = 1;
     if (input->upPressed) delta = -1;
 
-    if (delta != 0 && g_artists.itemCount > 0) {
+    if (delta != 0 && count > 0) {
         int newIndex = g_selectedIndex + delta;
         if (newIndex < 0) newIndex = 0;
-        if (newIndex >= g_artists.itemCount) newIndex = g_artists.itemCount - 1;
+        if (newIndex >= count) newIndex = count - 1;
 
         if (newIndex != g_selectedIndex) {
             g_selectedIndex = newIndex;
@@ -640,7 +716,7 @@ static void UpdateCarousel(const LlzInputState *input, float dt) {
 
     // Select to play artist
     if (input->selectPressed) {
-        if (g_artistsValid && g_artists.itemCount > 0 && g_selectedIndex < g_artists.itemCount) {
+        if (HasValidData() && g_selectedIndex >= 0 && g_selectedIndex < count) {
             const char *uri = g_artists.items[g_selectedIndex].uri;
             if (uri[0] != '\0') {
                 printf("[ARTISTS] Playing artist: %s\n", g_artists.items[g_selectedIndex].name);
@@ -648,13 +724,13 @@ static void UpdateCarousel(const LlzInputState *input, float dt) {
                 LlzRequestOpenPlugin("Now Playing");
                 g_wantsClose = true;
             }
-        } else {
+        } else if (!HasValidData()) {
             RefreshArtists();
         }
     }
 
     // Tap to refresh if no artists
-    if (input->tap && !g_artistsValid) {
+    if (input->tap && !HasValidData()) {
         RefreshArtists();
     }
 }
@@ -665,21 +741,38 @@ static void UpdateCarousel(const LlzInputState *input, float dt) {
 
 static void RefreshArtists(void) {
     printf("[ARTISTS] Requesting followed artists from Spotify...\n");
-    g_artistsLoading = true;
+    g_loadState = LOAD_STATE_REQUESTING;
     LlzMediaRequestLibraryArtists(50, NULL);
 }
 
 static void PollArtists(float dt) {
+    // Only poll if we're still loading
+    if (g_loadState != LOAD_STATE_INIT && g_loadState != LOAD_STATE_REQUESTING) {
+        return;
+    }
+
     g_pollTimer += dt;
     if (g_pollTimer >= 0.5f) {
         g_pollTimer = 0;
 
-        LlzSpotifyArtistListResponse temp;
+        LlzSpotifyArtistListResponse temp = {0};
         if (LlzMediaGetLibraryArtists(&temp) && temp.valid) {
+            int oldCount = g_artists.itemCount;
             memcpy(&g_artists, &temp, sizeof(temp));
-            g_artistsValid = true;
-            g_artistsLoading = false;
-            printf("[ARTISTS] Got %d artists (total: %d)\n", g_artists.itemCount, g_artists.total);
+
+            if (g_artists.itemCount > 0) {
+                g_loadState = LOAD_STATE_LOADED;
+                printf("[ARTISTS] Got %d artists (total: %d)\n", g_artists.itemCount, g_artists.total);
+            } else {
+                g_loadState = LOAD_STATE_EMPTY;
+                printf("[ARTISTS] No artists found\n");
+            }
+
+            // Clamp selection if data changed
+            if (oldCount != g_artists.itemCount) {
+                g_dataVersion++;
+                ClampSelectedIndex();
+            }
         }
     }
 }
@@ -693,10 +786,11 @@ static void plugin_init(int width, int height) {
     g_animTimer = 0;
 
     memset(&g_artists, 0, sizeof(g_artists));
-    g_artistsValid = false;
-    g_artistsLoading = false;
+    g_loadState = LOAD_STATE_INIT;
     g_pollTimer = 0;
     g_artCheckTimer = 0;
+    g_initDelay = 0;
+    g_dataVersion = 0;
 
     g_selectedIndex = 0;
     g_visualOffset = 0;
