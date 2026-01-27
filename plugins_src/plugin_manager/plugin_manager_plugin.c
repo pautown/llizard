@@ -258,7 +258,7 @@ static void DiscoverPlugins(void) {
         const char *dot = strrchr(entry->d_name, '.');
         if (!dot || strcmp(dot, ".so") != 0) continue;
 
-        // Skip the plugin manager itself
+        // Skip the plugin manager itself (accessed via Settings)
         if (strstr(entry->d_name, "plugin_manager") != NULL) continue;
 
         char fullPath[PM_PATH_MAX];

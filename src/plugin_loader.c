@@ -74,7 +74,13 @@ bool LoadPlugins(const char *directory, PluginRegistry *registry)
         strncpy(slot->filename, entry->d_name, sizeof(slot->filename) - 1);
         strncpy(slot->displayName, api->name, sizeof(slot->displayName) - 1);
         slot->category = api->category;
-        slot->visibility = PLUGIN_VIS_FOLDER;  // Default to folder visibility
+        // Plugin manager and menu sorter are hidden by default (accessed via Settings)
+        if (strstr(entry->d_name, "plugin_manager") != NULL ||
+            strstr(entry->d_name, "menu_sorter") != NULL) {
+            slot->visibility = PLUGIN_VIS_HIDDEN;
+        } else {
+            slot->visibility = PLUGIN_VIS_FOLDER;
+        }
         registry->count++;
     }
 

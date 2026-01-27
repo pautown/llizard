@@ -785,3 +785,31 @@ add_custom_command(TARGET artists_plugin POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:artists_plugin> ${CMAKE_CURRENT_SOURCE_DIR}/plugins/
     COMMENT "Copying artists plugin to runtime plugins directory"
 )
+
+# ===== Mercury Plugin =====
+set(MERCURY_PLUGIN_SOURCES
+    plugins_src/mercury/mercury_plugin.c
+)
+
+add_library(mercury_plugin SHARED ${MERCURY_PLUGIN_SOURCES})
+set_target_properties(mercury_plugin PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+target_include_directories(mercury_plugin PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/external/raylib/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/sdk/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/plugins_src
+)
+
+target_link_libraries(mercury_plugin llz_sdk)
+
+set_target_properties(mercury_plugin PROPERTIES
+    PREFIX ""
+    OUTPUT_NAME "mercury"
+)
+
+add_custom_command(TARGET mercury_plugin POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/plugins
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:mercury_plugin> ${CMAKE_CURRENT_SOURCE_DIR}/plugins/
+    COMMENT "Copying mercury plugin to runtime plugins directory"
+)

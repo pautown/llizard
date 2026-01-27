@@ -21,7 +21,7 @@ typedef enum {
 
 static SettingsMode g_mode = MODE_NAVIGATE;
 static int g_selectedItem = 0;
-#define MENU_ITEM_COUNT 5
+#define MENU_ITEM_COUNT 7
 
 // Startup plugin selection state
 #define MAX_STARTUP_OPTIONS 32
@@ -57,7 +57,7 @@ static bool g_isAutoBrightness = false;
 
 // Animation state
 static float g_animTime = 0.0f;
-static float g_selectionAnim[5] = {0};  // MENU_ITEM_COUNT
+static float g_selectionAnim[7] = {0};  // MENU_ITEM_COUNT
 static float g_editModeAnim = 0.0f;
 static float g_toggleAnim = 0.0f;
 static float g_sliderPulse = 0.0f;
@@ -546,6 +546,19 @@ static void DrawSettingCard(int index, const char *title, const char *descriptio
         if (selected) {
             LlzDrawText("opens confirmation", (int)textX, (int)textY + 52, 12, COLOR_TEXT_HINT);
         }
+    } else if (index == 5 || index == 6) {
+        // Plugin Manager / Menu Sorter launch buttons
+        const char *openText = "Open";
+        Color openColor = selected ? COLOR_ACCENT : COLOR_TEXT_SECONDARY;
+        int openWidth = LlzMeasureText(openText, LLZ_FONT_SIZE_NORMAL);
+
+        Rectangle badgeRect = {controlEndX - openWidth - 18, controlY - 12, (float)openWidth + 14, 26};
+        DrawRectangleRounded(badgeRect, 0.4f, 8, selected ? COLOR_ACCENT_SOFT : (Color){45, 45, 60, 200});
+        LlzDrawText(openText, (int)(controlEndX - openWidth - 11), (int)controlY - 7, LLZ_FONT_SIZE_NORMAL, openColor);
+
+        if (selected) {
+            LlzDrawText("select to launch", (int)textX, (int)textY + 52, 12, COLOR_TEXT_HINT);
+        }
     }
 }
 
@@ -916,6 +929,14 @@ static void PluginUpdate(const LlzInputState *hostInput, float deltaTime) {
                 // Media Channels - open plugin
                 LlzRequestOpenPlugin("Media channels");
                 g_wantsClose = true;
+            } else if (g_selectedItem == 5) {
+                // Plugin Manager - open plugin
+                LlzRequestOpenPlugin("Plugin Manager");
+                g_wantsClose = true;
+            } else if (g_selectedItem == 6) {
+                // Menu Sorter - open plugin
+                LlzRequestOpenPlugin("Menu Sorter");
+                g_wantsClose = true;
             } else if (g_selectedItem == 0 || g_selectedItem == 2) {
                 // Brightness or Startup Plugin - enter edit mode
                 g_mode = MODE_EDIT;
@@ -945,6 +966,12 @@ static void PluginUpdate(const LlzInputState *hostInput, float deltaTime) {
                             g_restartConfirmActive = true;
                             g_restartSwipeProgress = 0.0f;
                             g_restartPulseAnim = 0.0f;
+                        } else if (i == 5) {
+                            LlzRequestOpenPlugin("Plugin Manager");
+                            g_wantsClose = true;
+                        } else if (i == 6) {
+                            LlzRequestOpenPlugin("Menu Sorter");
+                            g_wantsClose = true;
                         } else if (i == 0 || i == 2) {
                             g_mode = MODE_EDIT;
                         }
@@ -1061,13 +1088,16 @@ static void PluginDraw(void) {
         bool selected = (i == g_selectedItem);
         bool editing = selected && (g_mode == MODE_EDIT);
 
-        const char *titles[] = {"Brightness", "Lyrics", "Startup Screen", "Media Channels", "Restart Device"};
+        const char *titles[] = {"Brightness", "Lyrics", "Startup Screen", "Media Channels",
+                                "Restart Device", "Plugin Manager", "Menu Sorter"};
         const char *descriptions[] = {
             g_isAutoBrightness ? "Auto-adjusts based on ambient light" : "Manual brightness control",
             "Show synchronized lyrics during playback",
             "Plugin to launch on boot",
             "Audio output apps from phone",
-            "Reboot the CarThing"
+            "Reboot the CarThing",
+            "Configure plugin visibility and categories",
+            "Reorder items in the main menu"
         };
 
         DrawSettingCard(i, titles[i], descriptions[i], cardY, selected, editing, g_selectionAnim[i]);

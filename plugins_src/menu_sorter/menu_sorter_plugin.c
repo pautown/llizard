@@ -209,9 +209,8 @@ static void DiscoverItems(void) {
         const char *dot = strrchr(entry->d_name, '.');
         if (!dot || strcmp(dot, ".so") != 0) continue;
 
-        // Skip menu sorter and plugin manager
+        // Skip menu sorter itself (can't sort itself)
         if (strstr(entry->d_name, "menu_sorter") != NULL) continue;
-        if (strstr(entry->d_name, "plugin_manager") != NULL) continue;
 
         char fullPath[512];
         snprintf(fullPath, sizeof(fullPath), "%s/%s", GetPluginsDir(), entry->d_name);
