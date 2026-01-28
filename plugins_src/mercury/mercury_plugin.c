@@ -68,25 +68,25 @@ static bool PluginWantsClose(void)
     return g_state.wantsClose;
 }
 
-// Button rectangles
+// Button rectangles - large, full-width style
 static Rectangle GetConnectButtonRect(void)
 {
-    float btnW = 180.0f;
-    float btnH = 44.0f;
-    float gap = 20.0f;
+    float btnW = 340.0f;
+    float btnH = 56.0f;
+    float gap = 16.0f;
     float totalW = btnW * 2 + gap;
     float startX = (g_screenWidth - totalW) / 2.0f;
-    return (Rectangle){startX, g_screenHeight - 70.0f, btnW, btnH};
+    return (Rectangle){startX, g_screenHeight - 90.0f, btnW, btnH};
 }
 
 static Rectangle GetRestartButtonRect(void)
 {
-    float btnW = 180.0f;
-    float btnH = 44.0f;
-    float gap = 20.0f;
+    float btnW = 340.0f;
+    float btnH = 56.0f;
+    float gap = 16.0f;
     float totalW = btnW * 2 + gap;
     float startX = (g_screenWidth - totalW) / 2.0f;
-    return (Rectangle){startX + btnW + gap, g_screenHeight - 70.0f, btnW, btnH};
+    return (Rectangle){startX + btnW + gap, g_screenHeight - 90.0f, btnW, btnH};
 }
 
 static void PluginUpdate(const LlzInputState *input, float deltaTime)
@@ -145,7 +145,7 @@ static void PluginUpdate(const LlzInputState *input, float deltaTime)
 
 static void DrawOrb(float cx, float cy, float radius, bool connected, bool serviceRunning)
 {
-    float pulse = sinf(g_state.pulseTimer * 2.0f) * 0.5f + 0.5f;
+    float pulse = sinf(g_state.pulseTimer * 1.5f) * 0.5f + 0.5f;
 
     Color orbColor;
     if (connected) {
@@ -156,22 +156,16 @@ static void DrawOrb(float cx, float cy, float radius, bool connected, bool servi
         orbColor = MC_DISCONNECTED;
     }
 
-    // Outer glow - pulses when not connected
-    float glowAlpha = connected ? 0.15f : (0.1f + pulse * 0.2f);
-    float glowRadius = connected ? radius * 1.6f : radius * (1.5f + pulse * 0.3f);
+    // Single soft glow - breathes when not connected
+    float glowAlpha = connected ? 0.08f : (0.05f + pulse * 0.1f);
+    float glowRadius = connected ? radius * 1.8f : radius * (1.7f + pulse * 0.2f);
     DrawCircle((int)cx, (int)cy, glowRadius, ColorAlpha(orbColor, glowAlpha));
 
-    // Mid glow
-    float midAlpha = connected ? 0.25f : (0.15f + pulse * 0.15f);
-    DrawCircle((int)cx, (int)cy, radius * 1.25f, ColorAlpha(orbColor, midAlpha));
+    // Core circle
+    DrawCircle((int)cx, (int)cy, radius, ColorAlpha(orbColor, 0.9f));
 
-    // Core orb
-    DrawCircle((int)cx, (int)cy, radius, orbColor);
-
-    // Inner highlight (mercury reflection)
-    float highlightOffset = radius * 0.25f;
-    DrawCircle((int)(cx - highlightOffset), (int)(cy - highlightOffset),
-               radius * 0.35f, ColorAlpha(MC_SILVER_BRIGHT, 0.4f));
+    // Clean inner ring for depth
+    DrawCircleLines((int)cx, (int)cy, radius * 0.6f, ColorAlpha(MC_BG, 0.15f));
 }
 
 static void DrawMercuryButton(Rectangle btn, const char *text, const char *feedbackOk,
@@ -184,20 +178,20 @@ static void DrawMercuryButton(Rectangle btn, const char *text, const char *feedb
 
     if (feedbackTimer > 0.0f) {
         if (feedbackSuccess) {
-            bgColor = ColorAlpha(MC_CONNECTED, 0.2f);
+            bgColor = ColorAlpha(MC_CONNECTED, 0.15f);
             borderColor = MC_CONNECTED;
             textColor = MC_CONNECTED;
         } else {
-            bgColor = ColorAlpha(MC_DISCONNECTED, 0.2f);
+            bgColor = ColorAlpha(MC_DISCONNECTED, 0.15f);
             borderColor = MC_DISCONNECTED;
             textColor = MC_DISCONNECTED;
         }
     } else if (hover) {
-        bgColor = ColorAlpha(accentColor, 0.12f);
+        bgColor = ColorAlpha(accentColor, 0.10f);
     }
 
-    DrawRectangleRounded(btn, 0.35f, 8, bgColor);
-    DrawRectangleRoundedLines(btn, 0.35f, 8, borderColor);
+    DrawRectangleRounded(btn, 0.25f, 8, bgColor);
+    DrawRectangleRoundedLines(btn, 0.25f, 8, borderColor);
 
     const char *label;
     if (feedbackTimer > 0.0f) {
@@ -206,10 +200,10 @@ static void DrawMercuryButton(Rectangle btn, const char *text, const char *feedb
         label = text;
     }
 
-    int textWidth = LlzMeasureText(label, 18);
+    int textWidth = LlzMeasureText(label, 22);
     float textX = btn.x + (btn.width - textWidth) / 2.0f;
-    float textY = btn.y + (btn.height - 18) / 2.0f;
-    LlzDrawText(label, (int)textX, (int)textY, 18, textColor);
+    float textY = btn.y + (btn.height - 22) / 2.0f;
+    LlzDrawText(label, (int)textX, (int)textY, 22, textColor);
 }
 
 static void PluginDraw(void)
@@ -219,15 +213,15 @@ static void PluginDraw(void)
     bool connected = g_state.connValid && g_state.conn.connected;
     bool serviceRunning = LlzMediaIsBLEServiceRunning();
 
-    // Center orb
+    // Center orb - positioned in upper-center area
     float orbCX = g_screenWidth / 2.0f;
-    float orbCY = g_screenHeight / 2.0f - 60.0f;
-    float orbRadius = 55.0f;
+    float orbCY = g_screenHeight / 2.0f - 70.0f;
+    float orbRadius = 50.0f;
 
     DrawOrb(orbCX, orbCY, orbRadius, connected, serviceRunning);
 
     // Status text below orb
-    float textY = orbCY + orbRadius + 30.0f;
+    float textY = orbCY + orbRadius + 28.0f;
     const char *statusText;
     Color statusColor;
 
@@ -238,7 +232,7 @@ static void PluginDraw(void)
         statusText = "Connected";
         statusColor = MC_CONNECTED;
     } else if (serviceRunning) {
-        statusText = "Scanning...";
+        statusText = "Scanning for Janus";
         statusColor = MC_SCANNING;
     } else {
         statusText = "Disconnected";
@@ -247,10 +241,10 @@ static void PluginDraw(void)
 
     LlzDrawTextCentered(statusText, (int)orbCX, (int)textY, 28, statusColor);
 
-    // Device name or service info
-    textY += 36.0f;
-    if (connected && g_state.conn.deviceName[0]) {
-        LlzDrawTextCentered(g_state.conn.deviceName, (int)orbCX, (int)textY, 20, MC_SILVER);
+    // Subtitle line
+    textY += 32.0f;
+    if (connected) {
+        LlzDrawTextCentered("Mercury connected to Janus", (int)orbCX, (int)textY, 18, MC_SILVER_DIM);
     } else if (!serviceRunning) {
         LlzDrawTextCentered("BLE service not running", (int)orbCX, (int)textY, 18, MC_SILVER_DIM);
     } else if (!g_state.mediaInitDone) {
