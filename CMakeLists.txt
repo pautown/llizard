@@ -80,6 +80,40 @@ target_include_directories(llz_notifications PUBLIC
 
 target_link_libraries(llz_notifications PUBLIC llz_sdk)
 
+# === Menu Theme System ===
+set(MENU_THEME_SOURCES
+    # Core
+    src/themes/core/menu_theme.c
+    src/themes/core/menu_theme_colors.c
+    src/themes/core/menu_theme_fonts.c
+    src/themes/core/menu_theme_scroll.c
+    src/themes/core/menu_theme_helpers.c
+    # Styles
+    src/themes/styles/theme_list.c
+    src/themes/styles/theme_carousel.c
+    src/themes/styles/theme_cards.c
+    src/themes/styles/theme_carthing.c
+    src/themes/styles/theme_grid.c
+    # Widgets
+    src/themes/widgets/theme_header.c
+    src/themes/widgets/theme_indicator.c
+    src/themes/widgets/theme_item.c
+    src/themes/widgets/theme_background.c
+)
+
+add_library(menu_themes STATIC ${MENU_THEME_SOURCES})
+set_target_properties(menu_themes PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+target_include_directories(menu_themes PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/themes/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/sdk/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/external/raylib/src
+)
+
+target_link_libraries(menu_themes PUBLIC llz_sdk)
+
 set(HOST_SOURCES
     src/main.c
     src/plugin_loader.c
@@ -91,6 +125,7 @@ add_executable(llizardgui-host ${HOST_SOURCES})
 target_link_libraries(llizardgui-host
     raylib
     llz_sdk
+    menu_themes
     m
     pthread
     dl
@@ -812,4 +847,60 @@ add_custom_command(TARGET mercury_plugin POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/plugins
     COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:mercury_plugin> ${CMAKE_CURRENT_SOURCE_DIR}/plugins/
     COMMENT "Copying mercury plugin to runtime plugins directory"
+)
+
+# ===== Album Songs Plugin =====
+set(ALBUM_SONGS_PLUGIN_SOURCES
+    plugins_src/album_songs/album_songs_plugin.c
+)
+
+add_library(album_songs_plugin SHARED ${ALBUM_SONGS_PLUGIN_SOURCES})
+set_target_properties(album_songs_plugin PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+target_include_directories(album_songs_plugin PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/external/raylib/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/sdk/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/plugins_src
+)
+
+target_link_libraries(album_songs_plugin llz_sdk)
+
+set_target_properties(album_songs_plugin PROPERTIES
+    PREFIX ""
+    OUTPUT_NAME "album_songs"
+)
+
+add_custom_command(TARGET album_songs_plugin POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/plugins
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:album_songs_plugin> ${CMAKE_CURRENT_SOURCE_DIR}/plugins/
+    COMMENT "Copying album_songs plugin to runtime plugins directory"
+)
+
+# ===== Artist Songs Plugin =====
+set(ARTIST_SONGS_PLUGIN_SOURCES
+    plugins_src/artist_songs/artist_songs_plugin.c
+)
+
+add_library(artist_songs_plugin SHARED ${ARTIST_SONGS_PLUGIN_SOURCES})
+set_target_properties(artist_songs_plugin PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+target_include_directories(artist_songs_plugin PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/external/raylib/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/sdk/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/plugins_src
+)
+
+target_link_libraries(artist_songs_plugin llz_sdk)
+
+set_target_properties(artist_songs_plugin PROPERTIES
+    PREFIX ""
+    OUTPUT_NAME "artist_songs"
+)
+
+add_custom_command(TARGET artist_songs_plugin POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/plugins
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:artist_songs_plugin> ${CMAKE_CURRENT_SOURCE_DIR}/plugins/
+    COMMENT "Copying artist_songs plugin to runtime plugins directory"
 )
